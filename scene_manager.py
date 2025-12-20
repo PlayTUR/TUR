@@ -69,5 +69,6 @@ class SceneManager:
             self.current_scene.draw(surface)
             
         if self.transition_alpha > 0:
-            self.overlay.set_alpha(self.transition_alpha)
-            surface.blit(self.overlay, (0,0))
+            if surface:
+                self.overlay.set_alpha(self.transition_alpha)
+                surface.blit(self.overlay, (0,0))
