@@ -2,8 +2,8 @@ import pygame
 import math
 import json
 import os
-from scene_manager import Scene
-from config import *
+from core.scene_manager import Scene
+from core.config import *
 
 class EditorScene(Scene):
     def on_enter(self, params):

@@ -14,6 +14,14 @@ class AudioManager:
     def set_offset(self, ms):
         self.offset = ms / 1000.0
 
+    def pause(self):
+        pygame.mixer.music.pause()
+        self.paused = True
+        
+    def unpause(self):
+        pygame.mixer.music.unpause()
+        self.paused = False
+
     def load_song(self, path):
         self.current_music_path = path
         pygame.mixer.music.load(path)

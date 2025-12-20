@@ -1,6 +1,6 @@
 import pygame
-from scene_manager import Scene
-from config import *
+from core.scene_manager import Scene
+from core.config import *
 
 class LobbyScene(Scene):
     def __init__(self, game):
@@ -38,6 +38,8 @@ class LobbyScene(Scene):
              if self.game.network.connected:
                  self.game.renderer.draw_text(surface, f"CLIENT CONNECTED: {self.game.network.opponent_name}", 100, 300, TERM_GREEN)
                  self.game.renderer.draw_text(surface, "[ENTER] START GAME", 100, 400, TERM_WHITE)
+             
+             self.game.renderer.draw_text(surface, "[Q] DISCONNECT / CANCEL", 100, 600, (100, 100, 100))
 
     def handle_input(self, event):
         if event.type == pygame.KEYDOWN:
@@ -73,3 +75,7 @@ class LobbyScene(Scene):
                      # Let's say host goes to song select and that triggers 'GAME START' packet.
                      from scenes.menu_scenes import SongSelectScene
                      self.game.scene_manager.switch_to(SongSelectScene)
+                elif event.key == pygame.K_q or event.key == pygame.K_ESCAPE:
+                     # Disconnect
+                     self.game.network.close()
+                     self.state = "MENU"

@@ -13,7 +13,7 @@ class BeatmapGenerator:
     def get_beatmap(self, audio_path, difficulty="MEDIUM"):
         """
         Generates or retrieves a beatmap for the given audio file.
-        Returns a list of hits: [{'time': float, 'lane': int}]
+        Returns: {'bpm': float, 'duration': float, 'notes': list}
         """
         # Create a hash of the file path + file size/mtime + difficulty for caching
         file_hash = self._get_file_hash(audio_path, difficulty)
@@ -46,7 +46,7 @@ class BeatmapGenerator:
         return hasher.hexdigest()
 
     def _analyze_audio(self, path, difficulty="MEDIUM"):
-        from config import DIFF_SETTINGS
+        from core.config import DIFF_SETTINGS
         print(f"Analyzing {path} with difficulty {difficulty}")
         
         settings = DIFF_SETTINGS.get(difficulty, DIFF_SETTINGS["MEDIUM"])
@@ -79,22 +79,20 @@ class BeatmapGenerator:
         )
         onset_times = librosa.frames_to_time(onset_frames, sr=sr)
         
+        # Rhythm Analysis
+        tempo, beat_frames = librosa.beat.beat_track(y=y, sr=sr)
+        bpm = float(tempo)
+        print(f"Detected BPM: {bpm:.1f}")
+        
         notes = []
         for i, t in enumerate(onset_times):
             # Difficulty Density Filter
-            # Skip notes based on density multiplier effectively
-            # This is a simple probabilistic filter to thin out notes for easier diffs
-            # For "FUCK YOU", we actually want to ADD notes
-            
             seed = np.sin(t * 123.45) # det. random
             
             if difficulty == "FUCK YOU":
-                # CHAOS MODE: Add streams 
-                # Add the actual detected note
+                # CHAOS MODE
                 lane = int((seed + 1) * 2) % 4
                 notes.append({'time': float(t), 'lane': lane})
-                
-                # Add a 1/8th note spam
                 if i % 2 == 0:
                     notes.append({'time': float(t) + 0.1, 'lane': (lane+1)%4})
                     
@@ -103,12 +101,22 @@ class BeatmapGenerator:
                 notes.append({'time': float(t), 'lane': lane})
                 
             else:
-                # Standard filtering
-                if (seed + 1) / 2 > density_mult:
-                     # Skip this note to reduce density for easy/med
-                     continue
-                
+                if (seed + 1) / 2 > density_mult: continue
                 lane = int((seed + 1) * 2) % 4
-                notes.append({'time': float(t), 'lane': lane})
+                
+                # Hold Note Logic
+                length = 0.0
+                if seed > 0.8: # 10-20% chance of hold
+                    length = 0.2 + (seed - 0.8) * 2.0 # 0.2s to 0.6s
+                    # Ensure hold doesn't overlap next note too much? 
+                    # For simplicity, we just set length.
+                
+                notes.append({'time': float(t), 'lane': lane, 'length': length, 'hit': False})
             
-        return notes
+        # Return structure update: Dictionary with metadata
+        result = {
+            'bpm': bpm,
+            'notes': notes,
+            'duration': librosa.get_duration(y=y, sr=sr)
+        }
+        return result

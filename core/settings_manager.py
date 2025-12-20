@@ -11,7 +11,12 @@ DEFAULT_SETTINGS = {
     "keybinds": [pygame.K_s, pygame.K_d, pygame.K_k, pygame.K_l],
     "resolution": [1024, 768],
     "upscroll": False,
-    "audio_offset": 0 # ms
+    "audio_offset": 0, # ms
+    "note_shape": "BAR", # BAR, CIRCLE
+    "note_col_1": [50, 255, 50], # Inner (Green)
+    "note_col_2": [255, 180, 50], # Outer (Amber)
+    "theme": "TERMINAL",
+    "setup_complete": False
 }
 
 class SettingsManager:
@@ -24,7 +29,9 @@ class SettingsManager:
             try:
                 with open(STATS_FILE, 'r') as f:
                     data = json.load(f)
-                    self.settings.update(data)
+                    # Merge data into defaults to ensure new keys exist
+                    for k, v in data.items():
+                        self.settings[k] = v
             except Exception as e:
                 print(f"Failed to load settings: {e}")
 
