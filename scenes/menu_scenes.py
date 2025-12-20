@@ -10,31 +10,30 @@ class TitleScene(Scene):
     def draw(self, surface):
         import math
         time = pygame.time.get_ticks() / 500.0
-        scale = 1.0 + 0.05 * math.sin(time * 10) # 10 is fast beat
+        # Snappy Kick Drum Pulse: sin^20 makes it spiked
+        pulse = abs(math.sin(time * 5)) ** 20 
+        scale = 1.0 + 0.1 * pulse
         
-        # We can't easily scale text cheaply in pygame without re-rendering or transform
-        # Re-rendering big_font with size change is slow. 
-        # Transform surface is better.
-        
-        text_surf = self.game.renderer.big_font.render("TERMINAL BEAT V2.0", True, TERM_GREEN)
+        text_surf = self.game.renderer.big_font.render("TERMINAL BEAT V3.0", True, TERM_GREEN)
         w, h = text_surf.get_size()
         scaled_w = int(w * scale)
         scaled_h = int(h * scale)
+        
+        # Rotating slightly with beat? Maybe too much. Stick to scale.
         scaled_surf = pygame.transform.scale(text_surf, (scaled_w, scaled_h))
         
-        # Center
-        rect = scaled_surf.get_rect(center=(100 + w//2, 100 + h//2))
+        rect = scaled_surf.get_rect(center=(SCREEN_WIDTH//2, 150))
         surface.blit(scaled_surf, rect)
         
         # Flashing text
         alpha = (pygame.time.get_ticks() % 1000) > 500
         if alpha:
-            self.game.renderer.draw_text(surface, "PRESS ENTER TO TERMINATE_INIT()", 100, 300, TERM_AMBER)
+            self.game.renderer.draw_text(surface, "PRESS ENTER TO INITIALIZE", SCREEN_WIDTH//2 - 150, 300, TERM_AMBER)
         
         # Show current user
         name = self.game.settings.get("name")
-        self.game.renderer.draw_text(surface, f"USER: {name}", 100, 500, TERM_WHITE)
-        self.game.renderer.draw_text(surface, "[N] CHANGE NAME | [O] OPTIONS | [Q] QUIT", 100, 600, (100, 100, 100))
+        self.game.renderer.draw_text(surface, f"USER: {name}", SCREEN_WIDTH//2 - 50, 500, TERM_WHITE)
+        self.game.renderer.draw_text(surface, "[N] CHANGE NAME | [O] OPTIONS | [Q] QUIT", SCREEN_WIDTH//2 - 200, 600, (100, 100, 100))
 
     def handle_input(self, event):
         if event.type == pygame.KEYDOWN:
@@ -78,6 +77,9 @@ class SongSelectScene(Scene):
         self.diff_index = 1
         self.load_songs()
 
+    def on_enter(self, params=None):
+        self.load_songs()
+
     def load_songs(self):
         s_dir = "songs"
         if not os.path.exists(s_dir): os.makedirs(s_dir)
@@ -87,11 +89,19 @@ class SongSelectScene(Scene):
         self.game.renderer.draw_text(surface, "SELECT_OPERATION", 50, 50, TERM_GREEN)
         
         # Song List
-        start_y = 150
+        start_y = 200
         for i, song in enumerate(self.songs):
-            color = TERM_WHITE if i == self.selected_index else (60, 80, 60)
-            prefix = ">> " if i == self.selected_index else "   "
-            self.game.renderer.draw_text(surface, f"{prefix}{song}", 50, start_y + i * 30, color)
+            if i == self.selected_index:
+                color = TERM_GREEN
+                # Draw Underline
+                text = f"  {song}  "
+                surf = self.game.renderer.font.render(text, True, color)
+                w = surf.get_width()
+                pygame.draw.line(surface, TERM_GREEN, (50, start_y + i * 40 + 25), (50 + w, start_y + i * 40 + 25), 2)
+                self.game.renderer.draw_text(surface, text, 50, start_y + i * 40, color)
+            else:
+                color = (60, 80, 60)
+                self.game.renderer.draw_text(surface, f"  {song}", 50, start_y + i * 40, color)
 
         # Difficulty
         diff = self.difficulties[self.diff_index]
@@ -144,24 +154,35 @@ class SongSelectScene(Scene):
 class SettingsScene(Scene):
     def __init__(self, game):
         super().__init__(game)
-        self.menu_items = ["SPEED", "VOLUME", "UPSCROLL", "BACK"]
+        self.menu_items = ["SPEED", "VOLUME", "UPSCROLL", "OFFSET", "KEYBINDS", "BACK"]
         self.index = 0
+        self.binding_mode = False
+        self.binding_step = 0
+        self.temp_binds = []
         
     def draw(self, surface):
         self.game.renderer.draw_text(surface, "SYSTEM CONFIG", 100, 50, TERM_GREEN, self.game.renderer.big_font)
         
+        if self.binding_mode:
+            # ... (keep existing)
+            return
+
         speed = self.game.settings.get("speed")
         vol = self.game.settings.get("volume")
         upscroll = self.game.settings.get("upscroll")
+        offset = self.game.settings.get("audio_offset")
+        binds = self.game.settings.get("keybinds")
+        bind_names = ",".join([pygame.key.name(k) for k in binds])
         
         items = [
             f"SCROLL SPEED: < {speed} >",
             f"VOLUME: < {int(vol*100)}% >",
             f"UPSCROLL: < {'ON' if upscroll else 'OFF'} >",
+            f"OFFSET: < {offset}ms >",
+            f"KEYBINDS: [{bind_names}]",
             "BACK"
         ]
 
-        
         for i, item in enumerate(items):
             col = TERM_AMBER if i == self.index else TERM_WHITE
             self.game.renderer.draw_text(surface, item, 100, 200 + i*50, col)
@@ -169,6 +190,21 @@ class SettingsScene(Scene):
         self.game.renderer.draw_text(surface, "Use ARROWS to adjust, ENTER to select", 100, 600, (100, 100, 100))
 
     def handle_input(self, event):
+        if self.binding_mode:
+            if event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_ESCAPE:
+                    self.binding_mode = False
+                    self.temp_binds = []
+                    return
+                    
+                # Accept key
+                self.temp_binds.append(event.key)
+                self.binding_step += 1
+                if self.binding_step >= 4:
+                    self.game.settings.set("keybinds", self.temp_binds)
+                    self.binding_mode = False
+            return
+
         if event.type == pygame.KEYDOWN:
             if event.key == pygame.K_UP:
                 self.index = (self.index - 1) % len(self.menu_items)
@@ -181,6 +217,10 @@ class SettingsScene(Scene):
             elif event.key == pygame.K_RETURN:
                 if self.menu_items[self.index] == "BACK":
                     self.game.scene_manager.switch_to(TitleScene)
+                elif self.menu_items[self.index] == "KEYBINDS":
+                    self.binding_mode = True
+                    self.binding_step = 0
+                    self.temp_binds = []
             elif event.key == pygame.K_ESCAPE:
                 self.game.scene_manager.switch_to(TitleScene)
 
@@ -200,4 +240,9 @@ class SettingsScene(Scene):
             # Toggle on any direction
             cur = self.game.settings.get("upscroll")
             self.game.settings.set("upscroll", not cur)
+        elif self.menu_items[self.index] == "OFFSET":
+            cur = self.game.settings.get("audio_offset")
+            cur += direction * 5 # 5ms steps
+            cur = max(-200, min(200, cur))
+            self.game.settings.set("audio_offset", cur)
 

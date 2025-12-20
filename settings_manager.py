@@ -10,7 +10,8 @@ DEFAULT_SETTINGS = {
     "speed": 600, # Pixels per second
     "keybinds": [pygame.K_s, pygame.K_d, pygame.K_k, pygame.K_l],
     "resolution": [1024, 768],
-    "upscroll": False
+    "upscroll": False,
+    "audio_offset": 0 # ms
 }
 
 class SettingsManager:

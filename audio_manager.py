@@ -3,12 +3,16 @@ import time
 
 class AudioManager:
     def __init__(self):
-        pygame.mixer.init(frequency=44100, size=-16, channels=2, buffer=1024)
+        # frequency higher for lower latency potential
+        pygame.mixer.init(frequency=44100, size=-16, channels=2, buffer=512)
         self.current_music_path = None
         self.start_time = 0
         self.paused_time = 0
         self.is_playing = False
-        self.offset = 0 # Adjust for system latency if needed
+        self.offset = 0.0 # Seconds
+
+    def set_offset(self, ms):
+        self.offset = ms / 1000.0
 
     def load_song(self, path):
         self.current_music_path = path

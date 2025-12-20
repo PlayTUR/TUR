@@ -168,6 +168,14 @@ class GameScene(Scene):
         self.game.renderer.draw_text(surface, f"SCORE: {self.score}", 20, 20, TERM_WHITE)
         self.game.renderer.draw_text(surface, f"COMBO: {self.combo}", 20, 50, TERM_AMBER)
         
+        # Draw Acc
+        total_hits = self.perfects + self.goods + self.bads + self.misses
+        if total_hits > 0:
+            # Weighted: Perf=100, Good=75, Bad=50, Miss=0
+            weighted = (self.perfects * 100 + self.goods * 75 + self.bads * 50)
+            acc = weighted / (total_hits * 100) * 100
+            self.game.renderer.draw_text(surface, f"ACC: {acc:.1f}%", 20, 80 if self.mode != 'multi' else 110, TERM_WHITE)
+        
         if self.mode == 'multi':
              self.game.renderer.draw_text(surface, f"OPPONENT: {self.game.network.opponent_score}", 20, 80, TERM_RED)
 
