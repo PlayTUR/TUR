@@ -41,6 +41,15 @@ class LobbyScene(Scene):
              
              self.game.renderer.draw_text(surface, "[Q] DISCONNECT / CANCEL", 100, 600, (100, 100, 100))
 
+        elif self.state == "CLIENT_LOBBY":
+             self.game.renderer.draw_text(surface, f"CONNECTED TO HOST", 100, 200, TERM_GREEN)
+             self.game.renderer.draw_text(surface, "WAITING FOR HOST TO START...", 100, 230, TERM_WHITE)
+             
+             if not self.game.network.connected:
+                  self.game.renderer.draw_text(surface, "STATUS: DISCONNECTED", 100, 300, TERM_RED)
+             
+             self.game.renderer.draw_text(surface, "[Q] DISCONNECT", 100, 600, (100, 100, 100))
+
     def handle_input(self, event):
         if event.type == pygame.KEYDOWN:
             if self.state == "MENU":
@@ -60,7 +69,7 @@ class LobbyScene(Scene):
                 elif event.key == pygame.K_RETURN:
                     self.status = "CONNECTING..."
                     self.game.network.join_game(self.ip_buffer, self.password_buffer)
-                    self.state = "HOSTING" # Re-use hosting view for waiting which shows status
+                    self.state = "CLIENT_LOBBY"
                 elif event.key == pygame.K_BACKSPACE:
                     if self.input_focus == 0: self.ip_buffer = self.ip_buffer[:-1]
                     else: self.password_buffer = self.password_buffer[:-1]
@@ -68,14 +77,15 @@ class LobbyScene(Scene):
                     if self.input_focus == 0: self.ip_buffer += event.unicode
                     else: self.password_buffer += event.unicode
             
-            elif self.state == "HOSTING": # or LOBBY
+            elif self.state == "HOSTING": 
                 if event.key == pygame.K_RETURN and self.game.network.is_host:
-                     # Start game logic
-                     # Need to pick song. usually host picks in song select.
-                     # Let's say host goes to song select and that triggers 'GAME START' packet.
                      from scenes.menu_scenes import SongSelectScene
                      self.game.scene_manager.switch_to(SongSelectScene)
                 elif event.key == pygame.K_q or event.key == pygame.K_ESCAPE:
-                     # Disconnect
+                     self.game.network.close()
+                     self.state = "MENU"
+
+            elif self.state == "CLIENT_LOBBY":
+                if event.key == pygame.K_q or event.key == pygame.K_ESCAPE:
                      self.game.network.close()
                      self.state = "MENU"

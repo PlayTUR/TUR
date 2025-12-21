@@ -5,7 +5,7 @@ import pygame
 STATS_FILE = "settings.json"
 
 DEFAULT_SETTINGS = {
-    "name": "GUEST",
+    "name": "ANON",
     "volume": 0.5,
     "speed": 600, # Pixels per second
     "keybinds": [pygame.K_s, pygame.K_d, pygame.K_k, pygame.K_l],

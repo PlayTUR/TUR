@@ -51,7 +51,8 @@ class TitleScene(Scene):
             pygame.draw.line(surface, grid_col, (x, 0), (x, SCREEN_HEIGHT))
 
         # 2. Main Title (ASCII TUR)
-        beat_dur = 468
+        # Menu Music is 100 BPM -> 600ms per beat
+        beat_dur = 600 
         beat_prog = (t % beat_dur) / beat_dur
         pulse = pow(1.0 - beat_prog, 3) 
         
