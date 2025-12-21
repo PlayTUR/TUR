@@ -105,3 +105,47 @@ class MusicGenerator:
             f.setsampwidth(2)
             f.setframerate(self.sr)
             f.writeframes(data)
+
+    def generate_sfx(self, filename, freq, duration=0.1, wave_type="SQUARE", slide=0.0):
+        # Create a simple tone
+        n_samples = int(duration * self.sr)
+        data = bytearray()
+        
+        phase = 0.0
+        
+        for i in range(n_samples):
+            t = i / self.sr
+            
+            # Frequency Slide
+            cur_freq = freq + (slide * t)
+            if cur_freq < 20: cur_freq = 20
+            
+            # Phase accumulation for variable freq
+            phase += cur_freq / self.sr
+            
+            val = 0.0
+            if wave_type == "SQUARE":
+                val = 1.0 if (phase % 1.0) < 0.5 else -1.0
+            elif wave_type == "SINE":
+                val = math.sin(2 * math.pi * phase)
+            elif wave_type == "SAW":
+                val = 2.0 * (phase % 1.0) - 1.0
+            elif wave_type == "NOISE":
+                val = random.uniform(-1, 1)
+            
+            # Simple Attack/Release Envelope
+            env = 1.0
+            if t < 0.01: env = t / 0.01
+            elif t > duration - 0.05: env = (duration - t) / 0.05
+            env = max(0.0, min(1.0, env))
+            
+            val *= env
+            
+            i_val = int(val * self.max_amp * 0.5) # Lower vol for SFX
+            data.extend(struct.pack('<h', i_val))
+            
+        with wave.open(filename, 'w') as f:
+            f.setnchannels(1)
+            f.setsampwidth(2)
+            f.setframerate(self.sr)
+            f.writeframes(data)

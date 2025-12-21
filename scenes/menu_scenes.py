@@ -24,6 +24,7 @@ class TitleScene(Scene):
         # Menu Options
         self.menu_items = ["SINGLE PLAYER", "STORY CAMPAIGN", "MULTIPLAYER", "OPTIONS", "SYSTEM UPDATE", "EXIT"]
         self.selected_index = 0
+        self.show_exit_confirm = False
 
     def on_enter(self, params=None):
         if not pygame.mixer.music.get_busy():
@@ -89,6 +90,7 @@ class TitleScene(Scene):
         menu_w = 500 
         menu_x = (SCREEN_WIDTH - menu_w) // 2
         
+        # Draw Window Border
         pygame.draw.rect(surface, theme["bg"], (menu_x, menu_start_y, menu_w, menu_h))
         pygame.draw.rect(surface, theme["grid"], (menu_x, menu_start_y, menu_w, menu_h), 2)
         pygame.draw.rect(surface, theme["grid"], (menu_x, menu_start_y-30, menu_w, 30))
@@ -105,39 +107,53 @@ class TitleScene(Scene):
         # 4. User Info
         self.game.renderer.draw_text(surface, f"USER: {self.game.settings.get('name')}", 20, SCREEN_HEIGHT - 60, theme["secondary"])
 
-    def handle_input(self, event):
-        if event.type == pygame.KEYDOWN:
-            if event.key == pygame.K_UP:
-                self.selected_index = (self.selected_index - 1) % len(self.menu_items)
-            elif event.key == pygame.K_DOWN:
-                self.selected_index = (self.selected_index + 1) % len(self.menu_items)
-            elif event.key == pygame.K_RETURN:
-                choice = self.menu_items[self.selected_index]
-                if choice == "SINGLE PLAYER":
-                    self.game.scene_manager.switch_to(SongSelectScene)
-                elif choice == "STORY CAMPAIGN":
-                    from scenes.story_scene import StoryScene
-                    self.game.scene_manager.switch_to(StoryScene)
-                elif choice == "MULTIPLAYER":
-                    from scenes.lobby_scene import LobbyScene
-                    self.game.scene_manager.switch_to(LobbyScene)
-                elif choice == "OPTIONS": 
-                    self.game.scene_manager.switch_to(SettingsScene)
-                elif choice == "SYSTEM UPDATE":
-                    from scenes.update_scene import UpdateScene
-                    self.game.scene_manager.switch_to(UpdateScene)
-                elif choice == "EXIT":
-                    self.game.running = False
-            elif event.key == pygame.K_n:
-                 self.game.scene_manager.switch_to(NameEntryScene)
+    # 5. Exit Confirmation Overlay
+        if self.show_exit_confirm:
+            # Dim background
+            overlay = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT))
+            overlay.set_alpha(200)
+            overlay.fill((0,0,0))
+            surface.blit(overlay, (0,0))
+            
+            # Popup Box (Wider to fit text)
+            w, h = 600, 250
+            x, y = (SCREEN_WIDTH - w)//2, (SCREEN_HEIGHT - h)//2
+            
+            pygame.draw.rect(surface, theme["bg"], (x, y, w, h))
+            pygame.draw.rect(surface, theme["error"], (x, y, w, h), 2)
+            
+            # Center Text
+            title = "TERMINATE SYSTEM?"
+            sub = "CONFIRM SHUTDOWN [Y/N]"
+            
+            font = self.game.renderer.big_font
+            tw, th = font.size(title)
+            self.game.renderer.draw_text(surface, title, x + (w-tw)//2, y + 60, theme["error"], font)
+            
+            font_small = self.game.renderer.font
+            sw, sh = font_small.size(sub)
+            self.game.renderer.draw_text(surface, sub, x + (w-sw)//2, y + 140, theme["text"], font_small)
 
     def handle_input(self, event):
+        if self.show_exit_confirm:
+            if event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_y or event.key == pygame.K_RETURN:
+                    self.play_sfx("shutdown")
+                    self.game.trigger_reboot() # Initiates fade out exit
+                elif event.key == pygame.K_n or event.key == pygame.K_ESCAPE:
+                    self.play_sfx("back")
+                    self.show_exit_confirm = False
+            return
+
         if event.type == pygame.KEYDOWN:
             if event.key == pygame.K_UP:
                 self.selected_index = (self.selected_index - 1) % len(self.menu_items)
+                self.play_sfx("blip")
             elif event.key == pygame.K_DOWN:
                 self.selected_index = (self.selected_index + 1) % len(self.menu_items)
+                self.play_sfx("blip")
             elif event.key == pygame.K_RETURN:
+                self.play_sfx("accept")
                 choice = self.menu_items[self.selected_index]
                 if choice == "SINGLE PLAYER":
                     self.game.scene_manager.switch_to(SongSelectScene)
@@ -153,7 +169,7 @@ class TitleScene(Scene):
                     from scenes.update_scene import UpdateScene
                     self.game.scene_manager.switch_to(UpdateScene)
                 elif choice == "EXIT":
-                    self.game.running = False
+                    self.show_exit_confirm = True
             elif event.key == pygame.K_n:
                  self.game.scene_manager.switch_to(NameEntryScene)
 
@@ -170,12 +186,15 @@ class NameEntryScene(Scene):
     def handle_input(self, event):
         if event.type == pygame.KEYDOWN:
             if event.key == pygame.K_RETURN:
+                self.play_sfx("accept")
                 if self.temp_name.strip():
                     self.game.settings.set("name", self.temp_name)
                 self.game.scene_manager.switch_to(TitleScene)
             elif event.key == pygame.K_BACKSPACE:
+                self.play_sfx("blip")
                 self.temp_name = self.temp_name[:-1]
             elif len(self.temp_name) < 16 and event.unicode.isprintable():
+                self.play_sfx("type") # Reuse type sound!
                 self.temp_name += event.unicode.upper()
 
 class SongSelectScene(Scene):
@@ -256,20 +275,26 @@ class SongSelectScene(Scene):
     def handle_input(self, event):
         if event.type == pygame.KEYDOWN:
             if event.key == pygame.K_ESCAPE:
+                self.play_sfx("back")
                 self.game.scene_manager.switch_to(TitleScene)
             elif event.key == pygame.K_F5:
+                self.play_sfx("hdd") # "Reload" sound
                 self.load_songs()
-                # Flash "RELOADED"?
             elif event.key == pygame.K_UP:
                 self.selected_index = (self.selected_index - 1) % max(1, len(self.songs))
+                self.play_sfx("blip")
             elif event.key == pygame.K_DOWN:
                 self.selected_index = (self.selected_index + 1) % max(1, len(self.songs))
+                self.play_sfx("blip")
             elif event.key == pygame.K_LEFT:
                 self.diff_index = (self.diff_index - 1) % len(self.difficulties)
+                self.play_sfx("blip")
             elif event.key == pygame.K_RIGHT:
                 self.diff_index = (self.diff_index + 1) % len(self.difficulties)
+                self.play_sfx("blip")
             elif event.key == pygame.K_RETURN:
                 if self.songs:
+                    self.play_sfx("accept")
                     # check if multiplayer
                     if self.game.network.connected:
                         # Send Proposal
@@ -283,15 +308,19 @@ class SongSelectScene(Scene):
                             'song': self.songs[self.selected_index],
                             'difficulty': self.difficulties[self.diff_index]
                         })
+                else: 
+                     self.play_sfx("back") # Error/Empty
             elif event.key == pygame.K_e:
                 # EDITOR
                 if self.songs:
+                    self.play_sfx("accept")
                     from scenes.editor_scene import EditorScene
                     self.game.scene_manager.switch_to(EditorScene, {
                         'song': self.songs[self.selected_index],
                         'difficulty': self.difficulties[self.diff_index]
                     })
             elif event.key == pygame.K_m:
+                 self.play_sfx("accept")
                  from scenes.lobby_scene import LobbyScene
                  self.game.scene_manager.switch_to(LobbyScene)
 
@@ -368,9 +397,11 @@ class SettingsScene(Scene):
         if self.binding_mode:
             if event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_ESCAPE:
+                    self.play_sfx("back")
                     self.binding_mode = False
                     return
                 # Accept key
+                self.play_sfx("accept")
                 self.temp_binds.append(event.key)
                 self.binding_step += 1
                 if self.binding_step >= 4:
@@ -381,13 +412,18 @@ class SettingsScene(Scene):
         if event.type == pygame.KEYDOWN:
             if event.key == pygame.K_UP:
                 self.index = (self.index - 1) % len(self.menu_items)
+                self.play_sfx("blip")
             elif event.key == pygame.K_DOWN:
                 self.index = (self.index + 1) % len(self.menu_items)
+                self.play_sfx("blip")
             elif event.key == pygame.K_LEFT:
-                self.adjust(-1, event.mod & pygame.KMOD_SHIFT)
+                if self.adjust(-1, event.mod & pygame.KMOD_SHIFT):
+                     self.play_sfx("blip")
             elif event.key == pygame.K_RIGHT:
-                self.adjust(1, event.mod & pygame.KMOD_SHIFT)
+                if self.adjust(1, event.mod & pygame.KMOD_SHIFT):
+                     self.play_sfx("blip")
             elif event.key == pygame.K_RETURN:
+                self.play_sfx("accept")
                 if self.menu_items[self.index] == "BACK":
                     self.game.scene_manager.switch_to(TitleScene)
                 elif self.menu_items[self.index] == "KEYBINDS":
@@ -395,6 +431,7 @@ class SettingsScene(Scene):
                     self.binding_step = 0
                     self.temp_binds = []
             elif event.key == pygame.K_ESCAPE:
+                self.play_sfx("back")
                 self.game.scene_manager.switch_to(TitleScene)
 
     def adjust(self, direction, fast=False):
@@ -443,4 +480,5 @@ class SettingsScene(Scene):
             # Custom RGB edit implies partial deviation from theme, but that's fine.
 
         s.save()
+        return True
 

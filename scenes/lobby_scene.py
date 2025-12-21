@@ -79,13 +79,16 @@ class LobbyScene(Scene):
             
             elif self.state == "HOSTING": 
                 if event.key == pygame.K_RETURN and self.game.network.is_host:
+                     self.play_sfx("accept")
                      from scenes.menu_scenes import SongSelectScene
                      self.game.scene_manager.switch_to(SongSelectScene)
                 elif event.key == pygame.K_q or event.key == pygame.K_ESCAPE:
+                     self.play_sfx("back")
                      self.game.network.close()
                      self.state = "MENU"
 
             elif self.state == "CLIENT_LOBBY":
                 if event.key == pygame.K_q or event.key == pygame.K_ESCAPE:
+                     self.play_sfx("back")
                      self.game.network.close()
                      self.state = "MENU"

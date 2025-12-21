@@ -79,11 +79,14 @@ class StoryScene(Scene):
     def handle_input(self, event):
         if event.type == pygame.KEYDOWN:
             if event.key == pygame.K_ESCAPE:
+                self.play_sfx("back")
                 from scenes.menu_scenes import TitleScene
                 self.game.scene_manager.switch_to(TitleScene)
                 
             elif event.key == pygame.K_RETURN:
                 if self.state == "BRIEFING":
+                    self.play_sfx("accept")
+                    # Launch Game
                     # Launch Game
                     # Note: We need to hook into the result. 
                     # For now, let's assume if they finish the song, they pass.

@@ -1,4 +1,5 @@
 import pygame
+import os
 from core.scene_manager import Scene
 from core.config import *
 import random
@@ -10,23 +11,40 @@ class BootScene(Scene):
         self.max_lines = 20
         self.timer = 0
         self.step = 0
+        self.step = 0
         self.finished = False
+        
+        self.sfx_boot = pygame.mixer.Sound("sfx/sfx_boot.wav") if os.path.exists("sfx/sfx_boot.wav") else None
+        if self.sfx_boot: self.sfx_boot.set_volume(0.4)
+            
+        self.sfx_type = pygame.mixer.Sound("sfx/sfx_type.wav") if os.path.exists("sfx/sfx_type.wav") else None
+        if self.sfx_type: self.sfx_type.set_volume(0.2)
+        
+        self.sfx_hdd = pygame.mixer.Sound("sfx/sfx_hdd.wav") if os.path.exists("sfx/sfx_hdd.wav") else None
+        if self.sfx_hdd: self.sfx_hdd.set_volume(0.2)
+        
+        self.sfx_success = pygame.mixer.Sound("sfx/sfx_success.wav") if os.path.exists("sfx/sfx_success.wav") else None
+        if self.sfx_success: self.sfx_success.set_volume(0.5)
         
         # Fake BIOS Data
         self.ram_kb = 0
         self.total_ram = 64 * 1024 # 64 MB retro style
         
         self.boot_steps = [
-            {"text": "TERMINAL BIOS v1.0.4 (c) 198X", "delay": 60},
-            {"text": "CPU: MOTOROLA 68000 @ 8 MHz", "delay": 30},
-            {"text": "CHECKING MEMORY...", "action": "RAM", "delay": 10}, # Fast RAM count
-            {"text": "MEMORY OK.", "delay": 30},
-            {"text": "DETECTING DRIVES...", "delay": 40},
-            {"text": "  DRIVE A: TUR_DISK SYSTEM", "delay": 20},
-            {"text": "  DRIVE B: NONE", "delay": 10},
-            {"text": "INITIALIZING VIDEO... VGA DETECTED", "delay": 30},
-            {"text": "LOADING KERNEL...", "delay": 50},
-            {"text": "BOOT SEQUENCE COMPLETE.", "delay": 60},
+            {"text": "TERMINAL BIOS v1.0.4 (c) 198X", "delay": 60, "sfx": "type"},
+            {"text": "CPU: MOTOROLA 68000 @ 8 MHz", "delay": 30, "sfx": "type"},
+            {"text": "CHECKING MEMORY...", "action": "RAM", "delay": 10, "sfx": "hdd"}, 
+            {"text": "MEMORY OK.", "delay": 30, "sfx": "type"},
+            {"text": "DETECTING DRIVES...", "delay": 40, "sfx": "hdd"},
+            {"text": "  DRIVE A: TUR_DISK SYSTEM", "delay": 20, "sfx": "type"},
+            {"text": "  DRIVE B: NONE", "delay": 10, "sfx": "type"},
+            {"text": "INITIALIZING VIDEO... VGA DETECTED", "delay": 30, "sfx": "type"},
+            {"text": "LOADING KERNEL...", "delay": 50, "sfx": "hdd"},
+            {"text": "BOOT SEQUENCE COMPLETE.", "delay": 30, "sfx": "success"},
+            {"text": "", "delay": 30},
+            {"text": "WELCOME TO TUR SYSTEM", "delay": 10, "sfx": "type"}, 
+            {"text": "", "delay": 120}, # Explicit wait time for user to read
+            {"text": "ENTERING SHELL...", "delay": 30, "sfx": "type"},
             {"text": "", "action": "DONE", "delay": 10}
         ]
         
@@ -68,11 +86,25 @@ class BootScene(Scene):
             
         # Standard Delay Logic
         self.wait_time += 1
+        
+        # Play Start Beep on first frame
+        if self.current_step_idx == 0 and self.wait_time == 1:
+            if self.sfx_boot: self.sfx_boot.play()
+            
         if self.wait_time >= item["delay"]:
             if item.get("action") == "DONE":
                 self.finish_boot()
             else:
-                self.lines.append(item["text"])
+                txt = item.get("text", "")
+                if txt:
+                     self.lines.append(txt)
+                     
+                     # SFX Trigger
+                     sfx = item.get("sfx")
+                     if sfx == "type" and self.sfx_type: self.sfx_type.play()
+                     elif sfx == "hdd" and self.sfx_hdd: self.sfx_hdd.play()
+                     elif sfx == "success" and self.sfx_success: self.sfx_success.play()
+                     
                 self.advance_step()
 
     def advance_step(self):

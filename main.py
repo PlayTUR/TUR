@@ -32,6 +32,11 @@ class Game:
         self.screen = pygame.display.set_mode((1024, 768), self.flags)
         pygame.display.set_caption("Terminal Beat [PYGAME]")
         
+        # Debug Mode
+        self.debug_mode = "-D" in sys.argv
+        if self.debug_mode:
+            print("DEBUG MODE ENABLED")
+        
         # Virtual Resolution
         self.virtual_w = 1024
         self.virtual_h = 768
@@ -71,6 +76,10 @@ class Game:
         # Playlist logic
         self.menu_playlist = []
         self.playlist_index = 0
+        
+        # System State
+        self.shutting_down = False
+        self.shutdown_alpha = 0
 
     def run(self):
         # Always Start with Boot Sequence
@@ -200,11 +209,28 @@ class Game:
             self.screen.fill((0, 0, 0)) # Clear borders
             self.screen.blit(scaled_surf, (dest_x, dest_y))
             
+            # Shutdown Fade Logic
+            if self.shutting_down:
+                self.shutdown_alpha += 5
+                if self.shutdown_alpha >= 255:
+                     self.shutdown_alpha = 255
+                     self.running = False
+                
+                fade = pygame.Surface((screen_w, screen_h))
+                fade.fill((0,0,0))
+                fade.set_alpha(self.shutdown_alpha)
+                self.screen.blit(fade, (0,0))
+            
             pygame.display.flip()
             
         pygame.quit()
         sys.exit()
 
+    def trigger_reboot(self):
+        # Starts exit sequence
+        self.shutting_down = True
+        self.shutdown_alpha = 0
+            
     def handle_input(self, event):
         self.scene_manager.handle_input(event)
 

@@ -14,6 +14,7 @@ class ResultScene(Scene):
     def handle_input(self, event):
         if event.type == pygame.KEYDOWN:
             if event.key == pygame.K_RETURN:
+                self.play_sfx("accept")
                 if self.next_scene_class:
                     self.game.scene_manager.switch_to(self.next_scene_class, self.next_scene_params)
                 else:

@@ -46,29 +46,45 @@ class StoryGenerator:
         """
         Generates a sequence of levels (Campaign).
         """
-        # Ensure songs exist
+        # Ensure songs exist in story_music folder
+        story_dir = "story_music"
         gen = MusicGenerator()
-        new_songs = gen.generate_all(song_dir)
+        new_songs = gen.generate_all(story_dir)
         
         # Find available songs
         songs = []
-        if os.path.exists(song_dir):
-            songs = [f for f in os.listdir(song_dir) if f.lower().endswith(('.mp3', '.wav', '.ogg'))]
+        if os.path.exists(story_dir):
+            songs = [os.path.join(story_dir, f) for f in os.listdir(story_dir) if f.lower().endswith(('.mp3', '.wav', '.ogg'))]
             # Prefer generated ones for story order?
             # Sort to put story_intro first, then action, then boss
             
         # Sort logic: intro -> action -> boss -> others
-        story_order = ["story_intro.wav", "story_action.wav", "story_boss.wav"]
+        # Now using full paths, so we check path basename (ignoring extension)
+        story_order = ["story_intro", "story_action", "story_boss"]
         sorted_songs = []
+        
+        # Create a map for easier sorting: Stem -> List of full paths (in case of dupes?)
+        # Let's assume one file per stem.
+        song_map = {}
+        rest = []
+        
+        for p in songs:
+             base = os.path.basename(p)
+             stem = os.path.splitext(base)[0]
+             if stem in story_order:
+                 song_map[stem] = p
+             else:
+                 rest.append(p)
+        
         for key in story_order:
-            if key in songs:
-                sorted_songs.append(key)
-                songs.remove(key)
-        sorted_songs.extend(songs) # Append rest
+            if key in song_map:
+                sorted_songs.append(song_map[key])
+                
+        sorted_songs.extend(rest) 
         songs = sorted_songs
         
         if not songs:
-            songs = ["story_intro.wav"] # Should exist now
+            songs = [os.path.join(story_dir, "story_intro.wav")] # Fallback
             
         campaign = {
             "title": f"OPERATION {random.randint(100, 999)}",

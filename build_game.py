@@ -25,7 +25,11 @@ def build():
     # Format: source_path:dest_path
     # We want assets/font.ttf to be INSIDE the exe if possible, or alongside.
     # Ideally, we bundle 'assets' folder into '.' 
-    add_data = f"--add-data=assets{sep}assets"
+    # Check if assets has content before adding
+    if os.path.exists("assets") and os.listdir("assets"):
+        add_data = f"--add-data=assets{sep}assets"
+    else:
+        add_data = ""
     
     # Core command
     cmd = [
@@ -49,7 +53,9 @@ def build():
     print(">> Setting up distribution folder...")
     dist_dir = "dist"
     
-    dirs_to_copy = ["songs", "mainmenu_music"]
+    # SFX is loaded via relative path "sfx/...", so we must copy it to dist/
+    # alongside the executable.
+    dirs_to_copy = ["songs", "mainmenu_music", "boss_music", "story_music", "sfx"]
     for d in dirs_to_copy:
         src = d
         dst = os.path.join(dist_dir, d)

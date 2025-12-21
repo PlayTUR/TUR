@@ -1,10 +1,45 @@
 import pygame
 
+import os
+
 class Scene:
     def __init__(self, game):
         self.game = game
-        self.manager = game
+        self.manager = game.scene_manager
         self.next_scene = None # If set, manager switches to this
+        
+        # Common SFX
+        self.sfx_blip = None
+        self.sfx_accept = None
+        if os.path.exists("sfx/sfx_blip.wav"):
+             self.sfx_blip = pygame.mixer.Sound("sfx/sfx_blip.wav")
+             self.sfx_blip.set_volume(0.4)
+        if os.path.exists("sfx/sfx_accept.wav"):
+             self.sfx_accept = pygame.mixer.Sound("sfx/sfx_accept.wav")
+             self.sfx_accept.set_volume(0.4)
+        if os.path.exists("sfx/sfx_back.wav"):
+             self.sfx_back = pygame.mixer.Sound("sfx/sfx_back.wav")
+             self.sfx_back.set_volume(0.4)
+        if os.path.exists("sfx/sfx_shutdown.wav"):
+             self.sfx_shutdown = pygame.mixer.Sound("sfx/sfx_shutdown.wav")
+             self.sfx_shutdown.set_volume(0.6)
+             
+        # New SFX (shared)
+        self.sfx_type = pygame.mixer.Sound("sfx/sfx_type.wav") if os.path.exists("sfx/sfx_type.wav") else None
+        if self.sfx_type: self.sfx_type.set_volume(0.3)
+        self.sfx_hdd = pygame.mixer.Sound("sfx/sfx_hdd.wav") if os.path.exists("sfx/sfx_hdd.wav") else None
+        if self.sfx_hdd: self.sfx_hdd.set_volume(0.3)
+        self.sfx_success = pygame.mixer.Sound("sfx/sfx_success.wav") if os.path.exists("sfx/sfx_success.wav") else None
+        if self.sfx_success: self.sfx_success.set_volume(0.5)
+
+    def play_sfx(self, name):
+        if name == "blip" and self.sfx_blip: self.sfx_blip.play()
+        elif name == "accept" and self.sfx_accept: self.sfx_accept.play()
+        elif name == "back" and hasattr(self, 'sfx_back') and self.sfx_back: self.sfx_back.play()
+        elif name == "shutdown" and hasattr(self, 'sfx_shutdown') and self.sfx_shutdown: self.sfx_shutdown.play()
+        elif name == "type" and hasattr(self, 'sfx_type') and self.sfx_type: self.sfx_type.play()
+        elif name == "hdd" and hasattr(self, 'sfx_hdd') and self.sfx_hdd: self.sfx_hdd.play()
+        elif name == "success" and hasattr(self, 'sfx_success') and self.sfx_success: self.sfx_success.play()
 
     def handle_input(self, event):
         pass

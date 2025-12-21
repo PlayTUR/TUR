@@ -22,6 +22,14 @@ class SetupScene(Scene):
         self.bios_hl = (255, 255, 0) # Yellow highlight usually? Or just inverted.
         self.bios_bar = (0, 0, 0)
         
+        # SFX
+        self.sfx_blip = pygame.mixer.Sound("sfx/sfx_blip.wav") if os.path.exists("sfx/sfx_blip.wav") else None
+        self.sfx_accept = pygame.mixer.Sound("sfx/sfx_accept.wav") if os.path.exists("sfx/sfx_accept.wav") else None
+        
+    def play_sfx(self, name):
+        if name == "blip" and self.sfx_blip: self.sfx_blip.play()
+        elif name == "accept" and self.sfx_accept: self.sfx_accept.play()
+
     def draw(self, surface):
         # Always BIOS Blue for this screen, regardless of theme
         surface.fill(self.bios_bg)
@@ -79,9 +87,12 @@ class SetupScene(Scene):
                 
             if event.key == pygame.K_UP:
                 self.selected_index = (self.selected_index - 1) % len(self.options)
+                self.play_sfx("blip")
             elif event.key == pygame.K_DOWN:
                 self.selected_index = (self.selected_index + 1) % len(self.options)
+                self.play_sfx("blip")
             elif event.key == pygame.K_RETURN:
+                self.play_sfx("accept")
                 opt = self.options[self.selected_index]
                 if opt["type"] == "action":
                     if opt["key"] == "exit":
@@ -102,8 +113,9 @@ class SetupScene(Scene):
         val = s.get(key)
         
         if event.key == pygame.K_RETURN or event.key == pygame.K_ESCAPE:
+            self.play_sfx("accept")
             self.edit_mode = False
-            s.save() # Auto save on exit edit
+            s.save() 
             return
             
         if opt["type"] == "int":
@@ -111,23 +123,33 @@ class SetupScene(Scene):
             if event.key == pygame.K_LEFT: change = -opt["step"]
             elif event.key == pygame.K_RIGHT: change = opt["step"]
             
-            new_val = max(opt["min"], min(opt["max"], val + change))
-            s.set(key, new_val)
+            if change != 0:
+                self.play_sfx("blip")
+                new_val = max(opt["min"], min(opt["max"], val + change))
+                s.set(key, new_val)
             
         elif opt["type"] == "select":
             choices = opt["choices"]
             try: idx = choices.index(val)
             except: idx = 0
             
-            if event.key == pygame.K_LEFT: idx = (idx - 1) % len(choices)
-            elif event.key == pygame.K_RIGHT: idx = (idx + 1) % len(choices)
+            changed = False
+            if event.key == pygame.K_LEFT: 
+                idx = (idx - 1) % len(choices)
+                changed = True
+            elif event.key == pygame.K_RIGHT: 
+                idx = (idx + 1) % len(choices)
+                changed = True
             
-            s.set(key, choices[idx])
+            if changed:
+                self.play_sfx("blip")
+                s.set(key, choices[idx])
             
         elif opt["type"] == "text":
-            # Simple text entry
             if event.key == pygame.K_BACKSPACE:
                 s.set(key, val[:-1])
+                self.play_sfx("blip")
             elif event.unicode.isprintable():
                 if len(val) < 20:
                     s.set(key, val + event.unicode.upper())
+                    self.play_sfx("blip")

@@ -21,3 +21,6 @@ songs/*
 
 # Keep Story Music
 !story_music/
+
+# Keep SFX
+!sfx/
