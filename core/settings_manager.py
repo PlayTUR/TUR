@@ -16,7 +16,10 @@ DEFAULT_SETTINGS = {
     "note_col_1": [50, 255, 50], # Inner (Green)
     "note_col_2": [255, 180, 50], # Outer (Amber)
     "theme": "TERMINAL",
-    "setup_complete": False
+    "setup_complete": False,
+    "joy_binds": [0, 1, 2, 3], # Default buttons (A, B, X, Y)
+    "joy_triggers": [4, 5],    # Default LB, RB
+    "fullscreen": False
 }
 
 class SettingsManager:

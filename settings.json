@@ -1,0 +1,42 @@
+{
+    "name": "DEV",
+    "volume": 0.5000000000000001,
+    "speed": 800,
+    "keybinds": [
+        115,
+        100,
+        107,
+        108
+    ],
+    "resolution": [
+        1920,
+        1080
+    ],
+    "upscroll": false,
+    "audio_offset": 0,
+    "note_shape": "BAR",
+    "note_col_1": [
+        0,
+        255,
+        100
+    ],
+    "note_col_2": [
+        255,
+        180,
+        0
+    ],
+    "theme": "TERMINAL",
+    "setup_complete": true,
+    "joy_binds": [
+        0,
+        1,
+        2,
+        3
+    ],
+    "joy_triggers": [
+        4,
+        5
+    ],
+    "fullscreen": true,
+    "autoplay": false
+}

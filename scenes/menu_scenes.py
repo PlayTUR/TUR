@@ -22,7 +22,11 @@ class TitleScene(Scene):
         self.quote = random.choice(self.quotes)
         
         # Menu Options
-        self.menu_items = ["SINGLE PLAYER", "STORY CAMPAIGN", "MULTIPLAYER", "OPTIONS", "SYSTEM UPDATE", "EXIT"]
+        self.menu_items = ["SINGLE PLAYER", "STORY CAMPAIGN", "MULTIPLAYER", "OPTIONS", "CREDITS", "SYSTEM UPDATE"]
+        if pygame.joystick.get_count() > 0:
+            self.menu_items.insert(5, "CONTROLLER CONFIG")
+        self.menu_items.append("EXIT")
+        
         self.selected_index = 0
         self.show_exit_confirm = False
 
@@ -165,9 +169,13 @@ class TitleScene(Scene):
                     self.game.scene_manager.switch_to(LobbyScene)
                 elif choice == "OPTIONS": 
                     self.game.scene_manager.switch_to(SettingsScene)
+                elif choice == "CREDITS":
+                    self.game.scene_manager.switch_to(CreditsScene)
                 elif choice == "SYSTEM UPDATE":
                     from scenes.update_scene import UpdateScene
                     self.game.scene_manager.switch_to(UpdateScene)
+                elif choice == "CONTROLLER CONFIG":
+                    self.game.scene_manager.switch_to(ControllerConfigScene)
                 elif choice == "EXIT":
                     self.show_exit_confirm = True
             elif event.key == pygame.K_n:
@@ -327,11 +335,8 @@ class SongSelectScene(Scene):
 class SettingsScene(Scene):
     def __init__(self, game):
         super().__init__(game)
-        self.menu_items = [
-            "SPEED", "VOLUME", "THEME", "UPSCROLL", "OFFSET", 
-            "COLOR1_R", "COLOR1_G", "COLOR1_B", 
-            "KEYBINDS", "BACK"
-        ]
+        self.menu_items = ["VOLUME", "SPEED", "UPSCROLL", "OFFSET", "THEME", "RESOLUTION", "FULLSCREEN", "KEYBINDS", "BACK"]
+        self.resolutions = [[1024, 768], [1280, 720], [1366, 768], [1600, 900], [1920, 1080], [2560, 1440]]
         self.index = 0
         self.binding_mode = False
         self.binding_step = 0
@@ -356,26 +361,21 @@ class SettingsScene(Scene):
         theme_name = s.get("theme")
         upscroll = s.get("upscroll")
         offset = s.get("audio_offset")
-        shape = s.get("note_shape")
-        c1 = s.get("note_col_1")
+        res = s.get("resolution")
+        fs = s.get("fullscreen")
         
         binds = s.get("keybinds")
         bind_names = ",".join([pygame.key.name(k) for k in binds])
-        
-        # Helper to make color preview
-        def col_str(c): return f"({c[0]},{c[1]},{c[2]})"
 
-        # List Items
+        # List Items matching menu_items
         items = [
-            f"SCROLL SPEED: < {speed} >",
             f"VOLUME: < {int(vol*100)}% >",
-            f"THEME: < {theme_name} >",
+            f"SPEED: < {speed} >",
             f"UPSCROLL: < {'ON' if upscroll else 'OFF'} >",
             f"OFFSET: < {offset}ms >",
-            # Shape Removed
-            f"INNER COLOR R: < {c1[0]} >",
-            f"INNER COLOR G: < {c1[1]} >",
-            f"INNER COLOR B: < {c1[2]} >",
+            f"THEME: < {theme_name} >",
+            f"RESOLUTION: < {res[0]}x{res[1]} >",
+            f"FULLSCREEN: < {'ON' if fs else 'OFF'} >",
             f"KEYBINDS: [{bind_names}]",
             "BACK"
         ]
@@ -385,13 +385,8 @@ class SettingsScene(Scene):
             col = theme["secondary"] if i == self.index else theme["text"]
             y = start_y + i * 45
             self.game.renderer.draw_text(surface, item, 100, y, col)
-            
-            # Preview Color Square next to RGB controls
-            if "INNER COLOR" in item:
-                 pygame.draw.rect(surface, c1, (600, y, 40, 40))
-                 pygame.draw.rect(surface, (255,255,255), (600, y, 40, 40), 2)
 
-        self.game.renderer.draw_text(surface, "ARROWS: Adjust | ENTER: Select", 100, 700, (100, 100, 100))
+        self.game.renderer.draw_text(surface, "LEFT/RIGHT: Adjust | ENTER: Select", 100, 700, (100, 100, 100))
 
     def handle_input(self, event):
         if self.binding_mode:
@@ -417,10 +412,12 @@ class SettingsScene(Scene):
                 self.index = (self.index + 1) % len(self.menu_items)
                 self.play_sfx("blip")
             elif event.key == pygame.K_LEFT:
-                if self.adjust(-1, event.mod & pygame.KMOD_SHIFT):
+                fast = hasattr(event, 'mod') and (event.mod & pygame.KMOD_SHIFT)
+                if self.adjust(-1, fast):
                      self.play_sfx("blip")
             elif event.key == pygame.K_RIGHT:
-                if self.adjust(1, event.mod & pygame.KMOD_SHIFT):
+                fast = hasattr(event, 'mod') and (event.mod & pygame.KMOD_SHIFT)
+                if self.adjust(1, fast):
                      self.play_sfx("blip")
             elif event.key == pygame.K_RETURN:
                 self.play_sfx("accept")
@@ -464,12 +461,32 @@ class SettingsScene(Scene):
             s.set("note_col_1", list(t_data["primary"]))
             s.set("note_col_2", list(t_data["secondary"]))
             
-        elif item == "UPSCROLL":
-            s.set("upscroll", not s.get("upscroll"))
         elif item == "OFFSET":
             cur = s.get("audio_offset")
             cur += direction * 5
             s.set("audio_offset", max(-200, min(200, cur)))
+        elif item == "UPSCROLL":
+            s.set("upscroll", not s.get("upscroll"))
+        elif item == "RESOLUTION":
+            cur_res = s.get("resolution")
+            try:
+                idx = self.resolutions.index(cur_res)
+            except:
+                idx = 0
+            new_idx = (idx + direction) % len(self.resolutions)
+            new_res = self.resolutions[new_idx]
+            s.set("resolution", new_res)
+            # Apply resolution
+            if not s.get("fullscreen"):
+                pygame.display.set_mode(new_res, pygame.RESIZABLE)
+        elif item == "FULLSCREEN":
+            fs = not s.get("fullscreen")
+            s.set("fullscreen", fs)
+            res = s.get("resolution")
+            if fs:
+                pygame.display.set_mode(res, pygame.FULLSCREEN)
+            else:
+                pygame.display.set_mode(res, pygame.RESIZABLE)
         # SHAPE Removed
         elif item.startswith("COLOR1"):
             # RGB adjustment
@@ -482,3 +499,90 @@ class SettingsScene(Scene):
         s.save()
         return True
 
+class ControllerConfigScene(Scene):
+    def on_enter(self, params):
+        self.rebind_mode = False
+        self.rebind_step = 0
+        self.temp_joy_binds = [0, 0, 0, 0] # Temp storage
+        
+        # Load asset
+        try:
+            img_path = os.path.join("assets", "controller.png")
+            if os.path.exists(img_path):
+                self.controller_img = pygame.image.load(img_path)
+            else:
+                self.controller_img = None
+        except:
+            self.controller_img = None
+
+    def draw(self, surface):
+        theme = self.game.renderer.get_theme()
+        surface.fill(theme["bg"])
+        self.game.renderer.draw_text(surface, "CONTROLLER PROTOCOL", 100, 50, theme["primary"], self.game.renderer.big_font)
+        
+        if self.controller_img:
+            rect = self.controller_img.get_rect(center=(SCREEN_WIDTH//2, SCREEN_HEIGHT//2 - 50))
+            # Darker if rebinding
+            if self.rebind_mode:
+                self.controller_img.set_alpha(100)
+            else:
+                self.controller_img.set_alpha(255)
+            surface.blit(self.controller_img, rect)
+        
+        if self.rebind_mode:
+            self.game.renderer.draw_text(surface, f"REBINDING LANE {self.rebind_step}...", SCREEN_WIDTH//2 - 150, 400, (255, 255, 0), self.game.renderer.big_font)
+            self.game.renderer.draw_text(surface, "PRESS A CONTROLLER BUTTON", SCREEN_WIDTH//2 - 140, 460, (255, 255, 255))
+        else:
+            self.game.renderer.draw_text(surface, "PRESS [ENTER] TO REBIND ALL LANES", SCREEN_WIDTH//2 - 180, 500, (200, 200, 200))
+            
+            # Show Binds
+            binds = self.game.settings.get("joy_binds")
+            for i, b in enumerate(binds):
+                self.game.renderer.draw_text(surface, f"LANE {i}: BTN {b}", 400, 550 + i * 30, theme["primary"])
+
+        self.game.renderer.draw_text(surface, "[ESC] BACK", 100, 700, theme["secondary"])
+
+    def handle_input(self, event):
+        if self.rebind_mode:
+            if event.type == pygame.JOYBUTTONDOWN:
+                self.play_sfx("accept")
+                self.temp_joy_binds[self.rebind_step] = event.button
+                self.rebind_step += 1
+                if self.rebind_step >= 4:
+                    self.game.settings.set("joy_binds", self.temp_joy_binds)
+                    self.rebind_mode = False
+            elif event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:
+                self.rebind_mode = False
+            return
+
+        if event.type == pygame.KEYDOWN:
+            if event.key == pygame.K_ESCAPE:
+                self.play_sfx("back")
+                self.game.scene_manager.switch_to(TitleScene)
+            elif event.key == pygame.K_RETURN:
+                self.rebind_mode = True
+                self.rebind_step = 0
+                self.play_sfx("accept")
+
+
+class CreditsScene(Scene):
+    def draw(self, surface):
+        theme = self.game.renderer.get_theme()
+        surface.fill(theme["bg"])
+        self.game.renderer.draw_text(surface, "DEVELOPER_CREDITS", 100, 50, theme["primary"], self.game.renderer.big_font)
+        
+        # Wyind
+        self.game.renderer.draw_text(surface, "WYIND - LEAD DEV", 150, 200, theme["secondary"], self.game.renderer.big_font)
+        self.game.renderer.draw_text(surface, "ENGINE ARCHITECTURE / CORE SYSTEMS", 150, 240, theme["text"])
+        
+        # Ryan
+        self.game.renderer.draw_text(surface, "RYAN - LEAD DEV", 150, 350, theme["secondary"], self.game.renderer.big_font)
+        self.game.renderer.draw_text(surface, "USER EXPERIENCE / FEATURE ENHANCEMENTS", 150, 390, theme["text"])
+        
+        self.game.renderer.draw_text(surface, "[ESC] RETURN", 100, 650, theme["secondary"])
+
+    def handle_input(self, event):
+        if event.type == pygame.KEYDOWN:
+            if event.key == pygame.K_ESCAPE:
+                self.play_sfx("back")
+                self.game.scene_manager.switch_to(TitleScene)

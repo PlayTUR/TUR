@@ -67,6 +67,12 @@ class GameScene(Scene):
         
         self.finished = False
         self.paused = False
+        self.failed = False
+        
+        # Health System
+        self.health = 100.0
+        self.max_health = 100.0
+        self.fail_anim = 0.0
 
     def on_exit(self):
         self.game.audio.stop()
@@ -96,8 +102,16 @@ class GameScene(Scene):
 
         if self.paused: return
 
-        if not self.game.audio.is_playing and not self.finished and not self.waiting_for_sync:
+        # Check if song finished naturally
+        music_playing = pygame.mixer.music.get_busy()
+        if not music_playing and not self.finished and not self.waiting_for_sync and not self.intro_active:
             self.finish_game()
+            return
+
+        if self.failed:
+            self.fail_anim += 1.0 / 60.0 * 2  # Approximating dt
+            if self.fail_anim >= 1.0:
+                self.finish_game(failed=True)
             return
             
         offset_ms = self.game.settings.get("audio_offset")
@@ -111,6 +125,7 @@ class GameScene(Scene):
         current_time = self.game.audio.get_position() - (offset_ms / 1000.0)
         self.game.renderer.update_effects()
         
+        
         # Pulse Calculation
         spb = 60.0 / self.bpm
         beat_prog = (current_time % spb) / spb 
@@ -122,7 +137,18 @@ class GameScene(Scene):
                 note['hit'] = True
                 self.break_combo()
                 self.misses += 1
+                self.health -= 15.0 # Miss penalty
                 self.game.renderer.add_hit_effect("MISS", note['lane'])
+
+        # Fail Check
+        if self.health <= 0:
+            self.health = 0
+            if not self.failed:
+                self.failed = True
+                self.game.audio.stop()
+                # Play glitch/fail sfx if exists
+                if hasattr(self.game.renderer, 'play_sfx'):
+                    self.game.renderer.play_sfx("error")
 
     # ... (Keep handle_input, toggle_pause, etc same) ...
     # RE-INCLUDE THEM TO BE SAFE since I am replacing huge chunk?
@@ -198,6 +224,9 @@ class GameScene(Scene):
         keys = self.game.settings.get("keybinds")
         if key not in keys: return
         lane = keys.index(key)
+        self.handle_hit_lane(lane)
+
+    def handle_hit_lane(self, lane, is_autoplay=False):
         self.game.renderer.key_states[lane] = True
         
         current_time = self.game.audio.get_position()
@@ -226,25 +255,28 @@ class GameScene(Scene):
             if min_diff < 0.05:
                 self.score += 300
                 self.perfects += 1
+                self.health = min(self.max_health, self.health + 5.0) # Heal on Perfect
                 self.game.renderer.add_hit_effect("PERFECT", lane, upscroll, hit_color)
                 self.combo += 1
             elif min_diff < 0.1:
                 self.score += 100
                 self.goods += 1
+                self.health = min(self.max_health, self.health + 2.0) # Small heal
                 self.game.renderer.add_hit_effect("GREAT", lane, upscroll, hit_color)
                 self.combo += 1
             else:
                 self.score += 50
                 self.bads += 1
+                self.health -= 5.0 # Bad penalty
                 self.game.renderer.add_hit_effect("BAD", lane, upscroll, (255, 50, 50)) # Miss/Bad stays Red
-                self.combo = 0 # Bad breaks combo? user said mania style, mania doesn't break on 50 usually but keeps combo low. Let's break for strictness now.
+                self.combo = 0 
             
             if self.combo > self.max_combo: self.max_combo = self.combo
             
     def break_combo(self):
         self.combo = 0
 
-    def finish_game(self):
+    def finish_game(self, failed=False):
         self.finished = True
         from scenes.result_scene import ResultScene
         self.game.scene_manager.switch_to(ResultScene, {
@@ -252,9 +284,11 @@ class GameScene(Scene):
             'max_combo': self.max_combo,
             'perfects': self.perfects,
             'goods': self.goods,
+            'bads': self.bads,
             'misses': self.misses,
             'song': self.song_name,
-            'difficulty': self.difficulty
+            'difficulty': self.difficulty,
+            'failed': failed or self.failed
         })
 
     def draw(self, surface):
@@ -270,6 +304,18 @@ class GameScene(Scene):
             self.game.renderer.draw_text(surface, "PRESS ESC TO QUIT", 400, 400, TERM_WHITE)
             return
 
+        if self.failed:
+            # Flashing Filter for Failure
+            if (pygame.time.get_ticks() // 100) % 2 == 0:
+                overlay = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT))
+                overlay.fill((255, 0, 0))
+                overlay.set_alpha(100)
+                surface.blit(overlay, (0, 0))
+            self.game.renderer.draw_text(surface, "SYSTEM_FAILURE_DETECTION", 250, 300, (255, 50, 50), self.game.renderer.big_font)
+            self.game.renderer.draw_text(surface, "KERNEL PANIC: UNRECOVERABLE_INPUT_DECAY", 270, 380, (255, 255, 255))
+            return
+
+
         speed = self.game.settings.get("speed")
         upscroll = self.game.settings.get("upscroll")
         
@@ -283,6 +329,16 @@ class GameScene(Scene):
         # HUD
         self.game.renderer.draw_text(surface, f"SCORE: {self.score}", 20, 20, TERM_WHITE)
         self.game.renderer.draw_text(surface, f"COMBO: {self.combo}", 20, 50, TERM_AMBER)
+        
+        # Health Bar
+        bar_w = 400
+        bar_h = 10
+        bar_x = (SCREEN_WIDTH - bar_w) // 2
+        bar_y = 70
+        pygame.draw.rect(surface, (50, 50, 50), (bar_x, bar_y, bar_w, bar_h))
+        hp_color = (0, 255, 100) if self.health > 30 else (255, 180, 0) if self.health > 15 else (255, 50, 50)
+        pygame.draw.rect(surface, hp_color, (bar_x, bar_y, int(bar_w * (self.health / 100.0)), bar_h))
+        pygame.draw.rect(surface, (200, 200, 200), (bar_x, bar_y, bar_w, bar_h), 1)
         
         # Draw Acc
         total_hits = self.perfects + self.goods + self.bads + self.misses
