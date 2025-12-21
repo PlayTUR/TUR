@@ -1,0 +1,30 @@
+{
+    "name": "WYIND",
+    "volume": 0.20000000000000004,
+    "speed": 900,
+    "keybinds": [
+        115,
+        100,
+        107,
+        108
+    ],
+    "resolution": [
+        1024,
+        768
+    ],
+    "upscroll": true,
+    "audio_offset": 0,
+    "note_shape": "BAR",
+    "note_col_1": [
+        255,
+        0,
+        150
+    ],
+    "note_col_2": [
+        0,
+        200,
+        255
+    ],
+    "theme": "CYBERPUNK",
+    "setup_complete": true
+}
