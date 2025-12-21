@@ -1,7 +1,7 @@
 {
-    "name": "DEV",
+    "name": "RYAN",
     "volume": 0.5000000000000001,
-    "speed": 800,
+    "speed": 900,
     "keybinds": [
         115,
         100,
@@ -16,16 +16,16 @@
     "audio_offset": 0,
     "note_shape": "BAR",
     "note_col_1": [
-        0,
-        255,
-        100
+        100,
+        150,
+        255
     ],
     "note_col_2": [
+        50,
         255,
-        180,
-        0
+        255
     ],
-    "theme": "TERMINAL",
+    "theme": "RETRO_BLUE",
     "setup_complete": true,
     "joy_binds": [
         0,
