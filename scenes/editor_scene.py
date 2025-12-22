@@ -11,14 +11,32 @@ class EditorScene(Scene):
         self.difficulty = params['difficulty']
         self.path = os.path.join("songs", self.song_name)
         
-        # Load existing data
-        self.beatmap = self.game.generator.get_beatmap(self.path, self.difficulty)
-        # We work on a copy logic? The generator caches it. We should probably reload or save explicitly.
-        # beatmap is a list of dicts. We can modify it in place and save logic later.
+        # Load map
+        map_data = self.game.generator.get_beatmap(self.path, self.difficulty)
         
-        self.game.audio.load_song(self.path)
+        if isinstance(map_data, list):
+            self.beatmap = map_data
+            audio_source = self.path
+        else:
+            self.beatmap = map_data.get('notes', [])
+            audio_source = map_data.get('audio_path', self.path)
+            
+        from core.utils import find_resource
+        resolved_audio = find_resource(audio_source, hint_dirs=["songs", os.path.dirname(self.path)])
+        
+        if resolved_audio:
+            try:
+                self.game.audio.load_song(resolved_audio)
+            except Exception as e:
+                print(f"EDITOR: Error loading audio: {e}")
+                self.audio_missing = True
+        else:
+            print(f"EDITOR: Audio file not found: {audio_source}")
+            self.audio_missing = True
+
         # Don't play yet, pause
         self.paused = True
+        self.audio_missing = False if resolved_audio else True # Ensure flag is set
         self.audio_pos = 0.0
         self.scroll_speed = 100 # Time scale for editor
         self.zoom = 100 # Pixels per second in editor view
@@ -27,6 +45,7 @@ class EditorScene(Scene):
         self.grid_snap = 0.25 # seconds
 
     def update(self):
+        if self.audio_missing: return
         if not self.paused:
             # We can't rely on audio.get_pos if we want precise scrub
             # But for playback we do.
@@ -37,6 +56,12 @@ class EditorScene(Scene):
     def draw(self, surface):
         surface.fill(BLACK)
         
+        if self.audio_missing:
+            self.game.renderer.draw_panel(surface, 300, 300, 400, 150, "SYSTEM ERROR")
+            self.game.renderer.draw_text(surface, "AUDIO FILE NOT FOUND", 320, 340, (255, 50, 50))
+            self.game.renderer.draw_text(surface, "[ESC] TO EXIT", 320, 380, (150, 150, 150))
+            return
+            
         # Draw Timeline
         center_x = SCREEN_WIDTH // 2
         
@@ -74,10 +99,13 @@ class EditorScene(Scene):
     def handle_input(self, event):
         if event.type == pygame.KEYDOWN:
             if event.key == pygame.K_ESCAPE:
-                self.game.audio.stop()
+                if self.game.audio.is_playing:
+                    self.game.audio.stop()
                 from scenes.menu_scenes import SongSelectScene
                 self.game.scene_manager.switch_to(SongSelectScene)
-            elif event.key == pygame.K_SPACE:
+            if self.audio_missing: return
+            
+            if event.key == pygame.K_SPACE:
                 self.toggle_playback()
             elif event.key == pygame.K_s:
                 self.save_map()
@@ -155,14 +183,63 @@ class EditorScene(Scene):
                 self.beatmap.sort(key=lambda x: x['time'])
 
     def save_map(self):
-        # We need to find the cache file corresponding to this song/diff
-        # Generator has the logic. We will hack it to allow saving.
-        # Or expose a save method in generator.
+        # Determine .tur path
+        if self.path.endswith('.tur'):
+            tur_path = self.path
+        else:
+            base = os.path.splitext(self.path)[0]
+            tur_path = f"{base}_{self.difficulty.lower()}.tur"
         
-        # Just use the generator's internal hash logic again
-        file_hash = self.game.generator._get_file_hash(self.path, self.difficulty)
-        cache_path = os.path.join(self.game.generator.cache_dir, f"{file_hash}.json")
+        # Get existing data if possible to preserve audio
+        audio_path_to_use = self.path
         
-        with open(cache_path, 'w') as f:
-            json.dump(self.beatmap, f)
-            print("Map Saved!")
+        try:
+            # Re-save using generator
+            # We need to construct the beatmap dict
+            beatmap_data = {
+                'bpm': getattr(self, 'bpm', 120),
+                'duration': getattr(self, 'duration', 180),
+                'notes': self.beatmap
+            }
+            
+            # If we are editing a .tur, we need to handle the embedded audio 
+            # save_tur will re-embed if we pass the extracted path
+            
+            # If self.path is a .tur, self.game.audio.current_song_path might be the extracted temp file?
+            # Actually EditorScene loads audio via load_song(self.path). 
+            # If self.path is .tur, load_song extracts it.
+            # But we don't know where it extracted it easily unless we check generator logic or if load_song updates something.
+            # Ideally get_beatmap returned 'audio_path'.
+            
+            # Let's rely on generator.save_tur to handle it if we pass the right things.
+            # If we pass audio_path=None, it might fail to embed.
+            
+            # Use the audio path from the currently loaded song if available
+            # We can get it from the generator if we re-query or store it.
+            
+            # Better approach:
+            # If self.path is .tur, we want to update it.
+            # generator.save_tur handles bundle creation.
+            
+            # We need the AUDIO file path to embed.
+            # If we are editing a .tur, the audio is inside it. 
+            # We should extract it to a temp path if not already, then pass it to save_tur.
+            
+            # Hack: Use get_beatmap again to get the audio_path
+            temp_map = self.game.generator.get_beatmap(self.path, self.difficulty)
+            real_audio_path = temp_map.get('audio_path', self.path)
+            
+            self.game.generator.save_tur(
+                beatmap_data, 
+                tur_path, 
+                audio_path=real_audio_path, 
+                difficulty=self.difficulty,
+                embed_audio=True,
+                delete_original=False # Don't delete our temp file or source
+            )
+            
+            print(f"Map Saved to {tur_path}")
+            self.game.renderer.draw_text(self.game.screen, "SAVED!", 10, 60, (0, 255, 0))
+            
+        except Exception as e:
+            print(f"Save error: {e}")

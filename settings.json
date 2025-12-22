@@ -1,7 +1,9 @@
 {
-    "name": "RYAN",
-    "volume": 0.5000000000000001,
-    "speed": 900,
+    "name": "WYIND",
+    "volume": 0.20000000000000004,
+    "music_volume": 0.7,
+    "sfx_volume": 1.0,
+    "speed": 1000,
     "keybinds": [
         115,
         100,
@@ -9,23 +11,26 @@
         108
     ],
     "resolution": [
-        1920,
-        1080
+        2560,
+        1440
     ],
-    "upscroll": false,
+    "fullscreen": true,
+    "vsync": true,
+    "crt_filter": true,
+    "upscroll": true,
     "audio_offset": 0,
     "note_shape": "BAR",
     "note_col_1": [
-        100,
-        150,
-        255
+        255,
+        50,
+        200
     ],
     "note_col_2": [
         50,
-        255,
+        200,
         255
     ],
-    "theme": "RETRO_BLUE",
+    "theme": "SYNTHWAVE",
     "setup_complete": true,
     "joy_binds": [
         0,
@@ -37,6 +42,23 @@
         4,
         5
     ],
-    "fullscreen": true,
-    "autoplay": false
+    "joy_deadzone": 1.3877787807814457e-17,
+    "screen_shake": 1.0,
+    "hit_sounds": true,
+    "miss_sounds": true,
+    "combo_sounds": true,
+    "visual_effects": true,
+    "last_tab": 0,
+    "bg_dim": 1.3877787807814457e-17,
+    "show_fps": 0,
+    "show_hold_ends": true,
+    "account_type": "REGISTERED",
+    "last_name_change": 1766480092.7715647,
+    "is_admin": true,
+    "discord_client_id": "123456789012345678",
+    "user_id": "73246434",
+    "auto_recreate_beatmaps": true,
+    "language": "EN",
+    "vim_mode": false,
+    "logged_in": true
 }

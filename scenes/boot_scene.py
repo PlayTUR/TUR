@@ -1,123 +1,242 @@
+"""
+Boot Scene - BIOS-style startup with retro aesthetics
+Press ENTER to skip at any time.
+"""
+
 import pygame
 import os
 from core.scene_manager import Scene
 from core.config import *
 import random
 
+
 class BootScene(Scene):
     def __init__(self, game):
         super().__init__(game)
         self.lines = []
-        self.max_lines = 20
-        self.timer = 0
-        self.step = 0
-        self.step = 0
         self.finished = False
+        self.skipped = False
         
-        self.sfx_boot = pygame.mixer.Sound("sfx/sfx_boot.wav") if os.path.exists("sfx/sfx_boot.wav") else None
-        if self.sfx_boot: self.sfx_boot.set_volume(0.4)
-            
-        self.sfx_type = pygame.mixer.Sound("sfx/sfx_type.wav") if os.path.exists("sfx/sfx_type.wav") else None
-        if self.sfx_type: self.sfx_type.set_volume(0.2)
+        # Load sounds (Lower Volume as requested)
+        self.sfx_boot = self._load_sfx("sfx/sfx_boot.wav", 0.2)
+        self.sfx_type = self._load_sfx("sfx/sfx_type.wav", 0.1)
+        self.sfx_hdd = self._load_sfx("sfx/sfx_hdd.wav", 0.1)
+        self.sfx_success = self._load_sfx("sfx/sfx_success.wav", 0.3)
         
-        self.sfx_hdd = pygame.mixer.Sound("sfx/sfx_hdd.wav") if os.path.exists("sfx/sfx_hdd.wav") else None
-        if self.sfx_hdd: self.sfx_hdd.set_volume(0.2)
-        
-        self.sfx_success = pygame.mixer.Sound("sfx/sfx_success.wav") if os.path.exists("sfx/sfx_success.wav") else None
-        if self.sfx_success: self.sfx_success.set_volume(0.5)
-        
-        # Fake BIOS Data
+        # RAM animation
         self.ram_kb = 0
-        self.total_ram = 64 * 1024 # 64 MB retro style
+        self.total_ram = 65536  # 64 MB
         
+        # Boot sequence with timing (Reverted to original BIOS flow)
         self.boot_steps = [
-            {"text": "TERMINAL BIOS v1.0.4 (c) 198X", "delay": 60, "sfx": "type"},
-            {"text": "CPU: MOTOROLA 68000 @ 8 MHz", "delay": 30, "sfx": "type"},
-            {"text": "CHECKING MEMORY...", "action": "RAM", "delay": 10, "sfx": "hdd"}, 
-            {"text": "MEMORY OK.", "delay": 30, "sfx": "type"},
-            {"text": "DETECTING DRIVES...", "delay": 40, "sfx": "hdd"},
-            {"text": "  DRIVE A: TUR_DISK SYSTEM", "delay": 20, "sfx": "type"},
-            {"text": "  DRIVE B: NONE", "delay": 10, "sfx": "type"},
-            {"text": "INITIALIZING VIDEO... VGA DETECTED", "delay": 30, "sfx": "type"},
-            {"text": "LOADING KERNEL...", "delay": 50, "sfx": "hdd"},
-            {"text": "BOOT SEQUENCE COMPLETE.", "delay": 30, "sfx": "success"},
-            {"text": "", "delay": 30},
-            {"text": "WELCOME TO TUR SYSTEM", "delay": 10, "sfx": "type"}, 
-            {"text": "", "delay": 120}, # Explicit wait time for user to read
-            {"text": "ENTERING SHELL...", "delay": 30, "sfx": "type"},
+            {"text": "", "delay": 20},
+            {"text": "╔══════════════════════════════════════════════════════╗", "delay": 5, "color": "cyan"},
+            {"text": "║          TUR BIOS v2.0.4 (c) 2024 TUR CORP            ║", "delay": 10, "color": "cyan"},
+            {"text": "╚══════════════════════════════════════════════════════╝", "delay": 20, "color": "cyan"},
+            {"text": "", "delay": 10},
+            {"text": "CPU: Synthetic Neural Processor @ 4.0 GHz", "delay": 15, "sfx": "type"},
+            {"text": "FPU: Integrated Rhythm Coprocessor", "delay": 10, "sfx": "type"},
+            {"text": "", "delay": 5},
+            {"text": "Testing Memory...", "action": "RAM", "delay": 2, "sfx": "hdd"},
+            {"text": "", "delay": 20},
+            {"text": "Detecting Storage...", "delay": 25, "sfx": "hdd"},
+            {"text": "  ├─ /dev/tur0: TUR System Disk [128GB] ✓", "delay": 10, "color": "green"},
+            {"text": "  └─ /dev/song0: Song Library [∞]    ✓", "delay": 15, "color": "green"},
+            {"text": "", "delay": 10},
+            {"text": "Initializing Subsystems...", "delay": 20, "sfx": "hdd"},
+            {"text": "  ├─ Audio Engine.......... OK", "delay": 8, "color": "green"},
+            {"text": "  ├─ Video Renderer........ OK", "delay": 8, "color": "green"},
+            {"text": "  ├─ Input Handler......... OK", "delay": 8, "color": "green"},
+            {"text": "  └─ Network Module........ OK", "delay": 12, "color": "green"},
+            {"text": "", "delay": 10},
+            {"text": "Loading Songs...", "action": "SONGS", "delay": 2, "sfx": "hdd"},
+            {"text": "", "delay": 15},
+            {"text": "════════════════════════════════════════════════════════", "delay": 10, "color": "dim"},
+            {"text": "  BOOT SUCCESSFUL - LAUNCHING TUR SYSTEM", "delay": 20, "sfx": "success", "color": "primary"},
+            {"text": "════════════════════════════════════════════════════════", "delay": 10, "color": "dim"},
+            {"text": "", "delay": 40},
             {"text": "", "action": "DONE", "delay": 10}
         ]
         
         self.current_step_idx = 0
         self.wait_time = 0
-        
-    def draw(self, surface):
-        surface.fill((0, 0, 0))
-        
-        # Draw all accumulated lines
-        start_y = 20
-        for i, line in enumerate(self.lines):
-            self.game.renderer.draw_text(surface, line, 20, start_y + i * 25, (200, 200, 200), self.game.renderer.font)
-            
-        # Draw RAM counter if active
-        if self.boot_steps[self.current_step_idx].get("action") == "RAM":
-            self.game.renderer.draw_text(surface, f"{self.ram_kb} KB OK", 20, start_y + len(self.lines) * 25, (200, 200, 200), self.game.renderer.font)
+        self.blink_timer = 0
+        self.song_load_status = ""
+        self.song_load_done = False
+    
+    def _load_sfx(self, path, volume):
+        if os.path.exists(path):
+            try:
+                snd = pygame.mixer.Sound(path)
+                snd.set_volume(volume)
+                return snd
+            except: return None
+        return None
 
-        # Blinking Cursor at bottom
-        if (pygame.time.get_ticks() // 500) % 2 == 0:
-            cursor_y = start_y + len(self.lines) * 25
-            if self.boot_steps[self.current_step_idx].get("action") == "RAM": cursor_y += 25
-            pygame.draw.rect(surface, (200, 200, 200), (20, cursor_y, 10, 20))
+    def draw(self, surface):
+        # Dark background with subtle gradient
+        surface.fill((8, 12, 18))
+        
+        # Scanline effect
+        for y in range(0, 768, 4):
+            pygame.draw.line(surface, (5, 8, 12), (0, y), (1024, y))
+        
+        theme = self.game.renderer.get_theme()
+        
+        # Draw all lines with color
+        y = 40
+        for line_data in self.lines:
+            if isinstance(line_data, dict):
+                text = line_data.get("text", "")
+                color_key = line_data.get("color", "text")
+            else:
+                text = line_data
+                color_key = "text"
+            
+            # Color mapping
+            if color_key == "cyan":
+                color = (50, 200, 255)
+            elif color_key == "green":
+                color = (50, 255, 100)
+            elif color_key == "dim":
+                color = (80, 80, 80)
+            elif color_key == "primary":
+                color = theme["primary"]
+            else:
+                color = (180, 180, 180)
+            
+            self.game.renderer.draw_text(surface, text, 50, y, color)
+            y += 28
+        
+        # RAM counter animation
+        if self.current_step_idx < len(self.boot_steps):
+            if self.boot_steps[self.current_step_idx].get("action") == "RAM":
+                pct = int(100 * self.ram_kb / self.total_ram)
+                bar_w = int(300 * self.ram_kb / self.total_ram)
+                
+                pygame.draw.rect(surface, (30, 30, 30), (50, y, 300, 20))
+                pygame.draw.rect(surface, (50, 255, 100), (50, y, bar_w, 20))
+                self.game.renderer.draw_text(surface, f"{self.ram_kb} KB [{pct}%]", 370, y, (150, 150, 150))
+        
+        # Song loading status
+        if self.song_load_status:
+            self.game.renderer.draw_text(surface, f"  {self.song_load_status}", 50, y - 30, (150, 200, 150))
+        
+        # Blinking cursor
+        self.blink_timer = (self.blink_timer + 1) % 60
+        if self.blink_timer < 30:
+            pygame.draw.rect(surface, (200, 200, 200), (50, y + 10, 12, 22))
+        
+        # Skip hint
+        from core.localization import get_text
+        skip_txt = f"{get_text(self.game, '[ENTER] Skip')}"
+        self.game.renderer.draw_text(surface, skip_txt, 850, 700, (60, 60, 80))
 
     def update(self):
         if self.finished:
             return
-
+        
         item = self.boot_steps[self.current_step_idx]
         
-        # RAM Animation Logic
+        # RAM animation
         if item.get("action") == "RAM":
-            self.ram_kb += 1024
+            self.ram_kb += 2048
             if self.ram_kb >= self.total_ram:
-                self.lines.append("CHECKING MEMORY... OK")
-                self.lines.append(f"{self.total_ram} KB OK")
+                self.lines.append({"text": f"Memory Test: {self.total_ram} KB OK", "color": "green"})
                 self.advance_step()
             return
-            
-        # Standard Delay Logic
+        
+        # SONGS loading action
+        if item.get("action") == "SONGS":
+            if not self.song_load_done:
+                self._start_song_loading()
+                return
+            else:
+                # Done loading, show result
+                self.lines.append({"text": f"  └─ Songs loaded: {self.songs_loaded} files", "color": "green"})
+                self.advance_step()
+                return
+        
+        # Delay
         self.wait_time += 1
         
-        # Play Start Beep on first frame
+        # Play boot sound on first step
         if self.current_step_idx == 0 and self.wait_time == 1:
-            if self.sfx_boot: self.sfx_boot.play()
-            
+            if self.sfx_boot:
+                self.sfx_boot.play()
+        
         if self.wait_time >= item["delay"]:
             if item.get("action") == "DONE":
                 self.finish_boot()
             else:
                 txt = item.get("text", "")
+                color = item.get("color", "text")
+                
                 if txt:
-                     self.lines.append(txt)
-                     
-                     # SFX Trigger
-                     sfx = item.get("sfx")
-                     if sfx == "type" and self.sfx_type: self.sfx_type.play()
-                     elif sfx == "hdd" and self.sfx_hdd: self.sfx_hdd.play()
-                     elif sfx == "success" and self.sfx_success: self.sfx_success.play()
-                     
+                    self.lines.append({"text": txt, "color": color})
+                    
+                    sfx = item.get("sfx")
+                    if sfx == "type" and self.sfx_type:
+                        self.sfx_type.play()
+                    elif sfx == "hdd" and self.sfx_hdd:
+                        self.sfx_hdd.play()
+                    elif sfx == "success" and self.sfx_success:
+                        self.sfx_success.play()
+                
                 self.advance_step()
 
     def advance_step(self):
         self.current_step_idx += 1
         self.wait_time = 0
+    
+    def _start_song_loading(self):
+        """Start song conversion and loading in background"""
+        if hasattr(self, '_song_thread_started'):
+            return
+        self._song_thread_started = True
+        self.songs_loaded = 0
         
+        import threading
+        def load_thread():
+            try:
+                from core.song_converter import auto_convert_songs, preload_all_songs
+                
+                # Convert audio and .osu files
+                def update_status(msg):
+                    self.song_load_status = msg
+                
+                auto_convert_songs("songs", "MEDIUM", callback=update_status)
+                
+                # Preload all .tur files
+                songs = preload_all_songs("songs", callback=update_status)
+                self.songs_loaded = len(songs)
+                
+                # Store in game for later use
+                self.game.song_cache = songs
+                
+            except Exception as e:
+                print(f"Song loading error: {e}")
+                self.songs_loaded = 0
+            
+            self.song_load_done = True
+            self.song_load_status = ""
+        
+        threading.Thread(target=load_thread, daemon=True).start()
+    
+    def handle_input(self, event):
+        if event.type == pygame.KEYDOWN:
+            if event.key == pygame.K_RETURN:
+                self.finish_boot()
+
     def finish_boot(self):
+        if self.finished:
+            return
         self.finished = True
-        # Decide next scene
+        
+        from scenes.menu_scenes import TitleScene
         if not self.game.settings.get("setup_complete"):
             from scenes.setup_scene import SetupScene
             self.game.scene_manager.switch_to(SetupScene)
         else:
-            from scenes.menu_scenes import TitleScene
             self.game.scene_manager.switch_to(TitleScene)
             self.game.play_menu_bgm()

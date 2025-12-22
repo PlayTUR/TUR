@@ -1,115 +1,124 @@
+"""
+Story Generator - Creates themed campaigns with ASCII cutscenes
+"""
+
 import random
 import os
-import json
 from core.music_generator import MusicGenerator
+
 
 class StoryGenerator:
     def __init__(self):
-        # ... (Plots and Arts kept same)
-        self.plots = [
-            "Intercept encrypted signal.",
-            "Breach the mainframe.",
-            "Defend the datastream.",
-            "Neutralize the virus.",
-            "Upload the payload."
-        ]
-        
-        self.arts = [
-            [
-                "   .---.",
-                "  /     \\",
-                " |  (O)  |",
-                "  \\     /",
-                "   `---`"
-            ],
-            [
-                " [DATA]",
-                " 010101",
-                " 101010"
-            ],
-            [
-                "  /\\_/\\",
-                " ( o.o )",
-                "  > ^ <"
-            ],
-            [
-                " .--.",
-                " |__| .-------.",
-                " |=.| |.-----.|",
-                " |--| ||     ||",
-                " |  | |'-----'|",
-                " '  ' '-------'"
-            ]
+        # Themed chapters with story and ASCII art
+        self.chapters = [
+            {
+                "title": "INITIALIZATION",
+                "subtitle": "The journey begins...",
+                "song_key": "story_intro",
+                "difficulty": "EASY",
+                "briefing": [
+                    "CIPHER: Agent, welcome to the network.",
+                    "CIPHER: Your first task is simple - calibrate your systems.",
+                    "CIPHER: Follow the rhythm protocol to synchronize.",
+                    "AGENT: Understood. Beginning calibration sequence."
+                ],
+                "objective": "Complete the calibration sequence.",
+                "art": [
+                    "  ╔══════════════╗",
+                    "  ║  SYSTEM v1.0 ║",
+                    "  ║   [ONLINE]   ║",
+                    "  ║  ████░░░░ 42%║",
+                    "  ╚══════════════╝"
+                ]
+            },
+            {
+                "title": "BREACH PROTOCOL",
+                "subtitle": "First contact with the enemy",
+                "song_key": "story_action",
+                "difficulty": "MEDIUM",
+                "briefing": [
+                    "NEXUS: Hostile firewall detected ahead.",
+                    "NEXUS: We need you to breach their defenses.",
+                    "CIPHER: Use aggressive tempo - match their encryption.",
+                    "AGENT: Initiating breach sequence now."
+                ],
+                "objective": "Break through the enemy firewall.",
+                "art": [
+                    "   ░▒▓█ FIREWALL █▓▒░",
+                    "   ╔═══════════════╗",
+                    "   ║ ▓▓▓▓░░░░░░░░░ ║",
+                    "   ║   ENCRYPTED   ║",
+                    "   ╚═══════════════╝"
+                ]
+            },
+            {
+                "title": "DATA EXTRACTION",
+                "subtitle": "The core is exposed",
+                "song_key": "story_boss",
+                "difficulty": "HARD",
+                "briefing": [
+                    "VORTEX: The mainframe is vulnerable.",
+                    "VORTEX: Extract the data before they detect us.",
+                    "CIPHER: Warning - security escalation imminent.",
+                    "AGENT: I'll handle it. Starting extraction."
+                ],
+                "objective": "Extract critical data from the mainframe.",
+                "art": [
+                    "      ┌─────────┐",
+                    "    ┌─┤MAINFRAME├─┐",
+                    "    │ └────┬────┘ │",
+                    "  ┌─┴─┐  ┌─┴─┐  ┌─┴─┐",
+                    "  │ A │  │ B │  │ C │",
+                    "  └───┘  └───┘  └───┘"
+                ]
+            }
         ]
         
     def generate_campaign(self, song_dir="songs"):
-        """
-        Generates a sequence of levels (Campaign).
-        """
-        # Ensure songs exist in story_music folder
+        """Generate story campaign with songs"""
         story_dir = "story_music"
-        gen = MusicGenerator()
-        new_songs = gen.generate_all(story_dir)
+        
+        # Ensure story music exists
+        if not os.path.exists(story_dir):
+            os.makedirs(story_dir)
+        
+        try:
+            gen = MusicGenerator()
+            gen.generate_all(story_dir)
+        except Exception as e:
+            print(f"Music generation warning: {e}")
         
         # Find available songs
-        songs = []
+        songs = {}
         if os.path.exists(story_dir):
-            songs = [os.path.join(story_dir, f) for f in os.listdir(story_dir) if f.lower().endswith(('.mp3', '.wav', '.ogg'))]
-            # Prefer generated ones for story order?
-            # Sort to put story_intro first, then action, then boss
+            for f in os.listdir(story_dir):
+                if f.lower().endswith(('.mp3', '.wav', '.ogg')):
+                    stem = os.path.splitext(f)[0]
+                    songs[stem] = os.path.join(story_dir, f)
+        
+        # Build chapters with song assignments
+        campaign_chapters = []
+        for ch in self.chapters:
+            song_key = ch["song_key"]
+            song_path = songs.get(song_key)
             
-        # Sort logic: intro -> action -> boss -> others
-        # Now using full paths, so we check path basename (ignoring extension)
-        story_order = ["story_intro", "story_action", "story_boss"]
-        sorted_songs = []
-        
-        # Create a map for easier sorting: Stem -> List of full paths (in case of dupes?)
-        # Let's assume one file per stem.
-        song_map = {}
-        rest = []
-        
-        for p in songs:
-             base = os.path.basename(p)
-             stem = os.path.splitext(base)[0]
-             if stem in story_order:
-                 song_map[stem] = p
-             else:
-                 rest.append(p)
-        
-        for key in story_order:
-            if key in song_map:
-                sorted_songs.append(song_map[key])
-                
-        sorted_songs.extend(rest) 
-        songs = sorted_songs
-        
-        if not songs:
-            songs = [os.path.join(story_dir, "story_intro.wav")] # Fallback
+            if not song_path and songs:
+                song_path = list(songs.values())[0]
+            elif not song_path:
+                song_path = "story_music/story_intro.wav"
             
-        campaign = {
-            "title": f"OPERATION {random.randint(100, 999)}",
-            "chapters": []
+            campaign_chapters.append({
+                "title": ch["title"],
+                "subtitle": ch.get("subtitle", ""),
+                "song": song_path,
+                "difficulty": ch["difficulty"],
+                "text": " ".join(ch.get("briefing", [])),
+                "briefing": ch.get("briefing", []),
+                "objective": ch.get("objective", "Complete the mission."),
+                "art": ch.get("art", [])
+            })
+        
+        return {
+            "title": "OPERATION PHANTOM",
+            "chapters": campaign_chapters
         }
-        
-        # Create Chapters
-        num_chapters = min(len(songs), 5)
-        
-        for i in range(num_chapters):
-            song = songs[i]
-            diff = ["EASY", "MEDIUM", "HARD", "EXTREME"][min(i, 3)] 
-            
-            plot = random.choice(self.plots)
-            art = random.choice(self.arts)
-            
-            chapter = {
-                "id": i + 1,
-                "title": f"SEQUENCE {i+1}",
-                "text": f"OBJECTIVE: {plot} AUTHORIZATION ALPHA.",
-                "song": song,
-                "difficulty": diff,
-                "mode": "story",
-                "art": art
-            }
-            campaign["chapters"].append(chapter)
-            
-        return campaign

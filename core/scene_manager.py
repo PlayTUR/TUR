@@ -60,26 +60,55 @@ class SceneManager:
     def __init__(self, game):
         self.game = game 
         self.current_scene = None
+        self.scene_stack = [] # Stack for overlays (Admin, etc)
         
         # Transition State
         self.overlay = pygame.Surface((1024, 768)) 
         self.overlay.fill((0,0,0))
         self.transition_alpha = 0
         self.transition_state = "IDLE" # IDLE, FADE_OUT, FADE_IN
+        self.transitioning = False
         
-        # Matrix Effects
+        # Matrix Effects (100 drops for full visual density)
         self.matrix_drops = []
         import random
-        for i in range(200): # 200 drops
+        for i in range(100): # Original count for full effect
              self.matrix_drops.append({
                  'x': random.randint(0, 1024),
                  'y': random.randint(-800, 0),
-                 'speed': random.randint(10, 30),
+                 'speed': random.randint(10, 30), # Original speed
                  'char': chr(random.randint(33, 126)),
-                 'len': random.randint(5, 15)
+                 'len': random.randint(8, 18) # Original trail length
              })
+        
+        # Pre-render character cache to FIX LAG
+        self._char_cache = {}
+        self._fade_surface = pygame.Surface((1024, 768)) # Cached surface for performance
+        self._render_matrix_cache()
+
+    def _render_matrix_cache(self):
+        """Pre-render all matrix chars in varied transparencies to avoid font.render lag"""
+        theme = self.game.renderer.get_theme()
+        prim = theme["primary"]
+        font = self.game.renderer.font
+        
+        # We cache: (char, color_index) -> Surface
+        # color_index 0 = Head (White), 1..N = Fade trail
+        for c_code in range(33, 127):
+            char = chr(c_code)
+            # Head
+            self._char_cache[(char, 0)] = font.render(char, False, (255, 255, 255)).convert_alpha()
+            
+            # Trail (Pre-calculate 10 fade steps)
+            for i in range(1, 11):
+                factor = max(0.1, 1.0 - (i / 10))
+                col = (int(prim[0] * factor), int(prim[1] * factor), int(prim[2] * factor))
+                self._char_cache[(char, i)] = font.render(char, False, col).convert_alpha()
 
     def switch_to(self, scene_class, params=None):
+        # Clear stack on full switch
+        self.scene_stack = []
+        
         if self.current_scene is None:
             self.current_scene = scene_class(self.game)
             self.current_scene.on_enter(params)
@@ -97,23 +126,45 @@ class SceneManager:
         for d in self.matrix_drops:
             d['y'] = random.randint(-800, -100)
 
+    def push_scene(self, scene_class, params=None):
+        """Push a new scene on top of the current one (Pause current)"""
+        if self.current_scene:
+            self.scene_stack.append(self.current_scene)
+        
+        # No transition for push (instant overlay)
+        self.current_scene = scene_class(self.game)
+        self.current_scene.on_enter(params)
+        
+    def pop_scene(self):
+        """Return to the previous scene in the stack"""
+        if self.current_scene:
+            self.current_scene.on_exit()
+            
+        if self.scene_stack:
+            self.current_scene = self.scene_stack.pop()
+            # self.current_scene.on_resume()? If we had it.
+        else:
+            # Fallback if empty
+            from scenes.menu_scenes import TitleScene
+            self.switch_to(TitleScene)
+
     def handle_input(self, event):
         if self.current_scene and not self.transitioning:
             self.current_scene.handle_input(event)
 
     def update(self):
         if self.transitioning:
-            # Update drops (Visuals always run during transition)
+            # Update drops
             import random
             for d in self.matrix_drops:
-                d['y'] += d['speed'] * 2 # Faster drops for intensity
+                d['y'] += d['speed'] * 2 # Original speed
                 if d['y'] > 768:
                     d['y'] = random.randint(-100, 0)
                     d['x'] = random.randint(0, 1024)
 
             # State Machine
             if self.transition_state == "FADE_OUT":
-                self.transition_alpha += 10
+                self.transition_alpha += 10 # Original fade rate
                 if self.transition_alpha >= 255:
                     self.transition_alpha = 255
                     # Swap
@@ -122,11 +173,9 @@ class SceneManager:
                     self.current_scene.on_enter(self.next_params)
                     # Switch to Fade In
                     self.transition_state = "FADE_IN"
-                    # Reset drops for the fade in part? 
-                    # Keep them falling continuously for seamlessness
 
             elif self.transition_state == "FADE_IN":
-                self.transition_alpha -= 10
+                self.transition_alpha -= 10 # Original fade rate
                 if self.transition_alpha <= 0:
                     self.transition_alpha = 0
                     self.transitioning = False
@@ -140,42 +189,29 @@ class SceneManager:
             self.current_scene.draw(surface)
             
         if self.transitioning:
-            # Draw Matrix Rain Overlay
-            fade = pygame.Surface((1024, 768))
-            fade.set_alpha(self.transition_alpha)
-            fade.fill(self.game.renderer.get_theme()["bg"]) # Use theme BG
-            surface.blit(fade, (0, 0))
+            # OPTIMIZED: Reuse cached fade surface
+            self._fade_surface.fill(self.game.renderer.get_theme()["bg"])
+            self._fade_surface.set_alpha(self.transition_alpha)
+            surface.blit(self._fade_surface, (0, 0))
             
-            drop_alpha_mult = self.transition_alpha / 255.0
+            # Skip matrix if alpha too low (nothing visible anyway)
+            if self.transition_alpha < 20:
+                return
             
-            font = self.game.renderer.font
-            
-            # Theme colors
-            theme = self.game.renderer.get_theme()
-            prim = theme["primary"] 
-            
+            # Draw matrix drops (OPTIMIZED: Skip off-screen early)
             for d in self.matrix_drops:
-                # Draw trail
+                base_y = d['y']
+                # Early skip if entire trail is off-screen
+                if base_y < -(d['len'] * 15) or base_y > 768 + 50:
+                    continue
+                    
                 for i in range(d['len']):
-                    y = d['y'] - i * 15
-                    if y < 0 or y > 768: continue
+                    y = base_y - i * 15
+                    if y < -20 or y > 780: continue
                     
-                    # Gradient based on primary color
-                    if i == 0: 
-                        # Head is bright white/tinted
-                        base_col = (255, 255, 255)
-                    else: 
-                        # Trail fades to primary
-                        factor = max(0, 1.0 - (i / d['len'])) # 1.0 to 0.0
-                        base_col = (
-                            int(prim[0] * factor), 
-                            int(prim[1] * factor), 
-                            int(prim[2] * factor)
-                        )
+                    # Use Character Cache
+                    cache_idx = 0 if i == 0 else min(10, i)
+                    cache_key = (d['char'], cache_idx)
                     
-                    if max(base_col) < 20: continue
-                    
-                    if drop_alpha_mult < 0.1: continue
-                    
-                    txt = font.render(d['char'], False, base_col)
-                    surface.blit(txt, (d['x'], int(y)))
+                    if cache_key in self._char_cache:
+                        surface.blit(self._char_cache[cache_key], (d['x'], int(y)))

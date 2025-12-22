@@ -1,6 +1,8 @@
 import pygame
 import os
 import time
+import sys
+import platform
 from core.renderer import PygameRenderer
 from core.scene_manager import SceneManager
 from scenes.menu_scenes import TitleScene
@@ -10,30 +12,27 @@ from core.beatmap_generator import BeatmapGenerator
 from core.network_manager import NetworkManager
 from core.score_manager import ScoreManager
 from core.config import *
-import sys
+
+# Platform-specific fixes BEFORE pygame.init()
+if platform.system() == "Linux":
+    # Fix for Hyprland/Wayland/tiling WM flickering
+    # These environment variables help stabilize the window
+    os.environ['SDL_VIDEO_X11_WMCLASS'] = "tur"
+    os.environ['SDL_VIDEO_MINIMIZE_ON_FOCUS_LOSS'] = "0"
+    
+    # Check if running on Wayland with XWayland or native Wayland
+    session_type = os.environ.get('XDG_SESSION_TYPE', '')
+    if session_type == 'wayland':
+        # Use X11 backend for better stability on Hyprland
+        os.environ['SDL_VIDEODRIVER'] = 'x11'
+    
+    # Hyprland-specific: Request floating window via SDL hint
+    # This prevents tiling issues and flickering
+    os.environ['SDL_VIDEO_X11_NET_WM_BYPASS_COMPOSITOR'] = "0"
 
 # Main Pygame Entry Point
 class Game:
     def __init__(self):
-        # Linux/Tiling WM Stability + Hyprland/NVIDIA Fixes (skip on Windows)
-        if sys.platform != "win32":
-            os.environ['SDL_VIDEO_X16_WMCLASS'] = "tur"
-            
-            # Force X11 backend (more stable than Wayland for pygame)
-            os.environ['SDL_VIDEODRIVER'] = "x11"
-            
-            # NVIDIA/Wayland compositor fixes
-            os.environ['__GL_SYNC_TO_VBLANK'] = "1"
-            os.environ['__GL_GSYNC_ALLOWED'] = "0"
-            os.environ['__GL_VRR_ALLOWED'] = "0"
-            
-            # Disable compositor bypass (prevents flickering)
-            os.environ['SDL_VIDEO_X11_NET_WM_BYPASS_COMPOSITOR'] = "0"
-            
-            # Double buffering for smoother rendering
-            os.environ['SDL_RENDER_DRIVER'] = "opengl"
-            os.environ['SDL_HINT_RENDER_VSYNC'] = "1"
-        
         pygame.init()
         pygame.mixer.init()
         
@@ -60,8 +59,13 @@ class Game:
 
         # Modules
         self.renderer = PygameRenderer(self.virtual_w, self.virtual_h)
+        self.renderer.game = self # Inject ASAP for theme access
         self.audio = AudioManager()
         self.score_manager = ScoreManager()
+        from core.leaderboard_manager import LeaderboardManager
+        self.leaderboard_manager = LeaderboardManager(self)
+        from core.discord_manager import DiscordRPCManager
+        self.discord = DiscordRPCManager(self)
         self.generator = BeatmapGenerator()
         self.network = NetworkManager()
         self.scene_manager = SceneManager(self)
@@ -71,9 +75,6 @@ class Game:
         self.joysticks = [pygame.joystick.Joystick(i) for i in range(pygame.joystick.get_count())]
         for j in self.joysticks: j.init()
         print(f"DEBUG: Controllers Found: {len(self.joysticks)}")
-        
-        # Dependency Injection
-        self.renderer.game = self
         
         vol = self.settings.get("volume")
         pygame.mixer.music.set_volume(vol)
@@ -88,6 +89,11 @@ class Game:
         # System State
         self.shutting_down = False
         self.shutdown_alpha = 0
+        self.current_bgm_title = ""
+        
+        # Tools
+        from core.performance_monitor import PerformanceMonitor
+        self.monitor = PerformanceMonitor(self)
 
     def run(self):
         # Always Start with Boot Sequence
@@ -109,6 +115,7 @@ class Game:
             # Events
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
+                    self.discord.close()
                     self.running = False
                 elif event.type == pygame.VIDEORESIZE:
                     if self.flags & pygame.RESIZABLE:
@@ -116,6 +123,10 @@ class Game:
                 elif event.type == pygame.KEYDOWN:
                     if event.key == pygame.K_F11:
                          pygame.display.toggle_fullscreen()
+                    elif event.key == pygame.K_a and (pygame.key.get_mods() & pygame.KMOD_CTRL) and (pygame.key.get_mods() & pygame.KMOD_SHIFT):
+                         if self.settings.get("is_admin"):
+                             from scenes.admin_scene import AdminScene
+                             self.scene_manager.push_scene(AdminScene)
                     else:
                         self.handle_input(event) 
                 
@@ -230,6 +241,13 @@ class Game:
                 fade.set_alpha(self.shutdown_alpha)
                 self.screen.blit(fade, (0,0))
             
+            # Draw Performance Overlay
+            self.monitor.update()
+            self.monitor.draw(self.screen)
+            
+            # Universal music update
+            self.update_music()
+            
             pygame.display.flip()
             
         pygame.quit()
@@ -246,39 +264,116 @@ class Game:
     def play_menu_bgm(self):
         # 1. Gather files
         mm_dir = "mainmenu_music"
-        if not os.path.exists(mm_dir): os.makedirs(mm_dir)
+        s_dir = "songs"
         
+        # Explicit priority themes
+        themes = []
+        possible_themes = ["song1.mp3", "song2.mp3"]
+        
+        for t in possible_themes:
+            # Check songs dir first
+            p = os.path.join(s_dir, t)
+            if os.path.exists(p):
+                themes.append(p)
+            else:
+                # Check mainmenu dir
+                p = os.path.join(mm_dir, t)
+                if os.path.exists(p):
+                     themes.append(p)
+        
+        # Other menu music
         mm_files = []
         if os.path.exists(mm_dir):
-            mm_files = [os.path.join(mm_dir, f) for f in os.listdir(mm_dir) if f.lower().endswith(('.mp3', '.wav', '.ogg'))]
+            mm_files = [os.path.join(mm_dir, f) for f in os.listdir(mm_dir) 
+                       if f.lower().endswith(('.mp3', '.wav', '.ogg')) and f.lower() not in possible_themes]
             mm_files.sort()
             
+        # Other songs
         song_files = []
-        s_dir = "songs"
         if os.path.exists(s_dir):
-            song_files = [os.path.join(s_dir, f) for f in os.listdir(s_dir) if f.lower().endswith(('.mp3', '.wav', '.ogg'))]
-            song_files.sort()
+            song_files = [os.path.join(s_dir, f) for f in os.listdir(s_dir) 
+                         if f.lower().endswith(('.mp3', '.wav', '.ogg')) and f.lower() not in possible_themes]
+            import random
+            random.shuffle(song_files)
             
-        self.menu_playlist = mm_files + song_files
+        self.menu_playlist = themes + mm_files + song_files
         self.playlist_index = 0
         
         if self.menu_playlist:
-            self.play_playlist_track()
+            # If we are already playing something from the list, don't restart
+            # If we are already playing something from the list, don't restart
+            if pygame.mixer.music.get_busy():
+                 return
+            self.play_playlist_track(fade_ms=2000)
             
-    def play_playlist_track(self):
+    def play_playlist_track(self, fade_ms=0):
         if not self.menu_playlist: return
         path = self.menu_playlist[self.playlist_index]
-        self.audio.load_song(path)
-        pygame.mixer.music.play(0) 
-        self.playlist_index = (self.playlist_index + 1) % len(self.menu_playlist)
+        
+        from core.utils import find_resource
+        resolved_path = find_resource(path, hint_dirs=["mainmenu_music", "songs"])
+        
+        if not resolved_path:
+            print(f"WARNING: Menu track not found: {path}. Skipping...")
+            self.playlist_index = (self.playlist_index + 1) % len(self.menu_playlist)
+            return
 
+        self.audio.load_song(resolved_path)
+        pygame.mixer.music.play(0, fade_ms=fade_ms) 
+        
+        # Determine Title
+        visible_fname = os.path.basename(resolved_path)
+        lower_fname = visible_fname.lower()
+        
+        if lower_fname == "song1.mp3":
+            self.current_bgm_title = "TUR Main Menu Theme - Wyind"
+        elif lower_fname == "song2.mp3":
+            self.current_bgm_title = "TUR Main Menu Theme (ALT) - Wyind"
+        elif lower_fname == "turtherhythm.mp3":
+            self.current_bgm_title = "TUR The Rhythm! - Wyind"
+        else:
+            # Check if it's from 'songs' dir
+            if "songs" in os.path.dirname(path):
+                # Try to read metadata
+                try:
+                    import eyed3
+                    audiofile = eyed3.load(path)
+                    if audiofile and audiofile.tag:
+                        artist = audiofile.tag.artist or "Unknown"
+                        title = audiofile.tag.title or os.path.splitext(visible_fname)[0]
+                        self.current_bgm_title = f"{title} - {artist}"
+                    else:
+                         self.current_bgm_title = os.path.splitext(visible_fname)[0]
+                except:
+                     self.current_bgm_title = os.path.splitext(visible_fname)[0]
+            else:
+                # Main menu music -> just filename
+                self.current_bgm_title = os.path.splitext(visible_fname)[0]
+
+        self.playlist_index = (self.playlist_index + 1) % len(self.menu_playlist)
+        
     def update_music(self):
         from scenes.game_scene import GameScene
         if isinstance(self.scene_manager.current_scene, GameScene): return
 
         if not pygame.mixer.music.get_busy():
             if self.menu_playlist:
-                self.play_playlist_track()
+                self.play_playlist_track(fade_ms=0) # No fade for next tracks
+
+    def next_menu_track(self):
+        """Manually skip to next track"""
+        if self.menu_playlist:
+            # Note: play_playlist_track increments index AFTER loading
+            # So if we want to SKIP, we just call it.
+            self.play_playlist_track(fade_ms=500)
+
+    def shuffle_menu_playlist(self):
+        """Shuffle the current menu playlist and restart play"""
+        if self.menu_playlist:
+            import random
+            random.shuffle(self.menu_playlist)
+            self.playlist_index = 0
+            self.play_playlist_track(fade_ms=500)
 
 if __name__ == "__main__":
     game = Game()

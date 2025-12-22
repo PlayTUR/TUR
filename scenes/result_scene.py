@@ -1,6 +1,12 @@
+"""
+Result Scene - Game Over/Victory Screen
+Handles score display and story continuation.
+"""
+
 import pygame
 from core.scene_manager import Scene
 from core.config import *
+
 
 class ResultScene(Scene):
     def on_enter(self, params):
@@ -13,12 +19,25 @@ class ResultScene(Scene):
         self.bads = params.get('bads', 0)
         self.misses = params.get('misses', 0)
         self.song_name = params.get('song', 'Unknown')
+        self.difficulty = params.get('difficulty', 'MEDIUM')
+        
+        # Story mode parameters
+        self.mode = params.get('mode', 'single')
+        self.next_scene_class = params.get('next_scene_class')
+        self.next_scene_params = params.get('next_scene_params')
         
         self.accuracy = self.calculate_accuracy()
         self.grade = self.calculate_grade()
         
-        # Menu Options
-        self.menu_items = ["REPLAY", "QUIT TO MENU"]
+        # Dynamic menu based on mode
+        if self.mode == 'story':
+            if self.failed:
+                self.menu_items = ["RETRY MISSION", "ABORT CAMPAIGN"]
+            else:
+                self.menu_items = ["CONTINUE", "REPLAY", "ABORT CAMPAIGN"]
+        else:
+            self.menu_items = ["REPLAY", "QUIT TO MENU"]
+        
         self.selected_index = 0
 
     def calculate_accuracy(self):
@@ -38,64 +57,109 @@ class ResultScene(Scene):
         return "F"
 
     def draw(self, surface):
-        theme = self.game.renderer.get_theme()
+        r = self.game.renderer
+        theme = r.get_theme()
         surface.fill(theme["bg"])
         
-        header = "RECOVERY_REPORT" if not self.failed else "FAILURE_ANALYSIS"
-        self.game.renderer.draw_text(surface, header, 100, 50, theme["primary"], self.game.renderer.big_font)
+        # Header
+        if self.mode == 'story':
+            header = "MISSION COMPLETE" if not self.failed else "MISSION FAILED"
+        else:
+            header = "OPERATION COMPLETE" if not self.failed else "OPERATION FAILED"
         
-        # Song Info
-        self.game.renderer.draw_text(surface, f"FILE: {self.song_name}", 100, 120, theme["text"])
+        header_color = theme["primary"] if not self.failed else theme["error"]
+        r.draw_text(surface, f"◉ {header} ◉", 300, 50, header_color, r.big_font)
         
-        # Grade (Huge)
-        grade_col = theme["secondary"] if self.grade != "F" else (255, 50, 50)
-        self.game.renderer.draw_text(surface, f"GRADE: {self.grade}", 600, 150, grade_col, self.game.renderer.big_font)
+        # Song info (truncated)
+        song_display = self.song_name[-40:] if len(self.song_name) > 40 else self.song_name
+        r.draw_text(surface, f"TARGET: {song_display}", 100, 120, theme["text"])
         
-        # Stats List
-        stats_x = 100
-        stats_y = 200
-        spacing = 40
+        # Grade panel
+        r.draw_panel(surface, 600, 130, 300, 150, "RATING")
+        grade_color = theme["secondary"] if self.grade != "F" else theme["error"]
+        
+        # Center grade
+        grade_w = r.big_font.size(self.grade)[0]
+        r.draw_text(surface, self.grade, 600 + (300 - grade_w) // 2, 170, grade_color, r.big_font)
+        
+        # Center accuracy
+        acc_text = f"{self.accuracy:.1f}%"
+        acc_w = r.font.size(acc_text)[0]
+        r.draw_text(surface, acc_text, 600 + (300 - acc_w) // 2, 230, (150, 150, 150))
+        
+        # Stats panel
+        r.draw_panel(surface, 80, 180, 450, 280, "STATISTICS")
         
         stats = [
-            (f"SCORE: {self.score}", theme["text"]),
-            (f"MAX COMBO: {self.max_combo}", theme["secondary"]),
-            (f"ACCURACY: {self.accuracy:.2f}%", theme["primary"]),
-            ("", (0,0,0)), # Spacer
-            (f"PERFECT: {self.perfects}", (0, 255, 100)),
-            (f"GOOD: {self.goods}", (255, 200, 0)),
-            (f"BAD: {self.bads}", (255, 100, 0)),
-            (f"MISSES: {self.misses}", (255, 50, 50))
+            (f"SCORE: {self.score:,}", theme["text"]),
+            (f"MAX COMBO: {self.max_combo}x", theme["secondary"]),
+            ("", None),
+            (f"PERFECT: {self.perfects}", (100, 255, 100)),
+            (f"GOOD: {self.goods}", (255, 200, 50)),
+            (f"BAD: {self.bads}", (255, 100, 50)),
+            (f"MISS: {self.misses}", (255, 50, 50))
         ]
         
-        for i, (txt, col) in enumerate(stats):
-            if txt:
-                self.game.renderer.draw_text(surface, txt, stats_x, stats_y + i * spacing, col)
-
-        # Interaction
-        menu_y = 600
+        y = 200
+        for txt, col in stats:
+            if txt and col:
+                r.draw_text(surface, txt, 100, y, col)
+            y += 35
+        
+        # Menu
+        menu_y = 520
         for i, item in enumerate(self.menu_items):
-            col = theme["primary"] if i == self.selected_index else (150, 150, 150)
-            prefix = "> " if i == self.selected_index else "  "
-            self.game.renderer.draw_text(surface, f"{prefix}{item}", 100, menu_y + i * 50, col)
+            r.draw_button(surface, item, 300, menu_y + i * 45, i == self.selected_index, 400)
+        
+        # Mode indicator
+        if self.mode == 'story':
+            r.draw_text(surface, "STORY MODE", 50, 700, theme["secondary"])
 
     def handle_input(self, event):
-        if event.type == pygame.KEYDOWN:
-            if event.key == pygame.K_UP:
-                self.selected_index = (self.selected_index - 1) % len(self.menu_items)
-            elif event.key == pygame.K_DOWN:
-                self.selected_index = (self.selected_index + 1) % len(self.menu_items)
-            elif event.key == pygame.K_RETURN:
-                self.play_sfx("accept")
-                choice = self.menu_items[self.selected_index]
-                if choice == "REPLAY":
-                    from scenes.game_scene import GameScene
-                    self.game.scene_manager.switch_to(GameScene, {
-                        'song': self.song_name,
-                        'difficulty': self.params.get('difficulty', 'MEDIUM')
-                    })
-                else:
-                    from scenes.menu_scenes import SongSelectScene
-                    self.game.scene_manager.switch_to(SongSelectScene)
-            elif event.key == pygame.K_ESCAPE:
-                from scenes.menu_scenes import SongSelectScene
-                self.game.scene_manager.switch_to(SongSelectScene)
+        if event.type != pygame.KEYDOWN:
+            return
+        
+        if event.key == pygame.K_UP:
+            self.selected_index = (self.selected_index - 1) % len(self.menu_items)
+            self.play_sfx("blip")
+        elif event.key == pygame.K_DOWN:
+            self.selected_index = (self.selected_index + 1) % len(self.menu_items)
+            self.play_sfx("blip")
+        elif event.key == pygame.K_RETURN:
+            self.play_sfx("accept")
+            self._handle_selection()
+        elif event.key == pygame.K_ESCAPE:
+            self._go_to_menu()
+
+    def _handle_selection(self):
+        choice = self.menu_items[self.selected_index]
+        
+        if choice == "CONTINUE":
+            # Continue story to next chapter
+            if self.next_scene_class and self.next_scene_params:
+                self.game.scene_manager.switch_to(self.next_scene_class, self.next_scene_params)
+            else:
+                # Fallback to story scene
+                from scenes.story_scene import StoryScene
+                self.game.scene_manager.switch_to(StoryScene)
+        
+        elif choice in ["REPLAY", "RETRY MISSION"]:
+            from scenes.game_scene import GameScene
+            self.game.scene_manager.switch_to(GameScene, {
+                'song': self.song_name,
+                'difficulty': self.difficulty,
+                'mode': self.mode,
+                'next_scene_class': self.next_scene_class,
+                'next_scene_params': self.next_scene_params
+            })
+        
+        elif choice in ["QUIT TO MENU", "ABORT CAMPAIGN"]:
+            self._go_to_menu()
+
+    def _go_to_menu(self):
+        if self.mode == 'story':
+            from scenes.menu_scenes import TitleScene
+            self.game.scene_manager.switch_to(TitleScene)
+        else:
+            from scenes.menu_scenes import SongSelectScene
+            self.game.scene_manager.switch_to(SongSelectScene)
