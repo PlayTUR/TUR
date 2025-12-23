@@ -1,10 +1,16 @@
 """
 STUN Client for TUR Multiplayer
+<<<<<<< HEAD
 Discovers external IP, port, and NAT type via STUN protocol.
+=======
+Discovers external IP and port via STUN protocol (RFC 5389).
+Uses free Google STUN servers.
+>>>>>>> 0dc16cc (use code wyind in the fortnite item shop)
 """
 
 import socket
 import struct
+<<<<<<< HEAD
 import os
 
 STUN_BINDING_REQUEST = 0x0001
@@ -71,15 +77,137 @@ def get_external_address(stun_host="stun.l.google.com", stun_port=19302, timeout
             pos += attr_len + (4 - attr_len % 4) % 4
         
         return None, None, sock if not owned_sock else None
+=======
+import random
+import os
+
+
+# STUN Message Types
+STUN_BINDING_REQUEST = 0x0001
+STUN_BINDING_RESPONSE = 0x0101
+
+# STUN Attributes
+ATTR_MAPPED_ADDRESS = 0x0001
+ATTR_XOR_MAPPED_ADDRESS = 0x0020
+
+# Magic Cookie (RFC 5389)
+MAGIC_COOKIE = 0x2112A442
+
+
+def generate_transaction_id():
+    """Generate random 12-byte transaction ID"""
+    return os.urandom(12)
+
+
+def create_binding_request():
+    """Create a STUN Binding Request message"""
+    msg_type = STUN_BINDING_REQUEST
+    msg_length = 0  # No attributes in request
+    transaction_id = generate_transaction_id()
+    
+    header = struct.pack('>HHI', msg_type, msg_length, MAGIC_COOKIE)
+    return header + transaction_id, transaction_id
+
+
+def parse_binding_response(data, transaction_id):
+    """Parse STUN Binding Response and extract mapped address"""
+    if len(data) < 20:
+        return None
+    
+    # Parse header
+    msg_type, msg_length, cookie = struct.unpack('>HHI', data[:8])
+    resp_tid = data[8:20]
+    
+    # Verify response
+    if msg_type != STUN_BINDING_RESPONSE:
+        return None
+    if resp_tid != transaction_id:
+        return None
+    
+    # Parse attributes
+    pos = 20
+    while pos < len(data):
+        if pos + 4 > len(data):
+            break
+        
+        attr_type, attr_length = struct.unpack('>HH', data[pos:pos+4])
+        pos += 4
+        
+        if pos + attr_length > len(data):
+            break
+        
+        attr_value = data[pos:pos+attr_length]
+        
+        if attr_type == ATTR_XOR_MAPPED_ADDRESS:
+            # XOR-MAPPED-ADDRESS (preferred)
+            family = attr_value[1]
+            xor_port = struct.unpack('>H', attr_value[2:4])[0]
+            port = xor_port ^ (MAGIC_COOKIE >> 16)
+            
+            if family == 0x01:  # IPv4
+                xor_ip = struct.unpack('>I', attr_value[4:8])[0]
+                ip_int = xor_ip ^ MAGIC_COOKIE
+                ip = socket.inet_ntoa(struct.pack('>I', ip_int))
+                return ip, port
+        
+        elif attr_type == ATTR_MAPPED_ADDRESS:
+            # MAPPED-ADDRESS (fallback)
+            family = attr_value[1]
+            port = struct.unpack('>H', attr_value[2:4])[0]
+            
+            if family == 0x01:  # IPv4
+                ip = socket.inet_ntoa(attr_value[4:8])
+                return ip, port
+        
+        # Move to next attribute (4-byte aligned)
+        pos += attr_length
+        pos = (pos + 3) & ~3
+    
+    return None
+
+
+def get_external_address(stun_host="stun.l.google.com", stun_port=19302, timeout=3.0):
+    """
+    Query STUN server to discover external IP and port.
+    Returns (external_ip, external_port, local_socket) or (None, None, None) on failure.
+    """
+    try:
+        sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        sock.settimeout(timeout)
+        sock.bind(('0.0.0.0', 0))  # Bind to any available port
+        
+        # Resolve STUN server
+        stun_addr = socket.gethostbyname(stun_host)
+        
+        # Send binding request
+        request, transaction_id = create_binding_request()
+        sock.sendto(request, (stun_addr, stun_port))
+        
+        # Receive response
+        data, addr = sock.recvfrom(1024)
+        
+        result = parse_binding_response(data, transaction_id)
+        if result:
+            return result[0], result[1], sock
+        
+        sock.close()
+        return None, None, None
+        
+>>>>>>> 0dc16cc (use code wyind in the fortnite item shop)
     except Exception as e:
         print(f"STUN Error: {e}")
         return None, None, None
 
+<<<<<<< HEAD
+=======
+
+>>>>>>> 0dc16cc (use code wyind in the fortnite item shop)
 def get_local_ip():
     """Get local IP address"""
     try:
         s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         s.connect(("8.8.8.8", 80))
+<<<<<<< HEAD
         ip = s.getsockname()[0]
         s.close()
         return ip
@@ -92,10 +220,35 @@ def discover_external_address():
     for host, port in servers:
         result = get_external_address(host, port)
         if result[0]:
+=======
+        local_ip = s.getsockname()[0]
+        s.close()
+        return local_ip
+    except:
+        return "127.0.0.1"
+
+
+# STUN servers list for fallback
+STUN_SERVERS = [
+    ("stun.l.google.com", 19302),
+    ("stun1.l.google.com", 19302),
+    ("stun2.l.google.com", 19302),
+    ("stun.stunprotocol.org", 3478),
+]
+
+
+def discover_external_address():
+    """Try multiple STUN servers until one works"""
+    for host, port in STUN_SERVERS:
+        result = get_external_address(host, port)
+        if result[0]:
+            print(f"STUN success via {host}: {result[0]}:{result[1]}")
+>>>>>>> 0dc16cc (use code wyind in the fortnite item shop)
             return result
     return None, None, None
 
 
+<<<<<<< HEAD
 def detect_nat_type(timeout=2.0):
     """
     Detect NAT type by querying multiple STUN servers.
@@ -156,3 +309,14 @@ def get_nat_status_display():
         return f"{icon} {label}: {message}", (255, 180, 80)
 
 
+=======
+if __name__ == "__main__":
+    print("Testing STUN client...")
+    ip, port, sock = discover_external_address()
+    if ip:
+        print(f"External address: {ip}:{port}")
+        if sock:
+            sock.close()
+    else:
+        print("Failed to discover external address")
+>>>>>>> 0dc16cc (use code wyind in the fortnite item shop)

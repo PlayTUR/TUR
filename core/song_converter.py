@@ -7,9 +7,10 @@ import json
 from core.beatmap_generator import BeatmapGenerator
 
 
-def auto_convert_songs(songs_dir="songs", default_difficulty="MEDIUM", callback=None):
+def auto_convert_songs(songs_dir="songs", default_difficulty="MEDIUM", callback=None, cancel_check=None):
     """
     Scans songs directory for .mp3 / .osz and converts them to .tur
+    cancel_check: Optional callable that returns True if cancellation requested
     """
     if not os.path.exists(songs_dir):
         os.makedirs(songs_dir)
@@ -20,10 +21,17 @@ def auto_convert_songs(songs_dir="songs", default_difficulty="MEDIUM", callback=
     
     converted_count = 0
     
+    # Helper to check for cancel
+    def is_cancelled():
+        return cancel_check and cancel_check()
+    
     # First: Handle .osz extraction
     import zipfile
     osz_files = [f for f in os.listdir(songs_dir) if f.lower().endswith('.osz')]
     for idx, filename in enumerate(osz_files):
+        if is_cancelled():
+            if callback: callback("Cancelled", 0)
+            return ["Cancelled"]
         if callback:
             callback(f"Extracting: {filename}", int((idx / max(1, len(osz_files))) * 30))
             
@@ -62,6 +70,9 @@ def auto_convert_songs(songs_dir="songs", default_difficulty="MEDIUM", callback=
     converted_osu_folders = set()
     
     for idx, path in enumerate(osu_files):
+        if is_cancelled():
+            if callback: callback("Cancelled", 0)
+            return ["Cancelled"]
         if callback:
             callback(f"Converting OSU: {os.path.basename(path)}", 30 + int((idx / max(1, len(osu_files))) * 30))
             
@@ -85,19 +96,20 @@ def auto_convert_songs(songs_dir="songs", default_difficulty="MEDIUM", callback=
             safe_title = "".join([c for c in f"{osu_data['artist']} - {osu_data['title']}" if c.isalnum() or c in (' ', '-', '_')]).strip()
             tur_path = os.path.join(songs_dir, f"{safe_title}.tur")
             
-            # First: Save the original OSU difficulty
+            # Save the original OSU difficulty
             diff_name = osu_data['difficulty_name'].upper() or default_difficulty
             generator.save_tur(osu_data, tur_path, audio_path=audio_full, difficulty=diff_name, delete_original=False)
             
-            # Second: Generate ALL other difficulties using audio analysis
-            all_diffs = ["EASY", "MEDIUM", "HARD", "EXTREME", "FUCK YOU"]
-            for gen_diff in all_diffs:
-                if gen_diff != diff_name:  # Don't overwrite the original
-                    try:
-                        bm = generator._analyze_audio(audio_full, gen_diff)
-                        generator.save_tur(bm, tur_path, audio_path=audio_full, difficulty=gen_diff, delete_original=False)
-                    except:
-                        pass
+            # Generate all difficulties ONLY during explicit regeneration
+            if force_regen:
+                all_diffs = ["EASY", "MEDIUM", "HARD", "EXTREME", "FUCK YOU"]
+                for gen_diff in all_diffs:
+                    if gen_diff != diff_name:
+                        try:
+                            bm = generator._analyze_audio(audio_full, gen_diff)
+                            generator.save_tur(bm, tur_path, audio_path=audio_full, difficulty=gen_diff, delete_original=False)
+                        except:
+                            pass
             
             converted_count += 1
             converted_osu_folders.add(os.path.dirname(path))
@@ -107,11 +119,14 @@ def auto_convert_songs(songs_dir="songs", default_difficulty="MEDIUM", callback=
     # Third: Handle loose audio files (auto-generate if no .tur and no .osu)
     loose_audio = [f for f in all_files if f.lower().endswith(audio_extensions)]
     for idx, path in enumerate(loose_audio):
+        if is_cancelled():
+            if callback: callback("Cancelled", 0)
+            return ["Cancelled"]
         if os.path.dirname(path) in converted_osu_folders:
             continue
             
         if callback:
-             callback(f"Analyzing: {os.path.basename(path)}", 60 + int((idx / min(1, len(loose_audio))) * 20))
+             callback(f"Analyzing: {os.path.basename(path)}", 60 + int((idx / max(1, len(loose_audio))) * 20))
              
         base = os.path.splitext(os.path.basename(path))[0]
         tur_exists = False
@@ -128,9 +143,16 @@ def auto_convert_songs(songs_dir="songs", default_difficulty="MEDIUM", callback=
                 safe_name = "".join([c for c in base if c.isalnum() or c in (' ', '-', '_')]).strip()
                 tur_path = os.path.join(songs_dir, f"{safe_name}.tur")
                 
-                for d in ["EASY", "MEDIUM", "HARD", "EXTREME", "FUCK YOU"]:
+                # During normal boot: only generate default difficulty (MEDIUM)
+                # During force_regen: generate all 5 difficulties
+                if force_regen:
+                    for d in ["EASY", "MEDIUM", "HARD", "EXTREME", "FUCK YOU"]:
+                        try:
+                            generator.get_beatmap(path, d)
+                        except: pass
+                else:
                     try:
-                        generator.get_beatmap(path, d)
+                        generator.get_beatmap(path, "MEDIUM")
                     except: pass
                 
                 if os.path.exists(tur_path):
@@ -149,6 +171,9 @@ def auto_convert_songs(songs_dir="songs", default_difficulty="MEDIUM", callback=
                     tur_files.append(os.path.join(root, f))
                     
         for idx, tur_path in enumerate(tur_files):
+            if is_cancelled():
+                if callback: callback("Cancelled", 0)
+                return ["Cancelled"]
             filename = os.path.basename(tur_path)
             if callback:
                 callback(f"Re-Generating: {filename}", 80 + int((idx / max(1, len(tur_files))) * 15))

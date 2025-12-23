@@ -129,12 +129,17 @@ class PygameRenderer:
             name = "TERMINAL"
         return THEMES.get(name, THEMES["TERMINAL"])
 
+<<<<<<< HEAD
     # === Text Wrapping Helpers ===
+=======
+    # === UI Helper Methods ===
+>>>>>>> 0dc16cc (use code wyind in the fortnite item shop)
     
     def wrap_text(self, text, max_chars=60):
         """Word-wrap text to max characters per line"""
         words = text.split(' ')
         lines = []
+<<<<<<< HEAD
         current = ""
         for word in words:
             if len(current) + len(word) + 1 <= max_chars:
@@ -148,28 +153,73 @@ class PygameRenderer:
         return lines
     
     def draw_wrapped_text(self, surface, text, x, y, max_chars=60, color=None, line_height=25):
+=======
+        current_line = ""
+        
+        for word in words:
+            if len(current_line) + len(word) + 1 <= max_chars:
+                current_line += (" " if current_line else "") + word
+            else:
+                if current_line:
+                    lines.append(current_line)
+                current_line = word
+        
+        if current_line:
+            lines.append(current_line)
+        
+        return lines
+    
+    def draw_wrapped_text(self, surface, text, x, y, max_chars=60, color=None, 
+                          line_height=25, font=None):
+>>>>>>> 0dc16cc (use code wyind in the fortnite item shop)
         """Draw text with automatic word wrapping. Returns final y position."""
         theme = self.get_theme()
         if color is None:
             color = theme["text"]
+<<<<<<< HEAD
         lines = self.wrap_text(text, max_chars)
         for i, line in enumerate(lines):
             self.draw_text(surface, line, x, y + i * line_height, color)
+=======
+        
+        lines = self.wrap_text(text, max_chars)
+        for i, line in enumerate(lines):
+            self.draw_text(surface, line, x, y + i * line_height, color, font)
+        
+>>>>>>> 0dc16cc (use code wyind in the fortnite item shop)
         return y + len(lines) * line_height
     
     def draw_panel(self, surface, x, y, w, h, title=None):
         """Draw a themed window panel with optional title bar"""
         theme = self.get_theme()
+<<<<<<< HEAD
         pygame.draw.rect(surface, theme["bg"], (x, y, w, h))
         pygame.draw.rect(surface, theme["grid"], (x, y, w, h), 2)
         if title:
             pygame.draw.rect(surface, theme["grid"], (x, y - 28, w, 28))
             self.draw_text(surface, title, x + 10, y - 23, theme["text"])
         return x, y
+=======
+        
+        # Main panel background
+        pygame.draw.rect(surface, theme["bg"], (x, y, w, h))
+        # Border
+        pygame.draw.rect(surface, theme["grid"], (x, y, w, h), 2)
+        
+        # Title bar
+        if title:
+            title_h = 28
+            pygame.draw.rect(surface, theme["grid"], (x, y - title_h, w, title_h))
+            pygame.draw.rect(surface, theme["primary"], (x, y - title_h, w, title_h), 1)
+            self.draw_text(surface, title, x + 10, y - title_h + 5, theme["text"])
+        
+        return x, y  # Return top-left of content area
+>>>>>>> 0dc16cc (use code wyind in the fortnite item shop)
     
     def draw_button(self, surface, text, x, y, selected=False, width=200):
         """Draw a styled button/menu item"""
         theme = self.get_theme()
+<<<<<<< HEAD
         h = 35
         if selected:
             pygame.draw.rect(surface, theme["grid"], (x, y, width, h))
@@ -180,10 +230,29 @@ class PygameRenderer:
             pygame.draw.rect(surface, theme["grid"], (x, y, width, h), 1)
             self.draw_text(surface, f"  {text}", x + 10, y + 8, theme["text"])
         return h + 5
+=======
+        
+        h = 35
+        # Background when selected
+        if selected:
+            pygame.draw.rect(surface, theme["grid"], (x, y, width, h))
+            pygame.draw.rect(surface, theme["primary"], (x, y, width, h), 2)
+            prefix = "> "
+            color = theme["primary"]
+        else:
+            pygame.draw.rect(surface, theme["bg"], (x, y, width, h))
+            pygame.draw.rect(surface, theme["grid"], (x, y, width, h), 1)
+            prefix = "  "
+            color = theme["text"]
+        
+        self.draw_text(surface, f"{prefix}{text}", x + 10, y + 8, color)
+        return h + 5  # Return height + margin for stacking
+>>>>>>> 0dc16cc (use code wyind in the fortnite item shop)
     
     def draw_input_field(self, surface, label, value, x, y, width=300, focused=False):
         """Draw a text input field"""
         theme = self.get_theme()
+<<<<<<< HEAD
         self.draw_text(surface, label, x, y, theme["secondary"])
         border = theme["primary"] if focused else theme["grid"]
         pygame.draw.rect(surface, (20, 20, 20), (x, y + 25, width, 30))
@@ -191,6 +260,24 @@ class PygameRenderer:
         display = value + ("_" if focused else "")
         self.draw_text(surface, display, x + 8, y + 31, theme["text"])
         return 60
+=======
+        
+        # Label
+        self.draw_text(surface, label, x, y, theme["secondary"])
+        
+        # Input box
+        box_y = y + 25
+        box_h = 30
+        border_color = theme["primary"] if focused else theme["grid"]
+        pygame.draw.rect(surface, (20, 20, 20), (x, box_y, width, box_h))
+        pygame.draw.rect(surface, border_color, (x, box_y, width, box_h), 2)
+        
+        # Value with cursor
+        display = value + ("_" if focused else "")
+        self.draw_text(surface, display, x + 8, box_y + 6, theme["text"])
+        
+        return 60  # Return total height
+>>>>>>> 0dc16cc (use code wyind in the fortnite item shop)
 
     def draw_lanes(self, surface, upscroll=False, pulse=0.0):
         theme = self.get_theme()

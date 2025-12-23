@@ -7,6 +7,7 @@ class GameScene(Scene):
     def on_enter(self, params):
         self.song_name = params['song']
         self.difficulty = params['difficulty']
+<<<<<<< HEAD
         self.mode = params.get('mode', 'single')
         self.audio_missing = False
         
@@ -18,6 +19,20 @@ class GameScene(Scene):
         if self.mode == 'story' or '/' in self.song_name or '\\\\' in self.song_name:
             path = self.song_name  # Already a full path
         else:
+=======
+        self.mode = params.get('mode', 'single') # single, multi, story
+        
+        # Store next scene info for story mode continuation
+        self.next_scene_class = params.get('next_scene_class')
+        self.next_scene_params = params.get('next_scene_params')
+        
+        # Path handling: story mode passes full paths, single player just filename
+        if self.mode == 'story' or os.path.exists(self.song_name):
+            # Story mode: use path directly (already includes folder)
+            path = self.song_name
+        else:
+            # Single player: prepend songs/ folder
+>>>>>>> 0dc16cc (use code wyind in the fortnite item shop)
             path = os.path.join("songs", self.song_name)
         
         # Load map

@@ -240,59 +240,88 @@ class BeatmapGenerator:
 
     def _analyze_audio(self, path, difficulty="MEDIUM"):
         from core.config import DIFF_SETTINGS
-        print(f"Analyzing {path} with difficulty {difficulty}")
         
         settings = DIFF_SETTINGS.get(difficulty, DIFF_SETTINGS["MEDIUM"])
         density_mult = settings["density"]
         
-        try:
-            # Load with higher sample rate for better transient detection
-            y, sr = librosa.load(path, sr=44100)
-        except Exception as e:
-            print(f"Error loading audio: {e}")
-            return []
+        # Check for cached onset data (avoids re-analyzing same audio)
+        onset_cache_key = hashlib.md5(path.encode()).hexdigest()
+        onset_cache_path = os.path.join(self.cache_dir, f"{onset_cache_key}_onsets.json")
+        
+        cached_onsets = None
+        if os.path.exists(onset_cache_path):
+            try:
+                with open(onset_cache_path, 'r') as f:
+                    cached_onsets = json.load(f)
+            except:
+                pass
+        
+        if cached_onsets:
+            # Use cached analysis data
+            onset_times = cached_onsets['onset_times']
+            bpm = cached_onsets['bpm']
+            duration = cached_onsets['duration']
+            onset_strengths = cached_onsets.get('strengths', [1.0] * len(onset_times))
+        else:
+            # Full audio analysis (only done once per song)
+            try:
+                # Use 22050 Hz for faster loading (sufficient for beat detection)
+                y, sr = librosa.load(path, sr=22050)
+            except Exception as e:
+                print(f"Error loading audio: {e}")
+                return []
 
-        # 1. Component Separation (HPSS)
-        # This allows us to target 'fast instruments' (harmonic) vs 'drums' (percussive)
-        print("Performing Harmonic-Percussive separation...")
-        y_harmonic, y_percussive = librosa.effects.hpss(y)
+            # For extreme difficulties, use full HPSS; otherwise simplified onset detection
+            is_extreme = difficulty in ["EXTREME", "FUCK YOU"]
+            
+            hop_length = 512
+            
+            if is_extreme:
+                # Full HPSS for maximum accuracy on hard modes
+                y_harmonic, y_percussive = librosa.effects.hpss(y)
+                onset_env_p = librosa.onset.onset_strength(y=y_percussive, sr=sr)
+                onset_env_h = librosa.onset.onset_strength(y=y_harmonic, sr=sr)
+                onset_frames_p = librosa.onset.onset_detect(onset_envelope=onset_env_p, sr=sr, wait=1)
+                onset_frames_h = librosa.onset.onset_detect(onset_envelope=onset_env_h, sr=sr, wait=1)
+                combined_frames = sorted(list(set(onset_frames_p) | set(onset_frames_h)))
+                onset_strengths = [max(onset_env_p[f] if f < len(onset_env_p) else 0,
+                                       onset_env_h[f] if f < len(onset_env_h) else 0)
+                                   for f in combined_frames]
+            else:
+                # Simplified onset detection (much faster)
+                onset_env = librosa.onset.onset_strength(y=y, sr=sr)
+                wait = {"EASY": 12, "MEDIUM": 8, "HARD": 4}.get(difficulty, 8)
+                combined_frames = librosa.onset.onset_detect(onset_envelope=onset_env, sr=sr, wait=wait)
+                onset_strengths = [onset_env[f] if f < len(onset_env) else 1.0 for f in combined_frames]
+            
+            onset_times = [float(t) for t in librosa.frames_to_time(combined_frames, sr=sr)]
+            
+            tempo, _ = librosa.beat.beat_track(y=y, sr=sr)
+            bpm = float(tempo)
+            duration = float(librosa.get_duration(y=y, sr=sr))
+            
+            # Cache onset data for reuse with other difficulties
+            try:
+                with open(onset_cache_path, 'w') as f:
+                    json.dump({
+                        'onset_times': onset_times,
+                        'bpm': bpm,
+                        'duration': duration,
+                        'strengths': [float(s) for s in onset_strengths]
+                    }, f)
+            except:
+                pass
         
-        hop_length = 512
-        # Adaptive wait windows based on difficulty
-        if difficulty == "EASY": wait = 12
-        elif difficulty == "MEDIUM": wait = 8
-        elif difficulty == "HARD": wait = 4
-        elif difficulty == "EXTREME": wait = 2
-        else: wait = 1 # FUCK YOU: No mercy
-
-        # 2. Detect Onsets for both components
-        onset_env_p = librosa.onset.onset_strength(y=y_percussive, sr=sr)
-        onset_frames_p = librosa.onset.onset_detect(onset_envelope=onset_env_p, sr=sr, wait=wait)
-        
-        # Harmonic peaks target the 'fastest instruments' (melodic leads)
-        onset_env_h = librosa.onset.onset_strength(y=y_harmonic, sr=sr)
-        onset_frames_h = librosa.onset.onset_detect(onset_envelope=onset_env_h, sr=sr, wait=wait)
-        
-        # Combine and sort all potential timestamps
-        combined_frames = sorted(list(set(onset_frames_p) | set(onset_frames_h)))
-        onset_times = librosa.frames_to_time(combined_frames, sr=sr)
-        
-        tempo, beat_frames = librosa.beat.beat_track(y=y, sr=sr)
-        bpm = float(tempo)
-        print(f"Detected BPM: {bpm:.1f}")
+        print(f"Detected BPM: {bpm:.1f} ({len(onset_times)} onsets)")
         
         notes = []
-        duration = librosa.get_duration(y=y, sr=sr)
         last_note_time = 0
         
-        for f in combined_frames:
-            t = float(librosa.frames_to_time(f, sr=sr))
+        for idx, t in enumerate(onset_times):
             seed = np.sin(t * 123.45)
             
-            # Strength from both sources
-            strength_p = onset_env_p[f] if f < len(onset_env_p) else 0
-            strength_h = onset_env_h[f] if f < len(onset_env_h) else 0
-            strength = max(strength_p, strength_h)
+            # Get strength from cached data
+            strength = onset_strengths[idx] if idx < len(onset_strengths) else 1.0
             
             # Gap Check (Long notes for atmospheric sections)
             gap = t - last_note_time
@@ -309,12 +338,11 @@ class BeatmapGenerator:
                 if (seed + 1) / 2 > density_mult:
                     continue
             
-            # Lane selection based on spectral content? (Higher freq -> right lanes)
-            # For simplicity, we use seed but bias by strength
+            # Lane selection based on seed
             lane = int((seed + 1) * 2) % 4
             chord_size = 1
             
-            # Chord logic based on combined strength
+            # Chord logic based on strength
             if difficulty == "FUCK YOU":
                 if strength > 1.2: chord_size = 4
                 elif strength > 0.6: chord_size = 3

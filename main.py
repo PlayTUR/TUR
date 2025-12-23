@@ -33,6 +33,27 @@ if platform.system() == "Linux":
 # Main Pygame Entry Point
 class Game:
     def __init__(self):
+<<<<<<< HEAD
+=======
+        # Linux/Tiling WM Stability + Hyprland/NVIDIA Fixes
+        os.environ['SDL_VIDEO_X16_WMCLASS'] = "tur"
+        
+        # Force X11 backend (more stable than Wayland for pygame)
+        os.environ['SDL_VIDEODRIVER'] = "x11"
+        
+        # NVIDIA/Wayland compositor fixes
+        os.environ['__GL_SYNC_TO_VBLANK'] = "1"
+        os.environ['__GL_GSYNC_ALLOWED'] = "0"
+        os.environ['__GL_VRR_ALLOWED'] = "0"
+        
+        # Disable compositor bypass (prevents flickering)
+        os.environ['SDL_VIDEO_X11_NET_WM_BYPASS_COMPOSITOR'] = "0"
+        
+        # Double buffering for smoother rendering
+        os.environ['SDL_RENDER_DRIVER'] = "opengl"
+        os.environ['SDL_HINT_RENDER_VSYNC'] = "1"
+        
+>>>>>>> 0dc16cc (use code wyind in the fortnite item shop)
         pygame.init()
         pygame.mixer.init()
         

@@ -22,6 +22,7 @@ DEFAULT_SETTINGS = {
     "note_col_2": [255, 180, 50],
     "theme": "TERMINAL",
     "setup_complete": False,
+<<<<<<< HEAD
     "joy_binds": [0, 1, 2, 3],
     "joy_triggers": [4, 5],
     "joy_deadzone": 0.2,
@@ -44,6 +45,19 @@ DEFAULT_SETTINGS = {
     "auto_recreate_beatmaps": False,
     "language": "EN",
     "vim_mode": False
+=======
+    "joy_binds": [0, 1, 2, 3], # Default buttons (A, B, X, Y)
+    "joy_triggers": [4, 5],    # Default LB, RB
+    "fullscreen": False,
+    # New settings
+    "hit_sounds": True,        # Play hit sounds
+    "bg_dim": 0.5,             # Background dim (0-1)
+    "show_fps": False,         # Show FPS counter
+    "note_skin": "DEFAULT",    # Note skin style
+    "miss_sounds": True,       # Play miss sounds
+    "combo_sounds": True,      # Play combo milestone sounds
+    "visual_effects": True,    # Particle effects on hit
+>>>>>>> 0dc16cc (use code wyind in the fortnite item shop)
 }
 
 class SettingsManager:

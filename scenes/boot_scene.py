@@ -201,8 +201,8 @@ class BootScene(Scene):
             try:
                 from core.song_converter import auto_convert_songs, preload_all_songs
                 
-                # Convert audio and .osu files
-                def update_status(msg):
+                # Convert audio and .osu files (callback takes msg and optional pct)
+                def update_status(msg, pct=0):
                     self.song_load_status = msg
                 
                 auto_convert_songs("songs", "MEDIUM", callback=update_status)
@@ -216,6 +216,8 @@ class BootScene(Scene):
                 
             except Exception as e:
                 print(f"Song loading error: {e}")
+                import traceback
+                traceback.print_exc()
                 self.songs_loaded = 0
             
             self.song_load_done = True

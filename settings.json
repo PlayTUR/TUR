@@ -22,6 +22,7 @@
     "note_shape": "BAR",
     "note_col_1": [
         255,
+<<<<<<< HEAD
         50,
         200
     ],
@@ -31,6 +32,17 @@
         255
     ],
     "theme": "SYNTHWAVE",
+=======
+        0,
+        150
+    ],
+    "note_col_2": [
+        0,
+        200,
+        255
+    ],
+    "theme": "CYBERPUNK",
+>>>>>>> 0dc16cc (use code wyind in the fortnite item shop)
     "setup_complete": true,
     "joy_binds": [
         0,
