@@ -2,5 +2,7 @@ pygame
 numpy
 soundfile
 librosa
-windows-curses
+scipy
+pypresence
+windows-curses; sys_platform == 'win32'
 psutil

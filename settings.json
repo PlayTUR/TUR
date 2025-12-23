@@ -3,7 +3,7 @@
     "volume": 0.20000000000000015,
     "music_volume": 0.7,
     "sfx_volume": 1.0,
-    "speed": 900,
+    "speed": 1200,
     "keybinds": [
         115,
         100,
@@ -17,7 +17,7 @@
     "fullscreen": true,
     "vsync": false,
     "crt_filter": false,
-    "upscroll": false,
+    "upscroll": true,
     "audio_offset": 0,
     "note_shape": "BAR",
     "note_col_1": [
@@ -43,7 +43,7 @@
         5
     ],
     "joy_deadzone": 0.2,
-    "screen_shake": 0.6000000000000001,
+    "screen_shake": 1.3877787807814457e-16,
     "hit_sounds": true,
     "miss_sounds": true,
     "combo_sounds": true,
@@ -51,7 +51,7 @@
     "post_effects": true,
     "last_tab": 0,
     "bg_dim": 6.938893903907228e-17,
-    "show_fps": 2,
+    "show_fps": 0,
     "show_hold_ends": true,
     "account_type": "REGISTERED",
     "last_name_change": 0,
