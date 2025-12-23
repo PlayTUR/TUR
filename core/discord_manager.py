@@ -6,7 +6,7 @@ except ImportError:
     PYPRESENCE_AVAILABLE = False
 
 # Placeholder Client ID - User should replace this with their own app ID from Discord Developer Portal
-CLIENT_ID = "123456789012345678" 
+CLIENT_ID = "1453128602110529678" 
 
 class DiscordRPCManager:
     def __init__(self, game):
@@ -17,7 +17,10 @@ class DiscordRPCManager:
         self.last_update = 0
         
         # Get ID from settings or use placeholder
-        client_id = self.game.settings.get("discord_client_id") or "123456789012345678"
+        client_id = self.game.settings.get("discord_client_id")
+        # If settings has the default placeholder, use our internal app ID
+        if client_id == "123456789012345678":
+            client_id = CLIENT_ID
         
         if PYPRESENCE_AVAILABLE:
             try:

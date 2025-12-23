@@ -45,6 +45,7 @@ class TitleScene(Scene):
         self.convert_pct = 0
 
     def on_enter(self, params=None):
+        self.game.discord.update("In Main Menu", "Waiting for command...")
         if self.game.settings.get("vim_mode"):
             self.quote = "HOW DO I QUIT VIM?"
         else:
@@ -407,6 +408,7 @@ class SongSelectScene(Scene):
         self.load_songs()
 
     def on_enter(self, params=None):
+        self.game.discord.update("Selecting Song", "In Menu")
         self.load_songs()
         self.mode = params.get('mode', 'single') if params else 'single'
 
@@ -633,6 +635,9 @@ class SettingsScene(Scene):
         # Initial Build
         self.update_menu_items()
         
+    def on_enter(self, params=None):
+        self.game.discord.update("Configuring stuff", "Settings")
+
     def update_menu_items(self):
         # dynamic rebuild
         joy_count = pygame.joystick.get_count()

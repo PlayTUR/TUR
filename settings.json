@@ -56,9 +56,9 @@
     "account_type": "REGISTERED",
     "last_name_change": 0,
     "is_admin": false,
-    "discord_client_id": "123456789012345678",
+    "discord_client_id": "1453128602110529678",
     "user_id": "38159493",
-    "auto_recreate_beatmaps": true,
+    "auto_recreate_beatmaps": false,
     "language": "EN",
     "vim_mode": false,
     "note_skin": "DEFAULT"

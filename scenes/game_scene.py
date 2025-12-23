@@ -24,13 +24,13 @@ class GameScene(Scene):
         map_data = self.game.generator.get_beatmap(path, self.difficulty)
         
         if isinstance(map_data, list):
-            self.notes = map_data
+            self.beatmap = map_data
             self.events = []
             self.bpm = 120.0
             self.duration = 180.0
             audio_source = path
         else:
-            self.notes = map_data.get('notes', [])
+            self.beatmap = map_data.get('notes', [])
             self.events = map_data.get('events', [])
             # Sort events
             self.events.sort(key=lambda x: x['time'])
@@ -38,7 +38,7 @@ class GameScene(Scene):
             self.duration = map_data.get('duration', 180.0)
             audio_source = map_data.get('audio_path', path)
 
-        for note in self.notes:
+        for note in self.beatmap:
             note['hit'] = False
         
         self.beat_pulse = 0.0
@@ -107,6 +107,23 @@ class GameScene(Scene):
         self.sfx_hit = self._load_sfx("sfx/sfx_hit.wav", 0.5)
         self.sfx_perfect = self._load_sfx("sfx/sfx_perfect.wav", 0.4)
         self.sfx_miss = self._load_sfx("sfx/sfx_miss.wav", 0.3)
+
+        # Parse Metadata for RPC/Display
+        self.display_artist = "Unknown Artist"
+        self.display_title = self.song_name
+        if " - " in self.song_name:
+            parts = self.song_name.split(" - ", 1)
+            self.display_artist = parts[0]
+            self.display_title = parts[1].rsplit('.', 1)[0]
+        else:
+            self.display_title = self.song_name.rsplit('.', 1)[0]
+
+        # Initial RPC Update
+        self.game.discord.update(
+            details=self.display_title,
+            state=f"{self.display_artist} | {self.difficulty} | Score: 0"
+        )
+        self.rpc_timer = 0
     
     def _load_sfx(self, path, volume):
         if os.path.exists(path):
@@ -154,6 +171,15 @@ class GameScene(Scene):
             if self.fail_anim >= 1.0:
                 self.finish_game(failed=True)
             return
+
+        # RPC Update (Periodic)
+        self.rpc_timer += 1
+        if self.rpc_timer >= 600: # ~10 seconds
+             self.rpc_timer = 0
+             self.game.discord.update(
+                details=self.display_title,
+                state=f"{self.display_artist} | {self.difficulty} | Score: {int(self.score)}"
+             )
             
         offset_ms = self.game.settings.get("audio_offset")
         current_time = self.game.audio.get_position() - (offset_ms / 1000.0)
@@ -493,16 +519,5 @@ class GameScene(Scene):
             self.game.renderer.draw_text(surface, f"OPPONENT: {self.game.network.opponent_score}", 20, 80, TERM_RED)
 
         # Draw Song Info (Bottom Right)
-        display_name = self.song_name
-        artist = "UNKNOWN ARTIST"
-        title = display_name
-        
-        if " - " in display_name:
-            parts = display_name.split(" - ", 1)
-            artist = parts[0]
-            title = parts[1].rsplit('.', 1)[0]
-        else:
-            title = display_name.rsplit('.', 1)[0]
-             
-        self.game.renderer.draw_text(surface, f"{title}", self.game.renderer.ref_w - 300, self.game.renderer.ref_h - 60, TERM_GREEN)
-        self.game.renderer.draw_text(surface, f"{artist}", self.game.renderer.ref_w - 300, self.game.renderer.ref_h - 30, (100, 150, 100))
+        self.game.renderer.draw_text(surface, f"{self.display_title}", self.game.renderer.ref_w - 300, self.game.renderer.ref_h - 60, TERM_GREEN)
+        self.game.renderer.draw_text(surface, f"{self.display_artist}", self.game.renderer.ref_w - 300, self.game.renderer.ref_h - 30, (100, 150, 100))

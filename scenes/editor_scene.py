@@ -9,6 +9,7 @@ class EditorScene(Scene):
     def on_enter(self, params):
         self.song_name = params['song']
         self.difficulty = params['difficulty']
+        self.game.discord.update(f"Charting {self.song_name}", "Editor")
         self.path = os.path.join("songs", self.song_name)
         
         # Load map
