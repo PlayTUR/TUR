@@ -19,6 +19,7 @@ class EditorScene(Scene):
             audio_source = self.path
         else:
             self.beatmap = map_data.get('notes', [])
+            self.events = map_data.get('events', [])
             audio_source = map_data.get('audio_path', self.path)
             
         from core.utils import find_resource
@@ -43,6 +44,9 @@ class EditorScene(Scene):
         
         self.selected_lane = 0
         self.grid_snap = 0.25 # seconds
+        self.edit_mode = "NOTES" # NOTES or EVENTS
+        self.events = [] # list of {time, type, ...}
+        self.selected_event_type = EVENT_CAMERA_ZOOM
 
     def update(self):
         if self.audio_missing: return
@@ -65,6 +69,12 @@ class EditorScene(Scene):
         # Draw Timeline
         center_x = SCREEN_WIDTH // 2
         
+        # Mode Indicator
+        mode_col = TERM_AMBER if self.edit_mode == "EVENTS" else TERM_GREEN
+        self.game.renderer.draw_text(surface, f"MODE: {self.edit_mode}", 10, 50, mode_col)
+        if self.edit_mode == "EVENTS":
+            self.game.renderer.draw_text(surface, f"TYPE: {self.selected_event_type} [1-3]", 10, 70, TERM_AMBER)
+        
         # Time Indicator
         self.game.renderer.draw_text(surface, f"TIME: {self.audio_pos:.2f}s", 10, 10, TERM_WHITE)
         self.game.renderer.draw_text(surface, f"SNAP: {self.grid_snap}s | ZOOM: {self.zoom}", 10, 30, TERM_WHITE)
@@ -84,7 +94,31 @@ class EditorScene(Scene):
             pygame.draw.rect(surface, (30, 30, 30), (x, 0, lane_w, SCREEN_HEIGHT), 1)
             self.game.renderer.draw_text(surface, f"L{i}", x + 30, timeline_y + 10, (100, 100, 100))
 
+        # Draw Events
+        for ev in self.events:
+            diff = ev['time'] - self.audio_pos
+            if diff < -5 or diff > 5: continue
+            
+            y = timeline_y - (diff * self.zoom)
+            
+            # Draw event marker on left side
+            text = "EV"
+            col = (200, 200, 200)
+            if ev['type'] == EVENT_CAMERA_ZOOM: 
+                text = "ZOOM"
+                col = (100, 255, 255)
+            elif ev['type'] == EVENT_CAMERA_SHAKE: 
+                text = "SHAKE"
+                col = (255, 100, 100)
+            elif ev['type'] == EVENT_NOTE_GLOW: 
+                text = "GLOW"
+                col = (100, 255, 0)
+                
+            pygame.draw.circle(surface, col, (start_x - 40, int(y)), 10)
+            self.game.renderer.draw_text(surface, text, start_x - 90, int(y) - 10, col)
+
         # Draw Notes
+
         # y = timeline_y - (note_time - audio_pos) * zoom
         for note in self.beatmap:
             diff = note['time'] - self.audio_pos
@@ -109,6 +143,12 @@ class EditorScene(Scene):
                 self.toggle_playback()
             elif event.key == pygame.K_s:
                 self.save_map()
+            elif event.key == pygame.K_TAB:
+                self.edit_mode = "EVENTS" if self.edit_mode == "NOTES" else "NOTES"
+            elif event.key == pygame.K_1: self.selected_event_type = EVENT_CAMERA_ZOOM
+            elif event.key == pygame.K_2: self.selected_event_type = EVENT_CAMERA_SHAKE
+            elif event.key == pygame.K_3: self.selected_event_type = EVENT_NOTE_GLOW
+            
             elif event.key == pygame.K_UP:
                 self.zoom += 10
             elif event.key == pygame.K_DOWN:
@@ -116,12 +156,14 @@ class EditorScene(Scene):
             elif event.key == pygame.K_LEFT:
                 self.audio_pos = max(0, self.audio_pos - 1)
                 if self.game.audio.is_playing:
-                     # Seek is hard in pygame mixer without restarting
                      pass 
         
         if event.type == pygame.MOUSEBUTTONDOWN:
             if event.button == 1: # Left Click
-                self.handle_click(event.pos)
+                if self.edit_mode == "NOTES":
+                    self.handle_click(event.pos)
+                else:
+                    self.handle_click_event(event.pos)
             elif event.button == 4: # Scroll Up
                 self.audio_pos = max(0, self.audio_pos - 0.5)
             elif event.button == 5:
@@ -130,12 +172,8 @@ class EditorScene(Scene):
     def toggle_playback(self):
         if self.paused:
             self.game.audio.stop() # Reset
-            # Pygame mixer can't seek easily on streamed music like mp3 usually, assume restart logic or implement complex seeking
-            # For prototype editor, just restart is safer or play from 0
             self.game.audio.play() # Plays from start
-            # If we want to play from audio_pos, we need 'start' arg in play, available in pygame 2.0+
             try:
-                pygame.mixer.music.set_pos(self.audio_pos) # Only works for .ogg in some versions?
                 # Actually play(start=...)
                 pygame.mixer.music.play(start=self.audio_pos)
             except:
@@ -145,6 +183,39 @@ class EditorScene(Scene):
         else:
             self.game.audio.stop()
             self.paused = True
+
+    def handle_click_event(self, pos):
+        mx, my = pos
+        timeline_y = SCREEN_HEIGHT // 2
+        time_offset = (timeline_y - my) / self.zoom
+        event_time = self.audio_pos + time_offset
+        event_time = round(event_time / self.grid_snap) * self.grid_snap
+        
+        if event_time < 0: return
+
+        # Remove existing event near here
+        removed = False
+        for e in self.events[:]:
+            if abs(e['time'] - event_time) < 0.1:
+                self.events.remove(e)
+                removed = True
+                break
+        
+        if not removed:
+             # Add event
+             ev = {'time': event_time, 'type': self.selected_event_type}
+             if self.selected_event_type == EVENT_CAMERA_ZOOM:
+                 ev['value'] = 1.5 # Default zoom in
+                 ev['duration'] = 1.0
+             elif self.selected_event_type == EVENT_CAMERA_SHAKE:
+                 ev['intensity'] = 10.0
+                 ev['duration'] = 0.5
+             elif self.selected_event_type == EVENT_NOTE_GLOW:
+                 ev['color'] = (0, 255, 255)
+                 ev['duration'] = 2.0
+                 
+             self.events.append(ev)
+             self.events.sort(key=lambda x: x['time'])
 
     def handle_click(self, pos):
         mx, my = pos
@@ -199,7 +270,8 @@ class EditorScene(Scene):
             beatmap_data = {
                 'bpm': getattr(self, 'bpm', 120),
                 'duration': getattr(self, 'duration', 180),
-                'notes': self.beatmap
+                'notes': self.beatmap,
+                'events': self.events
             }
             
             # If we are editing a .tur, we need to handle the embedded audio 

@@ -465,9 +465,7 @@ class LobbyScene(Scene):
                 self.state = "JOINING"
         elif key == pygame.K_BACKSPACE:
             self.code_buffer = self.code_buffer[:-1]
-        elif key == pygame.K_MINUS or event.unicode == '-':
-            pass
-        elif event.unicode.isalnum() and len(self.code_buffer) < 10:
+        elif (event.unicode.isalnum() or event.unicode == '-') and len(self.code_buffer) < 10:
             self.code_buffer += event.unicode.upper()
 
     def _handle_direct(self, key, event):

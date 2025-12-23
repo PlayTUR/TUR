@@ -24,17 +24,21 @@ class GameScene(Scene):
         map_data = self.game.generator.get_beatmap(path, self.difficulty)
         
         if isinstance(map_data, list):
-            self.beatmap = map_data
+            self.notes = map_data
+            self.events = []
             self.bpm = 120.0
             self.duration = 180.0
             audio_source = path
         else:
-            self.beatmap = map_data.get('notes', [])
+            self.notes = map_data.get('notes', [])
+            self.events = map_data.get('events', [])
+            # Sort events
+            self.events.sort(key=lambda x: x['time'])
             self.bpm = map_data.get('bpm', 120.0)
             self.duration = map_data.get('duration', 180.0)
             audio_source = map_data.get('audio_path', path)
 
-        for note in self.beatmap:
+        for note in self.notes:
             note['hit'] = False
         
         self.beat_pulse = 0.0
@@ -456,6 +460,27 @@ class GameScene(Scene):
         hp_color = (0, 255, 100) if self.health > 30 else (255, 180, 0) if self.health > 15 else (255, 50, 50)
         pygame.draw.rect(surface, hp_color, (bar_x, bar_y, int(bar_w * (self.health / 100.0)), bar_h))
         pygame.draw.rect(surface, (200, 200, 200), (bar_x, bar_y, bar_w, bar_h), 1)
+        
+        # Process Events
+        while self.event_index < len(self.events):
+            ev = self.events[self.event_index]
+            if ev['time'] <= self.song_time:
+                # Trigger Event
+                if ev['type'] == EVENT_CAMERA_ZOOM:
+                    self.game.renderer.trigger_zoom(ev.get('value', 1.0), ev.get('duration', 1.0))
+                elif ev['type'] == EVENT_CAMERA_SHAKE:
+                    self.game.renderer.trigger_shake(ev.get('intensity', 5.0))
+                elif ev['type'] == EVENT_NOTE_GLOW:
+                    self.game.renderer.trigger_glow(ev.get('color', (0, 255, 0)), ev.get('duration', 30))
+                elif ev['type'] == EVENT_SPEED_CHANGE:
+                    self.scroll_speed = self.base_scroll_speed * ev.get('multiplier', 1.0)
+                
+                self.event_index += 1
+            else:
+                break
+        
+        # Spawn Notes
+        spawn_time = self.song_time + (SCREEN_HEIGHT / self.scroll_speed)
         
         # Draw Acc
         total_hits = self.perfects + self.goods + self.bads + self.misses

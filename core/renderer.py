@@ -46,6 +46,17 @@ class PygameRenderer:
         self.flash_alpha = 0  # Flash overlay alpha (0-255)
         self.flash_color = (255, 255, 255)  # Flash color
         
+        # Camera State
+        self.camera_zoom = 1.0
+        self.camera_offset_x = 0
+        self.camera_offset_y = 0
+        self.target_zoom = 1.0
+        self.target_offset_x = 0
+        self.target_offset_y = 0
+        
+        # Glow State
+        self.active_glow = None # (color, duration)
+        
         # Font Cache for CJK/Localization
         self.fonts = {
             "default": self.font,
@@ -123,6 +134,20 @@ class PygameRenderer:
         # Decay flash
         if self.flash_alpha > 0:
             self.flash_alpha = max(0, self.flash_alpha - 25)
+            
+        # Camera Interpolation
+        self.camera_zoom += (self.target_zoom - self.camera_zoom) * 0.1
+        self.camera_offset_x += (self.target_offset_x - self.camera_offset_x) * 0.1
+        self.camera_offset_y += (self.target_offset_y - self.camera_offset_y) * 0.1
+        
+        # Decay Glow
+        if self.active_glow:
+            color, life = self.active_glow
+            life -= 1
+            if life <= 0:
+                self.active_glow = None
+            else:
+                self.active_glow = (color, life)
     
     def trigger_shake(self, intensity=8.0):
         """Trigger screen shake effect"""
@@ -132,6 +157,16 @@ class PygameRenderer:
         """Trigger screen flash effect"""
         self.flash_color = color
         self.flash_alpha = alpha
+
+    def trigger_zoom(self, zoom, duration=1.0):
+        self.target_zoom = zoom
+
+    def trigger_pan(self, x, y):
+        self.target_offset_x = x
+        self.target_offset_y = y
+        
+    def trigger_glow(self, color, duration=30):
+        self.active_glow = (color, duration)
     
     def apply_post_effects(self, surface):
         """Apply post-processing effects to the surface"""
@@ -304,6 +339,23 @@ class PygameRenderer:
         
         return 60  # Return total height
 
+    def _transform_point(self, x, y):
+        """Apply camera zoom and offset to a point"""
+        cx, cy = self.ref_w // 2, self.ref_h // 2
+        
+        # Offset
+        x += self.camera_offset_x + self.shake_offset[0]
+        y += self.camera_offset_y + self.shake_offset[1]
+        
+        # Zoom relative to center
+        dx = x - cx
+        dy = y - cy
+        
+        x = cx + dx * self.camera_zoom
+        y = cy + dy * self.camera_zoom
+        
+        return int(x), int(y)
+
     def draw_lanes(self, surface, upscroll=False, pulse=0.0):
         theme = self.get_theme()
         
@@ -314,18 +366,32 @@ class PygameRenderer:
         
         # Dynamic Background Pulse
         bg_col = list(theme["bg"])
-        # Add pulse to primary component?
-        # Let's just boost G if green, R if Red... simple boost to G for now as basic lighting
         if pulse > 0:
             bg_col[1] = min(255, int(bg_col[1] + 20 * pulse))
+        
+        # Apply Glow if active
+        if self.active_glow:
+            glow_col, _ = self.active_glow
+            # Blend glow color with bg
+            bg_col = [min(255, c + gc*0.2) for c, gc in zip(bg_col, glow_col)]
             
-        pygame.draw.rect(surface, bg_col, (start_x, 0, lane_w * 4, self.ref_h))
+        # We need to draw a large background to cover shakes/zooms
+        # Transform corners
+        tl = self._transform_point(start_x, 0)
+        tr = self._transform_point(start_x + lane_w * 4, 0)
+        bl = self._transform_point(start_x, self.ref_h)
+        br = self._transform_point(start_x + lane_w * 4, self.ref_h)
+        
+        pygame.draw.polygon(surface, bg_col, [tl, tr, br, bl])
         
         # Lane Dividers
         grid_col = theme["grid"]
         for i in range(5):
             x = start_x + i * lane_w
-            pygame.draw.line(surface, grid_col, (x, 0), (x, self.ref_h), 2)
+            pt1 = self._transform_point(x, 0)
+            pt2 = self._transform_point(x, self.ref_h)
+            pygame.draw.line(surface, grid_col, pt1, pt2, 2)
+
             
         # Receptor Line
         hit_y = int(self.ref_h * (0.15 if upscroll else 0.85))
@@ -426,8 +492,21 @@ class PygameRenderer:
             x = start_x + lane * lane_w
             cx = x + lane_w // 2
             
+            # Apply Camera Transform
+            tx, ty = self._transform_point(x, y)
+            tcx, _ = self._transform_point(cx, y)
+            
+            # Scale dimensions
+            scaled_w = int(lane_w * self.camera_zoom)
+            scaled_h = int(30 * self.camera_zoom)
+            
             color = c1 if lane in [1, 2] else c2
+            if self.active_glow:
+                 gc, _ = self.active_glow
+                 color = [min(255, c + g*0.5) for c, g in zip(color, gc)]
+                 
             dark_color = tuple(max(0, c - 60) for c in color)
+
             
             # Draw hold note body
             if length > 0:

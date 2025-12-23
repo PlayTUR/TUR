@@ -127,13 +127,16 @@ class BeatmapGenerator:
             if not diff_data and data['difficulties']:
                  diff_data = next(iter(data['difficulties'].values()))
             notes = diff_data.get('notes', [])
+            events = diff_data.get('events', [])
         else:
             # Legacy Format
             if data.get('difficulty', 'MEDIUM') == difficulty:
                 notes = data.get('notes', [])
+                events = data.get('events', [])
             else:
                  # File doesn't have this difficulty
                  notes = []
+                 events = []
 
         # Ensure all notes have required fields
         for note in notes:
@@ -146,6 +149,7 @@ class BeatmapGenerator:
             'bpm': data.get('bpm', 120),
             'duration': data.get('duration', 180),
             'notes': notes,
+            'events': events,
             'title': data.get('title', ''),
             'artist': data.get('artist', ''),
             'difficulty': difficulty, # The requested one
@@ -199,7 +203,8 @@ class BeatmapGenerator:
                     'length': n.get('length', 0)
                 }
                 for n in beatmap.get('notes', [])
-            ]
+            ],
+            'events': beatmap.get('events', [])
         }
         
         # Audio Handling (Preserve valid existing audio)
@@ -341,7 +346,7 @@ class BeatmapGenerator:
             },
             "MEDIUM": {
                 "note_mult": 0.8, "chord_threshold": 0.75, "max_chord": 2,
-                "subdivision": 8, "hold_threshold": 0.85, "hold_min": 0.25
+                "subdivision": 4, "hold_threshold": 0.85, "hold_min": 0.25
             },
             "HARD": {
                 "note_mult": 1.0, "chord_threshold": 0.6, "max_chord": 3,
@@ -352,7 +357,7 @@ class BeatmapGenerator:
                 "subdivision": 16, "hold_threshold": 0.5, "hold_min": 0.15
             },
             "FUCK YOU": {
-                "note_mult": 2.0, "chord_threshold": 0.2, "max_chord": 4,
+                "note_mult": 2.5, "chord_threshold": 0.15, "max_chord": 4,
                 "subdivision": 32, "hold_threshold": 0.3, "hold_min": 0.1
             }
         }
@@ -453,7 +458,10 @@ class BeatmapGenerator:
                 # If gap is moderate (good for streams)
                 if 0.15 < gap < 0.5:
                     # Add rapid alternating notes
-                    interval = 0.05 if difficulty == "FUCK YOU" else 0.08
+                    if difficulty == "FUCK YOU":
+                        interval = 0.05
+                    else:
+                        interval = 0.08
                     cur_t = t1 + interval
                     lane_offset = 0
                     

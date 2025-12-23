@@ -145,6 +145,12 @@ DIFF_SETTINGS = {
     "FUCK YOU": {"density": 1.0, "speed": 1500}
 }
 
+# Editor / Map Events
+EVENT_CAMERA_ZOOM = "cam_zoom"   # {time, value, duration}
+EVENT_CAMERA_SHAKE = "cam_shake" # {time, intensity, duration}
+EVENT_NOTE_GLOW = "glow"         # {time, color, duration}
+EVENT_SPEED_CHANGE = "speed"     # {time, multiplier}
+
 # TUI Config
 FONT_SIZE = 20
 LANE_WIDTH_CHARS = 10
@@ -170,4 +176,3 @@ def VERIFY_ADMIN_TOKEN(token):
     import hashlib
     # Dummy check: if token matches known admin hash
     return False # Default to secure
-
