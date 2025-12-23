@@ -3,3 +3,4 @@ numpy
 soundfile
 librosa
 windows-curses
+psutil
