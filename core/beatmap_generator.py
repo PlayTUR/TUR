@@ -21,9 +21,8 @@ class BeatmapGenerator:
         if audio_path.lower().endswith('.tur'):
             if os.path.exists(audio_path):
                 print(f"Loading .tur bundle: {os.path.basename(audio_path)}")
-                return self.load_tur(audio_path)
+                return self.load_tur(audio_path, difficulty)
             else:
-                print(f".tur file not found: {audio_path}")
                 return {'bpm': 120, 'notes': [], 'duration': 180}
         
         # Case 1.5: Input is a .osu file
@@ -34,65 +33,98 @@ class BeatmapGenerator:
             if osu_data:
                 return {
                     'bpm': osu_data.get('bpm', 120),
-                    'duration': 180, # Placeholder, would need analysis
+                    'duration': 180, 
                     'notes': osu_data['notes'],
                     'audio_path': os.path.join(os.path.dirname(audio_path), osu_data['audio_filename'])
                 }
 
-        # Case 2: Audio file -> check for existing .tur or cache
+        # Case 2: Audio file -> check for existing .tur
         tur_path = self._get_tur_path(audio_path, difficulty)
         
-        # Check for sidecar .tur file (e.g., song_medium.tur)
         if os.path.exists(tur_path):
-            print(f"Loading sidecar beatmap: {os.path.basename(tur_path)}")
+            # Check if this SPECIFIC difficulty exists in the .tur
             try:
-                data = self.load_tur(tur_path)
-                if not data.get('audio_path'):
-                    data['audio_path'] = audio_path
-                
-                # If this is an OSZ import, always use the imported chart (don't regenerate)
-                if data.get('source') == 'osu!':
-                    print(f"OSZ import detected - using original chart")
+                data = self.load_tur(tur_path, difficulty)
+                # If we got fallback notes (check logical size or if load_tur marks it), 
+                # actually load_tur returns whatever diff it found if requested is missing?
+                # My load_tur implementation: "If requested diff missing, try fallback".
+                # We should check if the returned difficulty is what we wanted.
+                if data['difficulty'] == difficulty:
                     return data
                 
-                # For generated .tur files, also return the saved data
-                return data
+                # If mismatch, we need to generate this difficulty and add it
+                print(f"Difficulty {difficulty} missing in .tur, generating...")
+                # Fall through to generation logic but only for this diff
             except Exception as e:
-                print(f"Error loading .tur file: {e}")
-        
-        # Check cache
-        file_hash = self._get_file_hash(audio_path, difficulty)
-        cache_path = os.path.join(self.cache_dir, f"{file_hash}.json")
+                print(f"Error loading .tur: {e}")
 
-        if os.path.exists(cache_path):
-            print(f"Loading cached beatmap for {os.path.basename(audio_path)} [{difficulty}]")
-            try:
-                with open(cache_path, 'r') as f:
-                    beatmap = json.load(f)
-                    beatmap['audio_path'] = audio_path
-                    return beatmap
-            except:
-                pass
+        # Check cache (Legacy json cache, skipping for simplicity in favor of .tur)
+        
+        # Generate new beatmap(s)
+        from core.config import DIFFICULTIES
+        
+        # If the file didn't exist, we generate ALL difficulties
+        # If it did exist but missed one, we just add the one (or all missing).
+        
+        # Let's just generate ALL missing difficulties to be safe and helpful.
+        print(f"Generating beatmaps for {os.path.basename(audio_path)}...")
+        
+        generated_result = None
+        
+        # We need to loop through all difficulties
+        # Setup: Embed audio only on the first save to avoid overhead/errors
+        first_save = True
+        if os.path.exists(tur_path):
+             first_save = False # Already exists, don't re-embed unless needed
+             
+        for diff in DIFFICULTIES:
+            # Check if we already have it (optimization)
+            if os.path.exists(tur_path):
+                 try:
+                     existing = self.load_tur(tur_path, diff)
+                     if existing['difficulty'] == diff and existing['notes']:
+                         if diff == difficulty: generated_result = existing
+                         continue # Skip existing
+                 except: pass
 
-        # Generate new beatmap
-        print(f"Generating beatmap for {os.path.basename(audio_path)} [{difficulty}]...")
-        beatmap = self._analyze_audio(audio_path, difficulty)
-        
-        if not beatmap or isinstance(beatmap, list):
-            # Fallback if analysis failed
-            print("Audio analysis failed, using empty map")
-            beatmap = {'bpm': 120, 'notes': [], 'duration': 180, 'audio_path': audio_path}
-        else:
-            beatmap['audio_path'] = audio_path
-        
-        # Save to cache
-        with open(cache_path, 'w') as f:
-            json.dump(beatmap, f)
-        
-        # Auto-export as .tur for future editing
-        self.save_tur(beatmap, tur_path, audio_path, difficulty)
+            print(f"  - Generating {diff}...")
+            beatmap = self._analyze_audio(audio_path, diff)
             
-        return beatmap
+            if not beatmap: continue
+            
+            beatmap['audio_path'] = audio_path
+            
+            # Save/Merge into .tur
+            # embed_audio is True only if file doesn't exist yet or we want to ensure it
+            # self.save_tur handles merging.
+            # We only delete original audio after LAST difficulty if we want to clean up, 
+            # currently save_tur deletes if embed_audio=True. 
+            # We should only delete after the loop or if we are sure.
+            # Actually save_tur's delete_original logic might overlap.
+            # Let's handle embedding explicitly.
+            
+            do_embed = False
+            if first_save:
+                do_embed = True
+                first_save = False
+            
+            self.save_tur(beatmap, tur_path, audio_path, diff, embed_audio=do_embed, delete_original=False)
+            
+            if diff == difficulty:
+                # Reload to get full struct
+                generated_result = self.load_tur(tur_path, diff)
+
+        # Cleanup original audio if we embedded it
+        # (Only if we confirmed we created a .tur and embedded audio)
+        # For now, let's leave the MP3 there to be safe or reliance on user cleanup.
+        # But previous logic had `delete_original=True`.
+        # Safe to delete if we are sure .tur exists and has audio.
+        
+        if generated_result:
+             return generated_result
+             
+        # Fallback
+        return {'bpm': 120, 'notes': [], 'duration': 180, 'audio_path': audio_path}
     
     def _get_tur_path(self, audio_path, difficulty):
         """Get .tur file path for an audio file"""

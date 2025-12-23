@@ -376,7 +376,8 @@ class Game:
         
     def update_music(self):
         from scenes.game_scene import GameScene
-        if isinstance(self.scene_manager.current_scene, GameScene): return
+        from scenes.editor_scene import EditorScene
+        if isinstance(self.scene_manager.current_scene, (GameScene, EditorScene)): return
 
         if not pygame.mixer.music.get_busy():
             if self.menu_playlist:

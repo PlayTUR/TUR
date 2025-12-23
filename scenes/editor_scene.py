@@ -66,14 +66,57 @@ class EditorScene(Scene):
             self.game.renderer.draw_text(surface, "[ESC] TO EXIT", 320, 380, (150, 150, 150))
             return
             
-        # Draw Timeline
-        center_x = SCREEN_WIDTH // 2
+        # --- UI Sidebar (Left) ---
+        ui_x = 10
+        ui_y = 50
         
-        # Mode Indicator
-        mode_col = TERM_AMBER if self.edit_mode == "EVENTS" else TERM_GREEN
-        self.game.renderer.draw_text(surface, f"MODE: {self.edit_mode}", 10, 50, mode_col)
+        # Valid Mouse Pos for hover
+        mx, my = pygame.mouse.get_pos()
+        
+        # Helper for buttons
+        def draw_btn(text, y, active=False, color=None):
+            rect = pygame.Rect(ui_x, y, 140, 30)
+            hover = rect.collidepoint(mx, my)
+            
+            c = color if color else (TERM_GREEN if active else (50, 50, 50))
+            if hover and not active: c = (80, 80, 80)
+            
+            pygame.draw.rect(surface, c, rect)
+            pygame.draw.rect(surface, TERM_WHITE, rect, 1)
+            self.game.renderer.draw_text(surface, text, ui_x + 10, y + 5, BLACK if active else TERM_WHITE)
+            return rect
+
+        # Mode Toggles
+        self.btn_notes = draw_btn("NOTES", ui_y, self.edit_mode == "NOTES")
+        ui_y += 35
+        self.btn_events = draw_btn("EVENTS", ui_y, self.edit_mode == "EVENTS")
+        ui_y += 45
+        
+        # Tools
+        self.btn_tool_zoom = None
+        self.btn_tool_shake = None
+        self.btn_tool_glow = None
+        self.btn_tool_speed = None
+        
         if self.edit_mode == "EVENTS":
-            self.game.renderer.draw_text(surface, f"TYPE: {self.selected_event_type} [1-3]", 10, 70, TERM_AMBER)
+            self.game.renderer.draw_text(surface, "TOOLS:", ui_x, ui_y, TERM_AMBER)
+            ui_y += 25
+            self.btn_tool_zoom = draw_btn("ZOOM", ui_y, self.selected_event_type == EVENT_CAMERA_ZOOM, (100, 255, 255) if self.selected_event_type == EVENT_CAMERA_ZOOM else None)
+            ui_y += 35
+            self.btn_tool_shake = draw_btn("SHAKE", ui_y, self.selected_event_type == EVENT_CAMERA_SHAKE, (255, 100, 100) if self.selected_event_type == EVENT_CAMERA_SHAKE else None)
+            ui_y += 35
+            self.btn_tool_glow = draw_btn("GLOW", ui_y, self.selected_event_type == EVENT_NOTE_GLOW, (100, 255, 0) if self.selected_event_type == EVENT_NOTE_GLOW else None)
+            ui_y += 35
+            self.btn_tool_speed = draw_btn("SPEED", ui_y, self.selected_event_type == EVENT_SPEED_CHANGE, (255, 255, 0) if self.selected_event_type == EVENT_SPEED_CHANGE else None)
+            ui_y += 45
+
+        # Actions
+        ui_y = 500
+        self.btn_save = draw_btn("SAVE [S]", ui_y, False, (50, 100, 200))
+        ui_y += 35
+        self.btn_play = draw_btn("PAUSE" if not self.paused else "PLAY", ui_y, not self.paused)
+        
+        # --- Timeline & Grid ---
         
         # Time Indicator
         self.game.renderer.draw_text(surface, f"TIME: {self.audio_pos:.2f}s", 10, 10, TERM_WHITE)
@@ -184,7 +227,46 @@ class EditorScene(Scene):
             self.game.audio.stop()
             self.paused = True
 
+    def check_ui_click(self, pos):
+        mx, my = pos
+        if not (10 <= mx <= 150): return False
+        
+        # Mode Toggles
+        if 50 <= my <= 80:
+            self.edit_mode = "NOTES"
+            return True
+        if 85 <= my <= 115:
+            self.edit_mode = "EVENTS"
+            return True
+            
+        # Tools
+        if self.edit_mode == "EVENTS":
+            if 155 <= my <= 185:
+                self.selected_event_type = EVENT_CAMERA_ZOOM
+                return True
+            if 190 <= my <= 220:
+                self.selected_event_type = EVENT_CAMERA_SHAKE
+                return True
+            if 225 <= my <= 255:
+                self.selected_event_type = EVENT_NOTE_GLOW
+                return True
+            if 260 <= my <= 290:
+                self.selected_event_type = EVENT_SPEED_CHANGE
+                return True
+        
+        # Actions
+        if 500 <= my <= 530:
+            self.save_map()
+            return True
+        if 535 <= my <= 565:
+            self.toggle_playback()
+            return True
+            
+        return False
+
     def handle_click_event(self, pos):
+        if self.check_ui_click(pos): return
+        
         mx, my = pos
         timeline_y = SCREEN_HEIGHT // 2
         time_offset = (timeline_y - my) / self.zoom
@@ -213,11 +295,15 @@ class EditorScene(Scene):
              elif self.selected_event_type == EVENT_NOTE_GLOW:
                  ev['color'] = (0, 255, 255)
                  ev['duration'] = 2.0
+             elif self.selected_event_type == EVENT_SPEED_CHANGE:
+                 ev['multiplier'] = 2.0
                  
              self.events.append(ev)
              self.events.sort(key=lambda x: x['time'])
 
     def handle_click(self, pos):
+        if self.check_ui_click(pos): return
+        
         mx, my = pos
         center_x = SCREEN_WIDTH // 2
         lane_w = 80

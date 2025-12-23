@@ -58,7 +58,7 @@
     "is_admin": false,
     "discord_client_id": "123456789012345678",
     "user_id": "38159493",
-    "auto_recreate_beatmaps": false,
+    "auto_recreate_beatmaps": true,
     "language": "EN",
     "vim_mode": false,
     "note_skin": "DEFAULT"
