@@ -33,8 +33,8 @@ if platform.system() == "Linux":
 # Main Pygame Entry Point
 class Game:
     def __init__(self):
-<<<<<<< HEAD
-=======
+
+
         # Linux/Tiling WM Stability + Hyprland/NVIDIA Fixes
         os.environ['SDL_VIDEO_X16_WMCLASS'] = "tur"
         
@@ -53,7 +53,6 @@ class Game:
         os.environ['SDL_RENDER_DRIVER'] = "opengl"
         os.environ['SDL_HINT_RENDER_VSYNC'] = "1"
         
->>>>>>> 0dc16cc (use code wyind in the fortnite item shop)
         pygame.init()
         pygame.mixer.init()
         

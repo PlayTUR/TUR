@@ -3,6 +3,7 @@ import os
 def parse_osu(file_path):
     """
     Parses a .osu file and returns a dictionary with metadata and notes.
+    All key counts are remapped to 4 lanes.
     """
     if not os.path.exists(file_path):
         return None
@@ -13,7 +14,9 @@ def parse_osu(file_path):
         'difficulty_name': '',
         'audio_filename': '',
         'notes': [],
-        'bpm': 120 # Default or computed from timing points
+        'bpm': 120,
+        'keys': 4,  # Default key count
+        'mode': 0   # 0=std, 3=mania
     }
 
     current_section = None
@@ -31,6 +34,12 @@ def parse_osu(file_path):
             if current_section == "General":
                 if line.startswith("AudioFilename:"):
                     data['audio_filename'] = line.split(":", 1)[1].strip()
+                elif line.startswith("Mode:"):
+                    data['mode'] = int(line.split(":")[1].strip())
+            
+            elif current_section == "Difficulty":
+                if line.startswith("CircleSize:"):
+                    data['keys'] = int(float(line.split(":")[1].strip()))
             
             elif current_section == "Metadata":
                 if line.startswith("Title:"):
@@ -49,18 +58,25 @@ def parse_osu(file_path):
                         time_ms = int(parts[2])
                         obj_type = int(parts[3])
                         
-                        # Map X (0-512) to 4 lanes (0-3)
-                        # We use 512 as the max X in osu!
-                        lane = min(3, max(0, int(x / 128)))
+                        # Calculate lane with key count remapping
+                        keys = data['keys']
+                        if data['mode'] == 3 and keys > 0:  # Mania mode
+                            original_lane = int(x * keys / 512)
+                            if keys <= 4:
+                                lane = min(3, max(0, original_lane))
+                            else:
+                                # Remap 5K/6K/7K/8K to 4K
+                                lane = int(original_lane * 4 / keys)
+                                lane = min(3, max(0, lane))
+                        else:
+                            # Standard mode - map x to 4 lanes
+                            lane = min(3, max(0, int(x / 128)))
                         
                         time_sec = time_ms / 1000.0
                         length = 0.0
                         
-                        # Check for hold note (slider or long note)
-                        # type 128 is a long note in mania
-                        # types are bitmasks: 1=circle, 2=slider, 8=spinner, 128=mania_long
+                        # Check for hold note (type 128 is mania long note)
                         if obj_type & 128:
-                             # mania long note: x,y,time,type,hitSound,endTime:hitSample...
                              if ':' in parts[5]:
                                  end_time_ms = int(parts[5].split(':')[0])
                                  length = (end_time_ms - time_ms) / 1000.0
@@ -73,6 +89,11 @@ def parse_osu(file_path):
                     except:
                         continue
     
-    # Sort notes by time just in case
+    # Sort notes by time
     data['notes'].sort(key=lambda x: x['time'])
+    
+    # Log conversion info
+    if data['keys'] != 4:
+        print(f"Converted {data['keys']}K map to 4K: {len(data['notes'])} notes")
+    
     return data

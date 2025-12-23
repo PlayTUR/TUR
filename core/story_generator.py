@@ -1,11 +1,8 @@
 """
-<<<<<<< HEAD
 Story Generator - Creates themed campaigns with ASCII cutscenes
-=======
 Story Generator for TUR
 Creates an immersive 5-chapter campaign with rich narrative,
 unique characters, and progressive difficulty.
->>>>>>> 0dc16cc (use code wyind in the fortnite item shop)
 """
 
 import random
@@ -15,7 +12,6 @@ from core.music_generator import MusicGenerator
 
 class StoryGenerator:
     def __init__(self):
-<<<<<<< HEAD
         # Themed chapters with story and ASCII art
         self.chapters = [
             {
@@ -129,7 +125,6 @@ class StoryGenerator:
             "title": "OPERATION PHANTOM",
             "chapters": campaign_chapters
         }
-=======
         # Campaign narrative structure - Operation 934275
         self.campaign_data = {
             "title": "OPERATION 934275: PHANTOM PROTOCOL",
@@ -324,4 +319,3 @@ class StoryGenerator:
             campaign["chapters"].append(chapter)
         
         return campaign
->>>>>>> 0dc16cc (use code wyind in the fortnite item shop)

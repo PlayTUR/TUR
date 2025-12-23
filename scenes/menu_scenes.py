@@ -151,9 +151,6 @@ class TitleScene(Scene):
         q_rect = q_surf.get_rect(center=(SCREEN_WIDTH//2, 280))
         surface.blit(q_surf, q_rect)
         
-            
-            # (MOVED TO END OF DRAW)
-            
         # Controller Detection UI
         joy_count = pygame.joystick.get_count()
         if joy_count > 0:
@@ -206,7 +203,7 @@ class TitleScene(Scene):
         if account_type == "GUEST":
             self.game.renderer.draw_text(surface, "GUEST MODE  |  [L] LOGIN  [R] REGISTER  [P] PROFILE", 20, SCREEN_HEIGHT - 30, theme["secondary"])
         else:
-            self.game.renderer.draw_text(surface, f"◉ {name}  |  [L] LOGOUT  [P] PROFILE", 20, SCREEN_HEIGHT - 30, (0, 255, 255))
+            self.game.renderer.draw_text(surface, f"◉ {name}  |  [L] LOGOUT  [P] PROFILE", 20, SCREEN_HEIGHT - 30, theme["primary"])
         
         if hasattr(self.game, 'current_bgm_title') and self.game.current_bgm_title:
              r_text = f"NOW PLAYING: {self.game.current_bgm_title}"
@@ -450,13 +447,12 @@ class SongSelectScene(Scene):
         
         if not self.songs:
             r.draw_text(surface, "No songs found!", 60, 130, theme["error"])
-            r.draw_text(surface, "Add .mp3/.wav/.ogg to 'songs' folder", 60, 165, (120, 120, 120))
+            r.draw_text(surface, "Add .mp3/.wav/.ogg/.osz or .tur files to 'songs' folder", 60, 165, (120, 120, 120))
         else:
             visible_count = 10
             start_idx = max(0, self.selected_index - 5)
             end_idx = min(len(self.songs), start_idx + visible_count)
             
-<<<<<<< HEAD
             for i in range(start_idx, end_idx):
                 song = self.songs[i]
                 y_pos = 125 + (i - start_idx) * 44
@@ -486,32 +482,8 @@ class SongSelectScene(Scene):
         
         # Difficulty panel
         r.draw_panel(surface, 620, 100, 340, 140, "DIFFICULTY")
-=======
-            # Truncate long filenames to fit panel
-            display_name = song[:35] + "..." if len(song) > 38 else song
-            
-            if i == self.selected_index:
-                color = theme["primary"]
-                # Check for High Score
-                score_data = self.game.score_manager.get_score(song, self.difficulties[self.diff_index])
-                suffix = ""
-                if score_data:
-                    suffix = f" [{score_data['rank']}]"
-                
-                # Truncate with suffix
-                max_len = 32 - len(suffix)
-                display_name = song[:max_len] + "..." if len(song) > max_len + 3 else song
-                
-                # Highlight logic - Draw selection bar
-                pygame.draw.rect(surface, (theme["grid"][0]//2, theme["grid"][1]//2, theme["grid"][2]//2), (list_x+2, y_pos, list_w-4, 30))
-                self.game.renderer.draw_text(surface, f"> {display_name}{suffix}", list_x + 10, y_pos + 5, color)
-            else:
-                color = theme["text"]
-                display_name = song[:38] + "..." if len(song) > 41 else song
-                self.game.renderer.draw_text(surface, f"  {display_name}", list_x + 10, y_pos + 5, color)
-
+        
         # Difficulty
->>>>>>> 0dc16cc (use code wyind in the fortnite item shop)
         diff = self.difficulties[self.diff_index]
         diff_color = theme["error"] if diff in ["HARD", "EXTREME", "FUCK YOU"] else theme["secondary"]
         
@@ -631,16 +603,9 @@ class SongSelectScene(Scene):
 class SettingsScene(Scene):
     def __init__(self, game):
         super().__init__(game)
-<<<<<<< HEAD
         self.last_joy_count = -1
-=======
-        self.menu_items = [
-            "VOLUME", "SPEED", "UPSCROLL", "OFFSET", "THEME", 
-            "RESOLUTION", "FULLSCREEN", "HIT SOUNDS", "VISUAL FX",
-            "SHOW FPS", "BG DIM", "KEYBINDS", "BACK"
-        ]
+        self.menu_items = []
         self.resolutions = [[1024, 768], [1280, 720], [1366, 768], [1600, 900], [1920, 1080], [2560, 1440]]
->>>>>>> 0dc16cc (use code wyind in the fortnite item shop)
         self.index = 0
         self.scroll_offset = 0
         self.visible_items = 9
@@ -649,17 +614,11 @@ class SettingsScene(Scene):
         self.tabs = ["AUDIO", "VIDEO", "GAMEPLAY", "INPUT"]
         self.current_tab = 0
         
-        # Initial Build
-        self.update_menu_items()
-        
-        self.resolutions = [[1024, 768], [1280, 720], [1366, 768], [1600, 900], [1920, 1080], [2560, 1440]]
+        # Keybind mode
         self.binding_mode = False
         self.binding_step = 0
         self.temp_binds = []
-        self.scroll_offset = 0
-        self.visible_items = 9
         
-<<<<<<< HEAD
         # Hot-Reload State
         self.reloading = False
         self.reload_msg = ""
@@ -670,6 +629,9 @@ class SettingsScene(Scene):
         
         # Vim command buffer
         self.cmd_buffer = ""
+        
+        # Initial Build
+        self.update_menu_items()
         
     def update_menu_items(self):
         # dynamic rebuild
@@ -682,7 +644,7 @@ class SettingsScene(Scene):
         # Group items by category (Enriched with more features)
         self.all_items = {
             "AUDIO": ["VOLUME", "MUSIC_VOLUME", "SFX_VOLUME", "OFFSET", "HIT SOUNDS"],
-            "VIDEO": ["RESOLUTION", "FULLSCREEN", "V-SYNC", "CRT FILTER", "THEME", "VISUAL FX", "SHOW FPS", "BG DIM"],
+            "VIDEO": ["RESOLUTION", "FULLSCREEN", "V-SYNC", "CRT FILTER", "THEME", "VISUAL FX", "POST EFFECTS", "SHOW FPS", "BG DIM"],
             "GAMEPLAY": ["SPEED", "UPSCROLL", "NOTE STYLE", "SCREEN SHAKE", "RE-GEN MAPS", "LANGUAGE", "VIM BINDINGS"],
             "INPUT": ["KEYBINDS", "DEADZONE"]
         }
@@ -705,7 +667,6 @@ class SettingsScene(Scene):
         # Reset index if out of bounds
         if self.index >= len(self.menu_items):
             self.index = 0
-        self.scroll_offset = 0
         
     def update(self):
         self.update_menu_items()
@@ -726,14 +687,7 @@ class SettingsScene(Scene):
         for x in range(0, SCREEN_WIDTH, 40):
             pygame.draw.line(surface, grid_col, (x, 0), (x, SCREEN_HEIGHT))
         
-=======
-    def draw(self, surface):
-        r = self.game.renderer
-        theme = r.get_theme()
-        surface.fill(theme["bg"])
-        
         # Header
->>>>>>> 0dc16cc (use code wyind in the fortnite item shop)
         r.draw_text(surface, "◉ SYSTEM CONFIGURATION ◉", 50, 30, theme["primary"], r.big_font)
         
         if self.binding_mode:
@@ -743,7 +697,6 @@ class SettingsScene(Scene):
             r.draw_text(surface, "[ESC] Cancel", 420, 400, (100, 100, 100))
             return
 
-<<<<<<< HEAD
         # 2. Draw Tabs (Category Navigation)
         tab_x = 70
         tab_y = 100
@@ -761,16 +714,11 @@ class SettingsScene(Scene):
             r.draw_text(surface, tab_text, tab_x, tab_y, col)
             tab_x += r.font.size(tab_text)[0] + 40
 
-        # Settings panel (Standardized height to fit 10 items comfortably)
+        # Settings panel
         cat_title = get_text(self.game, self.tabs[self.current_tab])
         r.draw_panel(surface, 50, 125, 520, 480, f"SETTINGS // {cat_title}")
         
-=======
-        # Settings panel
-        r.draw_panel(surface, 50, 120, 520, 500, "OPTIONS")
-        
         # Fetch Data
->>>>>>> 0dc16cc (use code wyind in the fortnite item shop)
         s = self.game.settings
         vol = s.get("volume")
         speed = s.get("speed")
@@ -779,16 +727,13 @@ class SettingsScene(Scene):
         theme_name = s.get("theme")
         res = s.get("resolution")
         fs = s.get("fullscreen")
-<<<<<<< HEAD
         hit_sounds = s.get("hit_sounds") or True
         visual_fx = s.get("visual_effects") or True
         note_style = s.get("note_shape") or "BAR"
-=======
         hit_sounds = s.get("hit_sounds")
         visual_fx = s.get("visual_effects")
         show_fps = s.get("show_fps")
         bg_dim = s.get("bg_dim")
->>>>>>> 0dc16cc (use code wyind in the fortnite item shop)
         
         # FPS Mode: 0=OFF, 1=SIMPLE, 2=DETAILED
         show_fps = s.get("show_fps") or 0
@@ -800,7 +745,6 @@ class SettingsScene(Scene):
         binds = s.get("keybinds")
         bind_names = ", ".join([pygame.key.name(k).upper() for k in binds])
 
-<<<<<<< HEAD
         items_map = {
             "VOLUME": f"< {int(s.get('volume')*100)}% >",
             "MUSIC_VOLUME": f"< {int(s.get('music_volume')*100)}% >",
@@ -815,6 +759,7 @@ class SettingsScene(Scene):
             "CRT FILTER": f"< {'ON' if s.get('crt_filter') else 'OFF'} >",
             "HIT SOUNDS": f"< {'ON' if hit_sounds else 'OFF'} >",
             "VISUAL FX": f"< {'ON' if visual_fx else 'OFF'} >",
+            "POST EFFECTS": f"< {'ON' if s.get('post_effects') else 'OFF'} >",
             "SCREEN SHAKE": f"< {int(s.get('screen_shake')*100)}% >",
             "NOTE STYLE": f"< {note_style} >",
             "SHOW FPS": f"< {fps_str} >",
@@ -973,75 +918,6 @@ class SettingsScene(Scene):
             
             # Cancel hint
             r.draw_text(surface, "[ESC] Cancel", bx + box_w - 130, by + 15, (100, 100, 100))
-=======
-        # Build settings items with values
-        items = [
-            ("VOLUME", f"< {int(vol*100)}% >"),
-            ("SPEED", f"< {speed} >"),
-            ("UPSCROLL", f"< {'ON' if upscroll else 'OFF'} >"),
-            ("OFFSET", f"< {offset}ms >"),
-            ("THEME", f"< {theme_name} >"),
-            ("RESOLUTION", f"< {res[0]}x{res[1]} >"),
-            ("FULLSCREEN", f"< {'ON' if fs else 'OFF'} >"),
-            ("HIT SOUNDS", f"< {'ON' if hit_sounds else 'OFF'} >"),
-            ("VISUAL FX", f"< {'ON' if visual_fx else 'OFF'} >"),
-            ("SHOW FPS", f"< {'ON' if show_fps else 'OFF'} >"),
-            ("BG DIM", f"< {int(bg_dim*100)}% >"),
-            ("KEYBINDS", f"[{bind_names}]"),
-            ("BACK", "")
-        ]
-
-        # Scroll handling
-        if self.index < self.scroll_offset:
-            self.scroll_offset = self.index
-        elif self.index >= self.scroll_offset + self.visible_items:
-            self.scroll_offset = self.index - self.visible_items + 1
-
-        y = 140
-        for i in range(self.scroll_offset, min(self.scroll_offset + self.visible_items, len(items))):
-            label, value = items[i]
-            selected = (i == self.index)
-            color = theme["primary"] if selected else theme["text"]
-            prefix = "> " if selected else "  "
-            
-            if selected:
-                pygame.draw.rect(surface, theme["grid"], (55, y - 2, 510, 32))
-            
-            r.draw_text(surface, f"{prefix}{label}", 70, y, color)
-            if value:
-                r.draw_text(surface, value, 280, y, theme["secondary"] if selected else (120, 120, 120))
-            y += 42
-
-        # Scroll indicator
-        if len(items) > self.visible_items:
-            if self.scroll_offset > 0:
-                r.draw_text(surface, "↑ more", 280, 125, (100, 100, 100))
-            if self.scroll_offset + self.visible_items < len(items):
-                r.draw_text(surface, "↓ more", 280, y, (100, 100, 100))
-
-        # Help panel
-        r.draw_panel(surface, 600, 120, 360, 220, "CONTROLS")
-        r.draw_text(surface, "[↑/↓] Navigate", 620, 140, theme["text"])
-        r.draw_text(surface, "[←/→] Adjust Value", 620, 170, theme["text"])
-        r.draw_text(surface, "[SHIFT] Fast Adjust", 620, 200, theme["text"])
-        r.draw_text(surface, "[ENTER] Select", 620, 230, theme["text"])
-        r.draw_text(surface, "[ESC] Back", 620, 260, theme["text"])
-        
-        # Preview panel
-        r.draw_panel(surface, 600, 370, 360, 180, "THEME_PREVIEW")
-        
-        pygame.draw.rect(surface, theme["primary"], (620, 400, 40, 25))
-        r.draw_text(surface, "Primary", 670, 403, theme["text"])
-        
-        pygame.draw.rect(surface, theme["secondary"], (620, 435, 40, 25))
-        r.draw_text(surface, "Secondary", 670, 438, theme["text"])
-        
-        pygame.draw.rect(surface, theme["bg"], (620, 470, 40, 25))
-        pygame.draw.rect(surface, theme["grid"], (620, 470, 40, 25), 1)
-        r.draw_text(surface, "Background", 670, 473, theme["text"])
-
-        r.draw_text(surface, "[←/→] Adjust  [ESC] Back", 50, 700, (80, 80, 80))
->>>>>>> 0dc16cc (use code wyind in the fortnite item shop)
 
     def handle_input(self, event):
         if self.show_regen_confirm:
@@ -1251,8 +1127,9 @@ class SettingsScene(Scene):
             s.set("hit_sounds", not s.get("hit_sounds"))
         elif item == "VISUAL FX":
             s.set("visual_effects", not s.get("visual_effects"))
+        elif item == "POST EFFECTS":
+            s.set("post_effects", not s.get("post_effects"))
         elif item == "SHOW FPS":
-<<<<<<< HEAD
             # 0=OFF, 1=SIMPLE, 2=DETAILED
             cur = s.get("show_fps") or 0
             if isinstance(cur, bool): cur = 1 if cur else 0 # Migration safety
@@ -1312,13 +1189,11 @@ class SettingsScene(Scene):
                 idx = 0
             new_idx = (idx + direction) % len(langs)
             s.set("language", langs[new_idx])
-=======
             s.set("show_fps", not s.get("show_fps"))
         elif item == "BG DIM":
             cur = s.get("bg_dim")
             cur += direction * 0.1
             s.set("bg_dim", max(0.0, min(1.0, cur)))
->>>>>>> 0dc16cc (use code wyind in the fortnite item shop)
 
         s.save()
         return True

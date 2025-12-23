@@ -35,7 +35,6 @@ class StoryScene(Scene):
         else:
             self.state = "BRIEFING"
             self.chapter = self.chapters[self.current_idx]
-<<<<<<< HEAD
             
             # Typing animation state
             self.briefing_lines = self.chapter.get('briefing', [])
@@ -164,7 +163,6 @@ class StoryScene(Scene):
         
         # Controls
         r.draw_text(surface, "[SPACE] Skip Text  [ENTER] Start  [N] Skip Chapter  [ESC] Back", 50, 700, (80, 80, 80))
-=======
         
         # Animation state
         self.briefing_line = 0
@@ -320,7 +318,6 @@ class StoryScene(Scene):
         briefing = self.chapter.get('briefing', [])
         if self.briefing_line < len(briefing):
             self.game.renderer.draw_text(surface, "[SPACE] SKIP", 750, 620, (80, 80, 80))
->>>>>>> 0dc16cc (use code wyind in the fortnite item shop)
 
     def handle_input(self, event):
         if event.type != pygame.KEYDOWN:
@@ -346,7 +343,6 @@ class StoryScene(Scene):
             if self.state == "COMPLETE":
                 from scenes.menu_scenes import TitleScene
                 self.game.scene_manager.switch_to(TitleScene)
-<<<<<<< HEAD
             else:
                 self.play_sfx("accept")
                 from scenes.game_scene import GameScene
@@ -374,7 +370,6 @@ class StoryScene(Scene):
                     self.current_line = 0
                     self.char_index = 0
                     self.line_complete = False
-=======
                 
             elif event.key == pygame.K_SPACE:
                 # Skip typing animation
@@ -405,4 +400,3 @@ class StoryScene(Scene):
                 elif self.state == "COMPLETE":
                     from scenes.menu_scenes import TitleScene
                     self.game.scene_manager.switch_to(TitleScene)
->>>>>>> 0dc16cc (use code wyind in the fortnite item shop)

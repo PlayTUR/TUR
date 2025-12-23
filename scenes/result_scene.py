@@ -34,7 +34,6 @@ class ResultScene(Scene):
         self.accuracy = self.calculate_accuracy()
         self.grade = self.calculate_grade()
         
-<<<<<<< HEAD
         # Dynamic menu based on mode
         if self.mode == 'story':
             if self.failed:
@@ -44,13 +43,11 @@ class ResultScene(Scene):
         else:
             self.menu_items = ["REPLAY", "QUIT TO MENU"]
         
-=======
         # Menu Options - different for story mode
         if self.mode == 'story' and not self.failed and self.next_scene_class:
             self.menu_items = ["CONTINUE", "REPLAY", "ABORT MISSION"]
         else:
             self.menu_items = ["REPLAY", "QUIT TO MENU"]
->>>>>>> 0dc16cc (use code wyind in the fortnite item shop)
         self.selected_index = 0
 
     def calculate_accuracy(self):
@@ -129,7 +126,6 @@ class ResultScene(Scene):
             r.draw_text(surface, "STORY MODE", 50, 700, theme["secondary"])
 
     def handle_input(self, event):
-<<<<<<< HEAD
         if event.type != pygame.KEYDOWN:
             return
         
@@ -177,44 +173,4 @@ class ResultScene(Scene):
         else:
             from scenes.menu_scenes import SongSelectScene
             self.game.scene_manager.switch_to(SongSelectScene)
-=======
-        if event.type == pygame.KEYDOWN:
-            if event.key == pygame.K_UP:
-                self.selected_index = (self.selected_index - 1) % len(self.menu_items)
-            elif event.key == pygame.K_DOWN:
-                self.selected_index = (self.selected_index + 1) % len(self.menu_items)
-            elif event.key == pygame.K_RETURN:
-                self.play_sfx("accept")
-                choice = self.menu_items[self.selected_index]
-                if choice == "CONTINUE":
-                    # Story mode: continue to next chapter
-                    if self.next_scene_class and self.next_scene_params:
-                        self.game.scene_manager.switch_to(self.next_scene_class, self.next_scene_params)
-                    else:
-                        # Fallback to title if something went wrong
-                        from scenes.menu_scenes import TitleScene
-                        self.game.scene_manager.switch_to(TitleScene)
-                elif choice == "REPLAY":
-                    from scenes.game_scene import GameScene
-                    self.game.scene_manager.switch_to(GameScene, {
-                        'song': self.song_name,
-                        'difficulty': self.params.get('difficulty', 'MEDIUM'),
-                        'mode': self.mode,
-                        'next_scene_class': self.next_scene_class,
-                        'next_scene_params': self.next_scene_params
-                    })
-                elif choice == "ABORT MISSION":
-                    # Story mode: return to title
-                    from scenes.menu_scenes import TitleScene
-                    self.game.scene_manager.switch_to(TitleScene)
-                else:  # QUIT TO MENU
-                    from scenes.menu_scenes import SongSelectScene
-                    self.game.scene_manager.switch_to(SongSelectScene)
-            elif event.key == pygame.K_ESCAPE:
-                if self.mode == 'story':
-                    from scenes.menu_scenes import TitleScene
-                    self.game.scene_manager.switch_to(TitleScene)
-                else:
-                    from scenes.menu_scenes import SongSelectScene
-                    self.game.scene_manager.switch_to(SongSelectScene)
->>>>>>> 0dc16cc (use code wyind in the fortnite item shop)
+

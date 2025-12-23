@@ -4,26 +4,49 @@ import subprocess
 import platform
 
 def get_clipboard():
-    """Fetches text from the system clipboard (Windows/Linux)."""
+    """Fetches text from the system clipboard (Windows/Linux/Wayland)."""
     try:
         if platform.system() == "Windows":
             # Use PowerShell for clean clipboard reading
             cmd = ['powershell', '-command', 'Get-Clipboard']
-            result = subprocess.run(cmd, capture_output=True, text=True, timeout=1)
+            result = subprocess.run(cmd, capture_output=True, text=True, timeout=2)
             return result.stdout.strip()
         else:
-            # Linux: Try xclip then xsel
-            try:
-                result = subprocess.run(['xclip', '-selection', 'clipboard', '-o'], capture_output=True, text=True, timeout=1)
-                if result.returncode == 0: return result.stdout.strip()
-            except: pass
+            # Linux: Try multiple clipboard tools
             
+            # Method 1: wl-paste (Wayland)
             try:
-                result = subprocess.run(['xsel', '--clipboard', '--output'], capture_output=True, text=True, timeout=1)
-                if result.returncode == 0: return result.stdout.strip()
-            except: pass
-    except:
-        pass
+                result = subprocess.run(['wl-paste', '--no-newline'], capture_output=True, text=True, timeout=2)
+                if result.returncode == 0 and result.stdout:
+                    return result.stdout.strip()
+            except FileNotFoundError:
+                pass
+            except Exception:
+                pass
+            
+            # Method 2: xclip (X11)
+            try:
+                result = subprocess.run(['xclip', '-selection', 'clipboard', '-o'], capture_output=True, text=True, timeout=2)
+                if result.returncode == 0 and result.stdout:
+                    return result.stdout.strip()
+            except FileNotFoundError:
+                pass
+            except Exception:
+                pass
+            
+            # Method 3: xsel (X11 alternative)
+            try:
+                result = subprocess.run(['xsel', '--clipboard', '--output'], capture_output=True, text=True, timeout=2)
+                if result.returncode == 0 and result.stdout:
+                    return result.stdout.strip()
+            except FileNotFoundError:
+                pass
+            except Exception:
+                pass
+            
+            print("Clipboard: No clipboard tool found (install xclip, xsel, or wl-paste)")
+    except Exception as e:
+        print(f"Clipboard error: {e}")
     return ""
 
 def get_app_root():

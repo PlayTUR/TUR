@@ -84,10 +84,21 @@ class SceneManager:
         # Pre-render character cache to FIX LAG
         self._char_cache = {}
         self._fade_surface = pygame.Surface((1024, 768)) # Cached surface for performance
+        self._cached_theme_name = None  # Track theme for cache invalidation
         self._render_matrix_cache()
 
     def _render_matrix_cache(self):
         """Pre-render all matrix chars in varied transparencies to avoid font.render lag"""
+        # Track current theme to detect changes
+        current_theme_name = self.game.settings.get("theme") if hasattr(self.game, 'settings') else None
+        
+        # Skip if cache is still valid
+        if self._cached_theme_name == current_theme_name and self._char_cache:
+            return
+        
+        self._cached_theme_name = current_theme_name
+        self._char_cache = {}  # Clear old cache
+        
         theme = self.game.renderer.get_theme()
         prim = theme["primary"]
         font = self.game.renderer.font
@@ -120,7 +131,11 @@ class SceneManager:
         self.transition_state = "FADE_OUT"
         self.next_scene_class = scene_class
         self.next_params = params
-        self.transition_alpha = 0 
+        self.transition_alpha = 0
+        
+        # Refresh matrix cache if theme changed
+        self._render_matrix_cache()
+        
         # Reset drops
         import random
         for d in self.matrix_drops:

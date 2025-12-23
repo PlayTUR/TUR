@@ -1,14 +1,11 @@
 """
 Network Manager for TUR Multiplayer
-<<<<<<< HEAD
 Room codes, UDP hole punching, song transfer.
-=======
 Features:
 - Room code system (encoded IP:port)
 - UDP hole punching for NAT traversal
 - Song file transfer
 - Synchronized game start
->>>>>>> 0dc16cc (use code wyind in the fortnite item shop)
 """
 
 import socket
@@ -23,14 +20,16 @@ from core.stun_client import discover_external_address, get_local_ip
 
 
 class NetworkManager:
+    DISCOVERY_PORT = 9998
+    
     def __init__(self, port=9999):
         self.port = port
         self.udp_socket = None
         self.tcp_socket = None
         self.connection = None
-<<<<<<< HEAD
         self.broadcast_socket = None
         
+        # State
         self.is_host = False
         self.connected = False
         self.connecting = False
@@ -38,32 +37,11 @@ class NetworkManager:
         self.running = True
         self.lock = threading.Lock()
         
-=======
-        
-        # State
-        self.is_host = False
-        self.connected = False
-        self.connecting = False
-        self.running = True
-        self.lock = threading.Lock()
-        
         # Address info
->>>>>>> 0dc16cc (use code wyind in the fortnite item shop)
         self.external_ip = None
         self.external_port = None
         self.local_ip = get_local_ip()
         self.room_code = ""
-<<<<<<< HEAD
-        
-        self.peer_address = None
-        self.opponent_name = "Waiting..."
-        self.opponent_score = 0
-        self.opponent_ready = False
-        
-        self.room_name = "TUR Room"
-        self.room_password = ""
-        
-=======
         
         # Peer info
         self.peer_address = None
@@ -76,49 +54,16 @@ class NetworkManager:
         self.room_password = ""
         
         # Game sync
->>>>>>> 0dc16cc (use code wyind in the fortnite item shop)
         self.start_timestamp = 0
         self.seed = 0
         self.selected_song = None
         self.selected_difficulty = None
         
-<<<<<<< HEAD
-=======
         # File transfer
->>>>>>> 0dc16cc (use code wyind in the fortnite item shop)
         self.transfer_progress = 0
         self.transfer_total = 0
         self.pending_file_data = b''
         
-<<<<<<< HEAD
-        self.status_message = ""
-        self.error_message = ""
-
-    def generate_room_code(self):
-        if not self.external_ip or not self.external_port:
-            return None
-        try:
-            ip_parts = [int(x) for x in self.external_ip.split('.')]
-            data = bytes(ip_parts) + struct.pack('>H', self.external_port)
-            encoded = base64.b32encode(data).decode('ascii').rstrip('=')
-            self.room_code = f"{encoded[:4]}-{encoded[4:8]}" if len(encoded) >= 8 else encoded
-            return self.room_code
-        except:
-            return None
-    
-    def decode_room_code(self, code):
-        try:
-            clean = code.replace('-', '').replace(' ', '').upper()
-            clean += '=' * ((8 - len(clean) % 8) % 8)
-            data = base64.b32decode(clean)
-            ip = '.'.join(str(b) for b in data[:4])
-            port = struct.unpack('>H', data[4:6])[0]
-            return ip, port
-        except:
-            return None, None
-
-    def host_game(self, room_name="TUR Room", password=""):
-=======
         # Status messages
         self.status_message = ""
         self.error_message = ""
@@ -130,16 +75,11 @@ class NetworkManager:
         if not self.external_ip or not self.external_port:
             return None
         
-        # Encode IP and port into a compact code
-        # Format: IP octets + port as bytes, then base32
         try:
             ip_parts = [int(x) for x in self.external_ip.split('.')]
             data = bytes(ip_parts) + struct.pack('>H', self.external_port)
-            
-            # Base32 encode (uppercase, no padding)
             encoded = base64.b32encode(data).decode('ascii').rstrip('=')
             
-            # Format as XXXX-XXXX for readability
             if len(encoded) >= 8:
                 self.room_code = f"{encoded[:4]}-{encoded[4:8]}"
             else:
@@ -153,19 +93,12 @@ class NetworkManager:
     def decode_room_code(self, code):
         """Decode room code back to IP:port"""
         try:
-            # Remove formatting
             clean = code.replace('-', '').replace(' ', '').upper()
-            
-            # Add padding for base32
             padding = (8 - len(clean) % 8) % 8
             clean += '=' * padding
-            
             data = base64.b32decode(clean)
-            
-            # Parse IP and port
             ip = '.'.join(str(b) for b in data[:4])
             port = struct.unpack('>H', data[4:6])[0]
-            
             return ip, port
         except Exception as e:
             print(f"Room code decode error: {e}")
@@ -175,30 +108,21 @@ class NetworkManager:
     
     def host_game(self, room_name="TUR Room", password=""):
         """Start hosting with UDP hole punching ready"""
->>>>>>> 0dc16cc (use code wyind in the fortnite item shop)
         self.is_host = True
         self.room_name = room_name
         self.room_password = password
         self.connected = False
         self.connecting = True
         self.error_message = ""
-<<<<<<< HEAD
-=======
         
->>>>>>> 0dc16cc (use code wyind in the fortnite item shop)
         threading.Thread(target=self._host_thread, daemon=True).start()
     
     def _host_thread(self):
         try:
-<<<<<<< HEAD
-            self.status_message = "Discovering external address..."
-            ip, port, sock = discover_external_address()
-=======
             # Step 1: Discover external address via STUN
             self.status_message = "Discovering external address..."
             ip, port, sock = discover_external_address()
             
->>>>>>> 0dc16cc (use code wyind in the fortnite item shop)
             if ip:
                 self.external_ip = ip
                 self.external_port = port
@@ -206,34 +130,19 @@ class NetworkManager:
                 self.generate_room_code()
                 self.status_message = f"Room Code: {self.room_code}"
             else:
-<<<<<<< HEAD
-                self.status_message = "STUN failed - LAN only"
-                self.room_code = "LAN-ONLY"
-            
-=======
-                # Fallback to local only
                 self.status_message = "STUN failed - LAN only mode"
                 self.room_code = "LAN-ONLY"
             
             # Step 2: Set up TCP listener
->>>>>>> 0dc16cc (use code wyind in the fortnite item shop)
             self.tcp_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             self.tcp_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
             self.tcp_socket.settimeout(1.0)
             self.tcp_socket.bind(('0.0.0.0', self.port))
             self.tcp_socket.listen(2)
-<<<<<<< HEAD
             self.connecting = False
             
             # Start LAN broadcast for P2P discovery
             self.start_broadcasting()
-            
-            while self.running and self.is_host:
-                try:
-                    conn, addr = self.tcp_socket.accept()
-=======
-            
-            self.connecting = False
             
             # Step 3: Listen for connections
             while self.running and self.is_host:
@@ -241,20 +150,11 @@ class NetworkManager:
                     conn, addr = self.tcp_socket.accept()
                     print(f"Connection from {addr}")
                     
->>>>>>> 0dc16cc (use code wyind in the fortnite item shop)
                     if not self.connection:
                         self.connection = conn
                         self.peer_address = addr
                         self.connected = True
-<<<<<<< HEAD
                         self.status_message = "Player connected!"
-                        threading.Thread(target=self._tcp_listen, args=(conn,), daemon=True).start()
-                except socket.timeout:
-                    continue
-                except:
-                    break
-=======
-                        self.status_message = f"Player connected!"
                         threading.Thread(target=self._tcp_listen, args=(conn,), daemon=True).start()
                         
                 except socket.timeout:
@@ -264,54 +164,38 @@ class NetworkManager:
                         print(f"Accept error: {e}")
                     break
                     
->>>>>>> 0dc16cc (use code wyind in the fortnite item shop)
         except Exception as e:
             self.error_message = f"Host error: {e}"
         finally:
             self.connecting = False
 
-<<<<<<< HEAD
-    def join_with_code(self, code, password=""):
-        ip, port = self.decode_room_code(code)
-        if ip:
-            self.port = port
-=======
     # === Joining ===
     
     def join_with_code(self, code, password=""):
         """Join game using room code"""
         ip, port = self.decode_room_code(code)
         if ip:
-            self.port = port  # Use decoded port
->>>>>>> 0dc16cc (use code wyind in the fortnite item shop)
+            self.port = port
             self.join_game(ip, password)
         else:
             self.error_message = "Invalid room code"
     
+    def join_by_code(self, code, password=""):
+        """Alias for join_with_code"""
+        self.join_with_code(code, password)
+    
     def join_game(self, ip, password=""):
-<<<<<<< HEAD
-=======
         """Join game by IP"""
->>>>>>> 0dc16cc (use code wyind in the fortnite item shop)
         self.is_host = False
         self.room_password = password
         self.connected = False
         self.connecting = True
         self.error_message = ""
-<<<<<<< HEAD
-=======
         
->>>>>>> 0dc16cc (use code wyind in the fortnite item shop)
         threading.Thread(target=self._join_thread, args=(ip,), daemon=True).start()
     
     def _join_thread(self, ip):
         try:
-<<<<<<< HEAD
-            self.status_message = f"Connecting to {ip}..."
-            self.tcp_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            self.tcp_socket.settimeout(10.0)
-            self.tcp_socket.connect((ip, self.port))
-=======
             self.status_message = f"Connecting to {ip}:{self.port}..."
             
             # Try UDP hole punch first (send a few packets)
@@ -328,16 +212,11 @@ class NetworkManager:
             self.tcp_socket.settimeout(10.0)
             self.tcp_socket.connect((ip, self.port))
             
->>>>>>> 0dc16cc (use code wyind in the fortnite item shop)
             self.connection = self.tcp_socket
             self.peer_address = (ip, self.port)
             self.connected = True
             self.connecting = False
             self.status_message = "Connected!"
-<<<<<<< HEAD
-            self.send({'type': 'hello', 'name': 'PLAYER 2', 'password': self.room_password})
-            self._tcp_listen(self.tcp_socket)
-=======
             
             # Handshake
             self.send({
@@ -348,7 +227,6 @@ class NetworkManager:
             
             self._tcp_listen(self.tcp_socket)
             
->>>>>>> 0dc16cc (use code wyind in the fortnite item shop)
         except socket.timeout:
             self.error_message = "Connection timed out"
             self.connecting = False
@@ -358,43 +236,24 @@ class NetworkManager:
         except Exception as e:
             self.error_message = f"Failed: {e}"
             self.connecting = False
-<<<<<<< HEAD
-
-=======
             self.connected = False
 
     # === Communication ===
     
->>>>>>> 0dc16cc (use code wyind in the fortnite item shop)
     def _tcp_listen(self, conn):
         buffer = ""
         while self.running and self.connected:
             try:
                 conn.settimeout(1.0)
-<<<<<<< HEAD
                 data = conn.recv(65536)
                 if not data:
                     break
-=======
-                data = conn.recv(65536)  # Larger buffer for file transfer
-                if not data:
-                    break
                 
->>>>>>> 0dc16cc (use code wyind in the fortnite item shop)
                 buffer += data.decode('utf-8', errors='ignore')
                 while '\n' in buffer:
                     line, buffer = buffer.split('\n', 1)
                     if line:
                         try:
-<<<<<<< HEAD
-                            self._handle_message(json.loads(line), conn)
-                        except:
-                            pass
-            except socket.timeout:
-                continue
-            except:
-                break
-=======
                             msg = json.loads(line)
                             self._handle_message(msg, conn)
                         except json.JSONDecodeError:
@@ -405,33 +264,11 @@ class NetworkManager:
                 print(f"Listen error: {e}")
                 break
         
->>>>>>> 0dc16cc (use code wyind in the fortnite item shop)
         self.connected = False
         self.status_message = "Disconnected"
     
     def _handle_message(self, msg, conn):
         with self.lock:
-<<<<<<< HEAD
-            t = msg.get('type', '')
-            if t == 'hello':
-                if self.is_host and self.room_password and msg.get('password') != self.room_password:
-                    self.send({'type': 'error', 'msg': 'Wrong password'}, conn)
-                    conn.close()
-                    self.connection = None
-                    self.connected = False
-                    return
-                self.opponent_name = msg.get('name', 'Player 2')
-                if self.is_host:
-                    self.send({'type': 'hello', 'name': 'HOST'})
-            elif t == 'score':
-                self.opponent_score = msg.get('score', 0)
-            elif t == 'ready':
-                self.opponent_ready = msg.get('ready', False)
-            elif t == 'start':
-                self.start_timestamp = msg.get('start_time', 0)
-                self.seed = msg.get('seed', 0)
-            elif t == 'error':
-=======
             msg_type = msg.get('type', '')
             
             if msg_type == 'hello':
@@ -472,16 +309,14 @@ class NetworkManager:
                     self.send({'type': 'song_ready', 'have_it': False})
             
             elif msg_type == 'song_ready':
-                # Client response to song selection
                 if not msg.get('have_it'):
-                    # Need to transfer the song
                     self._send_song_file()
             
             elif msg_type == 'file_start':
                 self.transfer_total = msg.get('size', 0)
                 self.transfer_progress = 0
                 self.pending_file_data = b''
-                self.status_message = f"Receiving song... 0%"
+                self.status_message = "Receiving song... 0%"
             
             elif msg_type == 'file_chunk':
                 chunk = base64.b64decode(msg.get('data', ''))
@@ -491,7 +326,6 @@ class NetworkManager:
                 self.status_message = f"Receiving song... {pct}%"
             
             elif msg_type == 'file_end':
-                # Save the received file
                 filename = msg.get('filename', 'received.wav')
                 filepath = os.path.join('songs', filename)
                 os.makedirs('songs', exist_ok=True)
@@ -506,19 +340,14 @@ class NetworkManager:
                 self.seed = msg.get('seed', 0)
             
             elif msg_type == 'error':
->>>>>>> 0dc16cc (use code wyind in the fortnite item shop)
                 self.error_message = msg.get('msg', 'Error')
     
     def send(self, data, conn=None):
         target = conn or self.connection
         if target:
             try:
-<<<<<<< HEAD
-                target.send((json.dumps(data) + '\n').encode('utf-8'))
-=======
                 msg = json.dumps(data) + '\n'
                 target.send(msg.encode('utf-8'))
->>>>>>> 0dc16cc (use code wyind in the fortnite item shop)
                 return True
             except:
                 return False
@@ -552,12 +381,12 @@ class NetworkManager:
             
             self.send({'type': 'file_start', 'filename': filename, 'size': filesize})
             
-            chunk_size = 32768  # 32KB chunks
+            chunk_size = 32768
             with open(filepath, 'rb') as f:
                 while chunk := f.read(chunk_size):
                     encoded = base64.b64encode(chunk).decode('ascii')
                     self.send({'type': 'file_chunk', 'data': encoded})
-                    time.sleep(0.01)  # Throttle slightly
+                    time.sleep(0.01)
             
             self.send({'type': 'file_end', 'filename': filename})
             self.status_message = "Song sent!"
@@ -585,17 +414,6 @@ class NetworkManager:
     def start_game_request(self, seed=None):
         """Start the game (host only)"""
         if self.is_host:
-<<<<<<< HEAD
-            self.start_timestamp = time.time() + 3.0
-            self.seed = seed or int(time.time())
-            self.send({'type': 'start', 'start_time': self.start_timestamp, 'seed': self.seed})
-            return self.start_timestamp
-        return 0
-    
-    def send_score(self, score):
-        self.send({'type': 'score', 'score': score})
-
-=======
             start_time = time.time() + 3.0
             self.start_timestamp = start_time
             self.seed = seed or int(time.time())
@@ -617,23 +435,14 @@ class NetworkManager:
 
     # === Cleanup ===
     
->>>>>>> 0dc16cc (use code wyind in the fortnite item shop)
     def close(self):
         self.running = False
         self.connected = False
         self.connecting = False
         self.is_host = False
-<<<<<<< HEAD
         self.broadcasting = False
-        for s in [self.connection, self.tcp_socket, self.udp_socket, self.broadcast_socket]:
-            if s:
-                try: s.close()
-                except: pass
-        self.connection = self.tcp_socket = self.udp_socket = self.broadcast_socket = None
-        self.room_code = self.status_message = self.error_message = ""
-=======
         
-        for sock in [self.connection, self.tcp_socket, self.udp_socket]:
+        for sock in [self.connection, self.tcp_socket, self.udp_socket, self.broadcast_socket]:
             if sock:
                 try:
                     sock.close()
@@ -643,20 +452,18 @@ class NetworkManager:
         self.connection = None
         self.tcp_socket = None
         self.udp_socket = None
+        self.broadcast_socket = None
         self.room_code = ""
         self.status_message = ""
         self.error_message = ""
->>>>>>> 0dc16cc (use code wyind in the fortnite item shop)
         self.opponent_name = "Waiting..."
         self.opponent_score = 0
     
     def reset(self):
         self.close()
         self.running = True
-<<<<<<< HEAD
-    
-    # ===== P2P LAN DISCOVERY =====
-    DISCOVERY_PORT = 9998
+
+    # === P2P LAN Discovery ===
     
     def start_broadcasting(self):
         """Host broadcasts presence on LAN for P2P discovery"""
@@ -720,10 +527,3 @@ class NetworkManager:
             print(f"LAN scan error: {e}")
         
         return servers
-    
-    def join_by_code(self, code, password=""):
-        """Alias for join_with_code"""
-        self.join_with_code(code, password)
-
-=======
->>>>>>> 0dc16cc (use code wyind in the fortnite item shop)

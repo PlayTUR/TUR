@@ -47,12 +47,10 @@ def auto_convert_songs(songs_dir="songs", default_difficulty="MEDIUM", callback=
                 allowed_exts = ('.osu', '.mp3', '.wav', '.ogg', '.m4a', '.flac')
                 with zipfile.ZipFile(filepath, 'r') as zip_ref:
                     for member in zip_ref.namelist():
-                        if member.lower().endswith(allowed_exts):
-                            zip_ref.extract(member, extract_dir)
+                            if member.lower().endswith(allowed_exts):
+                                zip_ref.extract(member, extract_dir)
                 
-                # CLEANUP: Delete the .osz archive after successful extraction
-                try: os.remove(filepath)
-                except: pass
+                # NOTE: We keep the .osz archive for future re-extraction if needed
             except Exception as e:
                 print(f"Error extracting {filename}: {e}")
     
@@ -205,14 +203,34 @@ def auto_convert_songs(songs_dir="songs", default_difficulty="MEDIUM", callback=
         settings.set("auto_recreate_beatmaps", False)
         settings.save()
 
-    # FINAL CLEANUP
+    # Move OSZ archives and extraction folders to separate folder
     import shutil
+    osz_archive_dir = os.path.join(songs_dir, "osz_originals")
+    if converted_osu_folders or osz_files:
+        os.makedirs(osz_archive_dir, exist_ok=True)
+    
+    # Move extracted folders
     for folder in converted_osu_folders:
         try:
             if os.path.abspath(folder).startswith(os.path.abspath(songs_dir)) and folder != os.path.abspath(songs_dir):
-                shutil.rmtree(folder)
+                dest = os.path.join(osz_archive_dir, os.path.basename(folder))
+                if os.path.exists(dest):
+                    shutil.rmtree(dest)
+                shutil.move(folder, dest)
+                print(f"Moved OSZ folder to: {dest}")
         except Exception as e:
-            print(f"Cleanup error for {folder}: {e}")
+            print(f"Move error for {folder}: {e}")
+    
+    # Move original .osz archives
+    for filename in osz_files:
+        try:
+            src = os.path.join(songs_dir, filename)
+            if os.path.exists(src):
+                dest = os.path.join(osz_archive_dir, filename)
+                shutil.move(src, dest)
+                print(f"Moved OSZ archive to: {dest}")
+        except Exception as e:
+            print(f"Move error for {filename}: {e}")
 
     if callback: callback("Ready", 100)
     return [f"Processed {converted_count} maps"]

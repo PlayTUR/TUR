@@ -14,35 +14,25 @@ class LobbyScene(Scene):
         super().__init__(game)
         self.state = "MENU"
         
-<<<<<<< HEAD
+        # Navigation
         self.menu_index = 0
         self.menu_items = ["HOST GAME", "JOIN WITH CODE", "BROWSE SERVERS", "DIRECT CONNECT (IP)", "BACK"]
         
-=======
-        # Navigation
-        self.menu_index = 0
-        self.menu_items = ["HOST GAME", "JOIN WITH CODE", "DIRECT CONNECT (IP)", "BACK"]
-        
         # Input
->>>>>>> 0dc16cc (use code wyind in the fortnite item shop)
         self.code_buffer = ""
         self.ip_buffer = ""
         self.password_buffer = ""
         self.room_name_buffer = "TUR ROOM"
         self.input_focus = 0
         
-<<<<<<< HEAD
-        self.blink_timer = 0
-        
         # Server browser
         self.servers = []
         self.server_index = 0
-        self.filter_locked = None  # None=all, True=locked only, False=unlocked only
+        self.filter_locked = None
         self.refreshing = False
-=======
+        
         # Animation
         self.blink_timer = 0
->>>>>>> 0dc16cc (use code wyind in the fortnite item shop)
 
     def on_enter(self, params=None):
         self.state = "MENU"
@@ -53,11 +43,8 @@ class LobbyScene(Scene):
         
     def update(self):
         self.blink_timer = (self.blink_timer + 1) % 60
-<<<<<<< HEAD
-=======
         
         # Auto-transition when connected as client
->>>>>>> 0dc16cc (use code wyind in the fortnite item shop)
         if self.state == "JOINING" and self.game.network.connected:
             self.state = "CLIENT_LOBBY"
 
@@ -65,7 +52,6 @@ class LobbyScene(Scene):
         r = self.game.renderer
         theme = r.get_theme()
         surface.fill(theme["bg"])
-<<<<<<< HEAD
         
         r.draw_text(surface, "◉ MULTIPLAYER ◉", 50, 30, theme["primary"], r.big_font)
         
@@ -74,19 +60,6 @@ class LobbyScene(Scene):
             r.draw_text(surface, f"✗ {self.game.network.error_message}", 50, 700, theme["error"])
         elif self.game.network.status_message:
             r.draw_text(surface, f"● {self.game.network.status_message}", 50, 700, theme["secondary"])
-=======
->>>>>>> 0dc16cc (use code wyind in the fortnite item shop)
-        
-        # Header
-        r.draw_text(surface, "◉ MULTIPLAYER ◉", 50, 30, theme["primary"], r.big_font)
-        
-        # Status bar
-        status = self.game.network.status_message
-        error = self.game.network.error_message
-        if error:
-            r.draw_text(surface, f"✗ {error}", 50, 700, theme["error"])
-        elif status:
-            r.draw_text(surface, f"● {status}", 50, 700, theme["secondary"])
         
         # Draw current state
         if self.state == "MENU":
@@ -97,11 +70,8 @@ class LobbyScene(Scene):
             self._draw_hosting(surface, r, theme)
         elif self.state == "JOIN_CODE":
             self._draw_join_code(surface, r, theme)
-<<<<<<< HEAD
         elif self.state == "SERVER_BROWSER":
             self._draw_server_browser(surface, r, theme)
-=======
->>>>>>> 0dc16cc (use code wyind in the fortnite item shop)
         elif self.state == "DIRECT":
             self._draw_direct(surface, r, theme)
         elif self.state == "JOINING":
@@ -110,28 +80,20 @@ class LobbyScene(Scene):
             self._draw_client_lobby(surface, r, theme)
 
     def _draw_menu(self, surface, r, theme):
-<<<<<<< HEAD
-        r.draw_panel(surface, 100, 150, 400, 350, "SELECT_MODE")
-=======
         """Main menu"""
-        r.draw_panel(surface, 100, 150, 400, 300, "SELECT_MODE")
+        r.draw_panel(surface, 100, 150, 400, 350, "SELECT_MODE")
         
->>>>>>> 0dc16cc (use code wyind in the fortnite item shop)
         y = 170
         for i, item in enumerate(self.menu_items):
             r.draw_button(surface, item, 120, y, i == self.menu_index, 360)
             y += 50
         
-<<<<<<< HEAD
         # How it works panel
         r.draw_panel(surface, 550, 150, 400, 200, "HOW_IT_WORKS")
-        
         r.draw_text(surface, "HOST:", 570, 180, theme["secondary"])
         r.draw_text(surface, "Create room, share code.", 570, 205, (150, 150, 150))
-        
         r.draw_text(surface, "JOIN:", 570, 245, theme["secondary"])
         r.draw_text(surface, "Enter host's room code.", 570, 270, (150, 150, 150))
-        
         r.draw_text(surface, "No port forwarding needed!", 570, 310, theme["primary"])
         
         # NAT Type display
@@ -163,89 +125,45 @@ class LobbyScene(Scene):
         threading.Thread(target=check, daemon=True).start()
 
     def _draw_host_setup(self, surface, r, theme):
-        r.draw_panel(surface, 150, 150, 700, 250, "HOST_SETUP")
-=======
-        # Help
-        r.draw_panel(surface, 550, 150, 400, 200, "HOW_IT_WORKS")
-        r.draw_wrapped_text(surface, 
-            "HOST: Create a room and get a code to share. " +
-            "JOIN: Enter the host's room code. " +
-            "No port forwarding needed for most networks!",
-            570, 170, 38, (150, 150, 150))
-        
-        r.draw_text(surface, "[↑/↓] Navigate  [ENTER] Select", 100, 500, (80, 80, 80))
-
-    def _draw_host_setup(self, surface, r, theme):
         """Host setup screen"""
         r.draw_panel(surface, 150, 150, 700, 250, "HOST_SETUP")
         
->>>>>>> 0dc16cc (use code wyind in the fortnite item shop)
         y = 180
         r.draw_input_field(surface, "ROOM NAME:", self.room_name_buffer, 180, y, 500, self.input_focus == 0)
         y += 80
         r.draw_input_field(surface, "PASSWORD (optional):", self.password_buffer, 180, y, 500, self.input_focus == 1)
         y += 90
-<<<<<<< HEAD
         r.draw_button(surface, "CREATE ROOM", 350, y, True, 250)
         r.draw_text(surface, "[TAB] Switch  [ENTER] Create  [ESC] Back", 150, 500, (80, 80, 80))
 
     def _draw_hosting(self, surface, r, theme):
-        r.draw_panel(surface, 200, 100, 600, 150, "YOUR_ROOM_CODE")
-        code = self.game.network.room_code or "Generating..."
-        if code and code != "LAN-ONLY":
-=======
-        
-        r.draw_button(surface, "CREATE ROOM", 350, y, True, 250)
-        
-        r.draw_text(surface, "[TAB] Switch Field  [ENTER] Create  [ESC] Back", 150, 500, (80, 80, 80))
-
-    def _draw_hosting(self, surface, r, theme):
         """Hosting - show room code prominently"""
-        # Room code box (the star of the show)
         r.draw_panel(surface, 200, 100, 600, 150, "YOUR_ROOM_CODE")
         
         code = self.game.network.room_code or "Generating..."
         if code and code != "LAN-ONLY":
-            # Big room code display
->>>>>>> 0dc16cc (use code wyind in the fortnite item shop)
             r.draw_text(surface, code, 350, 150, theme["primary"], r.big_font)
             r.draw_text(surface, "Share this code with your friend!", 320, 210, (150, 150, 150))
         else:
             r.draw_text(surface, "LAN Mode - Share your IP:", 300, 140, theme["secondary"])
             r.draw_text(surface, f"{self.game.network.local_ip}:{self.game.network.port}", 350, 180, theme["text"])
         
-<<<<<<< HEAD
         r.draw_panel(surface, 200, 280, 600, 250, "ROOM_STATUS")
         y = 300
         r.draw_text(surface, f"ROOM: {self.room_name_buffer}", 230, y, theme["secondary"])
         y += 40
-=======
-        # Connection status
-        r.draw_panel(surface, 200, 280, 600, 250, "ROOM_STATUS")
         
-        y = 300
-        r.draw_text(surface, f"ROOM: {self.room_name_buffer}", 230, y, theme["secondary"])
-        y += 40
-        
->>>>>>> 0dc16cc (use code wyind in the fortnite item shop)
         r.draw_text(surface, "PLAYERS:", 230, y, theme["text"])
         y += 30
         r.draw_text(surface, "  1. You (HOST)", 230, y, theme["primary"])
         y += 30
         
         if self.game.network.connected:
-<<<<<<< HEAD
-            r.draw_text(surface, f"  2. {self.game.network.opponent_name} ✓", 230, y, (100, 255, 100))
-            y += 50
-            r.draw_button(surface, "START GAME →", 350, y, True, 250)
-=======
             name = self.game.network.opponent_name
             r.draw_text(surface, f"  2. {name} ✓", 230, y, (100, 255, 100))
             y += 50
-            
             r.draw_button(surface, "START GAME →", 350, y, True, 250)
             r.draw_text(surface, "Press [ENTER] to start!", 370, y + 45, (100, 255, 100))
->>>>>>> 0dc16cc (use code wyind in the fortnite item shop)
         else:
             blink = "●" if self.blink_timer < 30 else "○"
             r.draw_text(surface, f"  2. Waiting for player... {blink}", 230, y, (100, 100, 100))
@@ -253,65 +171,28 @@ class LobbyScene(Scene):
         r.draw_text(surface, "[ESC] Close Room", 50, 650, (150, 100, 100))
 
     def _draw_join_code(self, surface, r, theme):
-<<<<<<< HEAD
-        r.draw_panel(surface, 200, 200, 600, 250, "ENTER_ROOM_CODE")
-        r.draw_text(surface, "Enter the room code from host:", 250, 230, theme["text"])
-=======
         """Enter room code"""
         r.draw_panel(surface, 200, 200, 600, 250, "ENTER_ROOM_CODE")
-        
         r.draw_text(surface, "Enter the room code from host:", 250, 230, theme["text"])
         
-        # Big code input
->>>>>>> 0dc16cc (use code wyind in the fortnite item shop)
         display = self.code_buffer.upper() + ("_" if self.blink_timer < 30 else " ")
         pygame.draw.rect(surface, (20, 20, 20), (280, 280, 400, 60))
         pygame.draw.rect(surface, theme["primary"], (280, 280, 400, 60), 2)
         r.draw_text(surface, display, 320, 295, theme["primary"], r.big_font)
-<<<<<<< HEAD
         r.draw_text(surface, "Format: XXXX-XXXX", 400, 360, (100, 100, 100))
         r.draw_button(surface, "CONNECT", 370, 400, True, 200)
-        r.draw_text(surface, "[ENTER] Connect  [ESC] Back", 330, 500, (80, 80, 80))
-
-    def _draw_direct(self, surface, r, theme):
-        r.draw_panel(surface, 150, 180, 700, 280, "DIRECT_CONNECT")
-=======
-        
-        r.draw_text(surface, "Format: XXXX-XXXX", 400, 360, (100, 100, 100))
-        
-        r.draw_button(surface, "CONNECT", 370, 400, True, 200)
-        
         r.draw_text(surface, "[ENTER] Connect  [ESC] Back", 330, 500, (80, 80, 80))
 
     def _draw_direct(self, surface, r, theme):
         """Direct IP connection"""
         r.draw_panel(surface, 150, 180, 700, 280, "DIRECT_CONNECT")
         
->>>>>>> 0dc16cc (use code wyind in the fortnite item shop)
         y = 210
         r.draw_input_field(surface, "HOST IP:", self.ip_buffer, 180, y, 500, self.input_focus == 0)
         y += 80
         r.draw_input_field(surface, "PASSWORD:", self.password_buffer, 180, y, 500, self.input_focus == 1)
         y += 90
-<<<<<<< HEAD
         r.draw_button(surface, "CONNECT", 370, y, True, 200)
-        r.draw_text(surface, "[TAB] Switch  [ENTER] Connect  [ESC] Back", 200, 520, (80, 80, 80))
-
-    def _draw_joining(self, surface, r, theme):
-        r.draw_panel(surface, 250, 280, 500, 150, "CONNECTING")
-        dots = "." * ((self.blink_timer // 10) % 4)
-        r.draw_text(surface, f"Connecting{dots}", 400, 340, theme["primary"], r.big_font)
-        r.draw_text(surface, "[ESC] Cancel", 440, 450, (80, 80, 80))
-
-    def _draw_client_lobby(self, surface, r, theme):
-        r.draw_panel(surface, 200, 150, 600, 350, "CONNECTED")
-        y = 180
-        r.draw_text(surface, "✓ CONNECTED TO HOST", 350, y, (100, 255, 100), r.big_font)
-        y += 60
-=======
-        
-        r.draw_button(surface, "CONNECT", 370, y, True, 200)
-        
         r.draw_text(surface, "[TAB] Switch  [ENTER] Connect  [ESC] Back", 200, 520, (80, 80, 80))
 
     def _draw_joining(self, surface, r, theme):
@@ -334,24 +215,17 @@ class LobbyScene(Scene):
         r.draw_text(surface, "✓ CONNECTED TO HOST", 350, y, (100, 255, 100), r.big_font)
         y += 60
         
->>>>>>> 0dc16cc (use code wyind in the fortnite item shop)
         r.draw_text(surface, "PLAYERS:", 230, y, theme["secondary"])
         y += 30
         r.draw_text(surface, f"  1. {self.game.network.opponent_name} (HOST)", 230, y, theme["primary"])
         y += 30
         r.draw_text(surface, "  2. You", 230, y, theme["text"])
         y += 50
-<<<<<<< HEAD
-        blink = "●" if self.blink_timer < 30 else "○"
-        r.draw_text(surface, f"Waiting for host to start {blink}", 300, y, (150, 150, 150))
-        
-=======
         
         # Transfer progress
         if self.game.network.transfer_total > 0:
             pct = int(100 * self.game.network.transfer_progress / max(1, self.game.network.transfer_total))
             r.draw_text(surface, f"Receiving song: {pct}%", 230, y, theme["secondary"])
-            # Progress bar
             pygame.draw.rect(surface, theme["grid"], (230, y + 25, 400, 20))
             pygame.draw.rect(surface, theme["primary"], (230, y + 25, int(400 * pct / 100), 20))
             y += 60
@@ -361,17 +235,15 @@ class LobbyScene(Scene):
         r.draw_text(surface, f"Waiting for host to start {blink}", 300, y, (150, 150, 150))
         
         # Check if game starting
->>>>>>> 0dc16cc (use code wyind in the fortnite item shop)
         if self.game.network.start_timestamp > 0:
             remaining = self.game.network.start_timestamp - time.time()
             if remaining > 0:
                 r.draw_text(surface, f"STARTING IN {int(remaining) + 1}...", 350, y + 50, theme["primary"], r.big_font)
-<<<<<<< HEAD
         
         r.draw_text(surface, "[ESC] Disconnect", 380, 550, (150, 100, 100))
 
     def _draw_server_browser(self, surface, r, theme):
-        # Server list panel
+        """Server browser"""
         r.draw_panel(surface, 50, 100, 920, 500, "SERVER_BROWSER")
         
         # Header row
@@ -407,31 +279,25 @@ class LobbyScene(Scene):
                 if i == self.server_index:
                     pygame.draw.rect(surface, theme["grid"], (55, y - 3, 910, 32))
                 
-                # Server name
                 name = server.get("name", "Unknown Room")[:25]
                 r.draw_text(surface, name, 80, y, theme["primary"] if i == self.server_index else theme["text"])
                 
-                # Room code
                 code = server.get("code", "????-????")
                 r.draw_text(surface, code, 350, y, (150, 150, 150))
                 
-                # Host name
                 host = server.get("host", "Unknown")[:15]
                 r.draw_text(surface, host, 500, y, (150, 150, 150))
                 
-                # Lock icon
                 if server.get("password"):
                     r.draw_text(surface, "🔒", 750, y, (255, 100, 100))
                 else:
                     r.draw_text(surface, "🔓", 750, y, (100, 255, 100))
                 
-                # Player count
                 players = f"{server.get('players', 1)}/2"
                 r.draw_text(surface, players, 840, y, (150, 150, 150))
                 
                 y += 35
         
-        # Controls
         r.draw_text(surface, "[↑/↓] Select  [ENTER] Join  [R] Refresh  [F] Filter  [ESC] Back", 150, 620, (80, 80, 80))
 
     def _get_filtered_servers(self):
@@ -457,12 +323,6 @@ class LobbyScene(Scene):
             self.refreshing = False
         
         threading.Thread(target=scan_thread, daemon=True).start()
-=======
-            else:
-                # Go to game!
-                self._start_game()
-        
-        r.draw_text(surface, "[ESC] Disconnect", 380, 550, (150, 100, 100))
 
     def _start_game(self):
         """Transition to game scene"""
@@ -476,15 +336,11 @@ class LobbyScene(Scene):
             'mode': 'multiplayer'
         }
         self.game.scene_manager.switch_to(GameScene, params)
->>>>>>> 0dc16cc (use code wyind in the fortnite item shop)
 
     def handle_input(self, event):
         if event.type != pygame.KEYDOWN:
             return
-<<<<<<< HEAD
-=======
         
->>>>>>> 0dc16cc (use code wyind in the fortnite item shop)
         key = event.key
         
         if key == pygame.K_ESCAPE:
@@ -499,35 +355,24 @@ class LobbyScene(Scene):
             self._handle_hosting(key)
         elif self.state == "JOIN_CODE":
             self._handle_join_code(key, event)
-<<<<<<< HEAD
         elif self.state == "SERVER_BROWSER":
             self._handle_server_browser(key, event)
         elif self.state == "DIRECT":
             self._handle_direct(key, event)
-        elif self.state == "CLIENT_LOBBY":
-            pass
-
-    def _handle_back(self):
-        self.play_sfx("back")
-=======
-        elif self.state == "DIRECT":
-            self._handle_direct(key, event)
         elif self.state == "JOINING":
-            pass  # Just wait
+            pass
         elif self.state == "CLIENT_LOBBY":
             self._handle_client_lobby(key)
 
     def _handle_back(self):
         self.play_sfx("back")
         
->>>>>>> 0dc16cc (use code wyind in the fortnite item shop)
         if self.state == "MENU":
             from scenes.menu_scenes import TitleScene
             self.game.scene_manager.switch_to(TitleScene)
         elif self.state in ["HOSTING", "CLIENT_LOBBY", "JOINING"]:
             self.game.network.close()
             self.state = "MENU"
-<<<<<<< HEAD
         elif self.state == "SERVER_BROWSER":
             self.state = "MENU"
         else:
@@ -547,7 +392,6 @@ class LobbyScene(Scene):
             self._refresh_servers()
         elif key == pygame.K_f:
             self.play_sfx("blip")
-            # Cycle filter: None -> False -> True -> None
             if self.filter_locked is None:
                 self.filter_locked = False
             elif self.filter_locked is False:
@@ -560,16 +404,10 @@ class LobbyScene(Scene):
             server = filtered[self.server_index]
             self.code_buffer = server.get("code", "")
             if server.get("password"):
-                # TODO: Show password prompt
-                pass
+                pass  # TODO: Show password prompt
             else:
-                # Join directly
                 self.state = "JOINING"
                 self.game.network.join_by_code(self.code_buffer)
-=======
-        else:
-            self.state = "MENU"
->>>>>>> 0dc16cc (use code wyind in the fortnite item shop)
 
     def _handle_menu(self, key):
         if key == pygame.K_UP:
@@ -583,7 +421,6 @@ class LobbyScene(Scene):
             item = self.menu_items[self.menu_index]
             if item == "HOST GAME":
                 self.state = "HOST_SETUP"
-<<<<<<< HEAD
             elif item == "JOIN WITH CODE":
                 self.state = "JOIN_CODE"
             elif item == "BROWSE SERVERS":
@@ -591,14 +428,7 @@ class LobbyScene(Scene):
                 self._refresh_servers()
             elif item.startswith("DIRECT"):
                 self.state = "DIRECT"
-=======
                 self.input_focus = 0
-            elif item == "JOIN WITH CODE":
-                self.state = "JOIN_CODE"
-            elif item.startswith("DIRECT"):
-                self.state = "DIRECT"
-                self.input_focus = 0
->>>>>>> 0dc16cc (use code wyind in the fortnite item shop)
             elif item == "BACK":
                 self._handle_back()
 
@@ -624,22 +454,10 @@ class LobbyScene(Scene):
     def _handle_hosting(self, key):
         if key == pygame.K_RETURN and self.game.network.connected:
             self.play_sfx("accept")
-<<<<<<< HEAD
-=======
-            # Go to song select with multiplayer mode
->>>>>>> 0dc16cc (use code wyind in the fortnite item shop)
             from scenes.menu_scenes import SongSelectScene
             self.game.scene_manager.switch_to(SongSelectScene, {'mode': 'multiplayer'})
 
     def _handle_join_code(self, key, event):
-<<<<<<< HEAD
-        if key == pygame.K_RETURN and len(self.code_buffer) >= 4:
-            self.play_sfx("accept")
-            self.game.network.join_with_code(self.code_buffer)
-            self.state = "JOINING"
-        elif key == pygame.K_BACKSPACE:
-            self.code_buffer = self.code_buffer[:-1]
-=======
         if key == pygame.K_RETURN:
             if len(self.code_buffer) >= 4:
                 self.play_sfx("accept")
@@ -648,8 +466,7 @@ class LobbyScene(Scene):
         elif key == pygame.K_BACKSPACE:
             self.code_buffer = self.code_buffer[:-1]
         elif key == pygame.K_MINUS or event.unicode == '-':
-            pass  # Ignore dashes in input
->>>>>>> 0dc16cc (use code wyind in the fortnite item shop)
+            pass
         elif event.unicode.isalnum() and len(self.code_buffer) < 10:
             self.code_buffer += event.unicode.upper()
 
@@ -657,18 +474,11 @@ class LobbyScene(Scene):
         if key == pygame.K_TAB:
             self.input_focus = (self.input_focus + 1) % 2
             self.play_sfx("blip")
-<<<<<<< HEAD
-        elif key == pygame.K_RETURN and self.ip_buffer:
-            self.play_sfx("accept")
-            self.game.network.join_game(self.ip_buffer, self.password_buffer)
-            self.state = "JOINING"
-=======
         elif key == pygame.K_RETURN:
             if self.ip_buffer:
                 self.play_sfx("accept")
                 self.game.network.join_game(self.ip_buffer, self.password_buffer)
                 self.state = "JOINING"
->>>>>>> 0dc16cc (use code wyind in the fortnite item shop)
         elif key == pygame.K_BACKSPACE:
             if self.input_focus == 0:
                 self.ip_buffer = self.ip_buffer[:-1]
@@ -679,9 +489,6 @@ class LobbyScene(Scene):
                 self.ip_buffer += event.unicode
             elif self.input_focus == 1 and len(self.password_buffer) < 16:
                 self.password_buffer += event.unicode
-<<<<<<< HEAD
-=======
 
     def _handle_client_lobby(self, key):
-        pass  # Just wait for host
->>>>>>> 0dc16cc (use code wyind in the fortnite item shop)
+        pass

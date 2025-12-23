@@ -1,9 +1,9 @@
 {
     "name": "WYIND",
-    "volume": 0.20000000000000004,
+    "volume": 0.10000000000000014,
     "music_volume": 0.7,
     "sfx_volume": 1.0,
-    "speed": 1000,
+    "speed": 1200,
     "keybinds": [
         115,
         100,
@@ -15,34 +15,22 @@
         1440
     ],
     "fullscreen": true,
-    "vsync": true,
-    "crt_filter": true,
+    "vsync": false,
+    "crt_filter": false,
     "upscroll": true,
     "audio_offset": 0,
     "note_shape": "BAR",
     "note_col_1": [
-        255,
-<<<<<<< HEAD
-        50,
-        200
-    ],
-    "note_col_2": [
-        50,
-        200,
+        100,
+        100,
         255
     ],
-    "theme": "SYNTHWAVE",
-=======
-        0,
-        150
-    ],
     "note_col_2": [
-        0,
-        200,
+        180,
+        100,
         255
     ],
-    "theme": "CYBERPUNK",
->>>>>>> 0dc16cc (use code wyind in the fortnite item shop)
+    "theme": "MIDNIGHT",
     "setup_complete": true,
     "joy_binds": [
         0,
@@ -54,23 +42,24 @@
         4,
         5
     ],
-    "joy_deadzone": 1.3877787807814457e-17,
-    "screen_shake": 1.0,
+    "joy_deadzone": 0.2,
+    "screen_shake": 0.5000000000000001,
     "hit_sounds": true,
     "miss_sounds": true,
     "combo_sounds": true,
     "visual_effects": true,
+    "post_effects": false,
     "last_tab": 0,
-    "bg_dim": 1.3877787807814457e-17,
-    "show_fps": 0,
+    "bg_dim": 6.938893903907228e-17,
+    "show_fps": false,
     "show_hold_ends": true,
     "account_type": "REGISTERED",
-    "last_name_change": 1766480092.7715647,
-    "is_admin": true,
+    "last_name_change": 0,
+    "is_admin": false,
     "discord_client_id": "123456789012345678",
-    "user_id": "73246434",
-    "auto_recreate_beatmaps": true,
+    "user_id": "38159493",
+    "auto_recreate_beatmaps": false,
     "language": "EN",
     "vim_mode": false,
-    "logged_in": true
+    "note_skin": "DEFAULT"
 }

@@ -85,12 +85,21 @@ def parse_osu_file(osu_path):
                     obj_type = int(parts[3])
                     
                     # Calculate lane from x position
-                    # osu!mania: x ranges 0-512, divide by keys
-                    if data['mode'] == 3:  # Mania mode
-                        lane = min(3, int(x * data['keys'] / 512))
+                    # For any key count, remap to 4 lanes
+                    keys = data['keys']
+                    if data['mode'] == 3 and keys > 0:  # Mania mode
+                        # Calculate original lane from x position
+                        original_lane = int(x * keys / 512)
+                        # Remap to 4 lanes (compress higher key counts)
+                        if keys <= 4:
+                            lane = min(3, original_lane)
+                        else:
+                            # Map 5K/6K/7K/8K etc to 4K
+                            lane = int(original_lane * 4 / keys)
+                            lane = min(3, max(0, lane))
                     else:
                         # Standard mode - map x to 4 lanes
-                        lane = min(3, int(x * 4 / 512))
+                        lane = min(3, int(x / 128))
                     
                     note = {
                         'time': time_ms / 1000.0,  # Convert to seconds

@@ -145,32 +145,48 @@ def generate_warning_sound(path, sr=44100):
 
 
 def generate_hit_sound(path, sr=44100):
-    """Deep 8-bit drum hit sound with punch"""
+    """
+    Premium 3-layer hit sound:
+    1. Low kick punch (pitch-sliding sine)
+    2. Mid click transient (short burst)
+    3. High snap/attack (noise + high freq)
+    """
+    # Force regenerate
     if os.path.exists(path):
-        os.remove(path) # Force recreate
+        os.remove(path)
     
-    duration = 0.12 # Slightly longer
+    duration = 0.15
     samples = int(sr * duration)
     data = []
     
     for i in range(samples):
         t = i / sr
-        # Punch Envelope
-        env = math.exp(-t * 40)
         
-        # 1. Low Kick Punch (Pitch slide 150Hz -> 50Hz)
-        freq = 150 * math.exp(-t * 20)
-        kick = 0.8 * math.sin(2 * math.pi * freq * t) * env
+        # Layer 1: Kick punch (pitch slide 200Hz -> 40Hz)
+        kick_env = math.exp(-t * 35)
+        kick_freq = 200 * math.exp(-t * 25) + 40
+        kick = 0.7 * math.sin(2 * math.pi * kick_freq * t) * kick_env
         
-        # 2. 8-Bit Noise Snap
-        noise = (random.random() * 2 - 1) * math.exp(-t * 100)
-        noise = bit_crush(noise, 4) # Very crunchy
+        # Layer 2: Mid click transient (800Hz, very short)
+        click_env = math.exp(-t * 150)
+        click = 0.4 * math.sin(2 * math.pi * 800 * t) * click_env
+        click += 0.2 * math.sin(2 * math.pi * 1200 * t) * click_env
         
-        # Combine
-        val = kick + 0.3 * noise
-        val = bit_crush(val, 8) # Overall 8-bit feel
+        # Layer 3: High snap (noise + 2kHz, ultra short)
+        snap_env = math.exp(-t * 200)
+        snap = 0.25 * (random.random() * 2 - 1) * snap_env
+        snap += 0.15 * math.sin(2 * math.pi * 2000 * t) * snap_env
         
-        data.append(int(val * 32767 * 0.7))
+        # Combine layers
+        val = kick + click + snap
+        
+        # Soft clip for warmth
+        val = math.tanh(val * 1.2)
+        
+        # 8-bit crunch
+        val = bit_crush(val, 10)
+        
+        data.append(int(val * 32767 * 0.8))
     
     write_wav(path, data, sr)
 
@@ -198,24 +214,53 @@ def generate_miss_sound(path, sr=44100):
 
 
 def generate_perfect_sound(path, sr=44100):
-    """Sparkle/chime for perfect hit"""
+    """
+    Premium perfect hit sound:
+    - Sparkle chime with harmonics
+    - Shimmering overtones
+    - Satisfying high-end sparkle
+    """
+    # Force regenerate
     if os.path.exists(path):
-        return
+        os.remove(path)
     
-    duration = 0.2
+    duration = 0.25
     samples = int(sr * duration)
     data = []
     
+    # Harmonic series based on A5 (880Hz)
+    base_freq = 880
+    harmonics = [1.0, 2.0, 3.0, 4.0, 5.0]  # Fundamental + overtones
+    harmonic_amps = [0.4, 0.25, 0.15, 0.1, 0.08]
+    
     for i in range(samples):
         t = i / sr
-        env = math.exp(-t * 15)
         
-        # High harmonics
-        val = 0.5 * math.sin(2 * math.pi * 880 * t) * env
-        val += 0.3 * math.sin(2 * math.pi * 1320 * t) * env
-        val += 0.2 * math.sin(2 * math.pi * 1760 * t) * env
+        # Main envelope with quick attack
+        attack = min(1.0, t / 0.005)  # 5ms attack
+        decay = math.exp(-t * 12)
+        env = attack * decay
         
-        data.append(int(val * 32767 * 0.7))
+        val = 0
+        
+        # Add harmonics with slight detuning for shimmer
+        for h, amp in zip(harmonics, harmonic_amps):
+            freq = base_freq * h
+            # Slight vibrato for shimmer
+            vibrato = 1.0 + 0.002 * math.sin(t * 40)
+            val += amp * math.sin(2 * math.pi * freq * vibrato * t) * env
+        
+        # High sparkle layer (noise + very high freq)
+        sparkle_env = math.exp(-t * 30)
+        sparkle = 0.08 * (random.random() * 2 - 1) * sparkle_env
+        sparkle += 0.1 * math.sin(2 * math.pi * 3520 * t) * sparkle_env  # A7
+        
+        val += sparkle
+        
+        # Soft clip
+        val = math.tanh(val * 1.1)
+        
+        data.append(int(val * 32767 * 0.75))
     
     write_wav(path, data, sr)
 

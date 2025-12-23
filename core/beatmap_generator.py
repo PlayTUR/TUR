@@ -49,6 +49,13 @@ class BeatmapGenerator:
                 data = self.load_tur(tur_path)
                 if not data.get('audio_path'):
                     data['audio_path'] = audio_path
+                
+                # If this is an OSZ import, always use the imported chart (don't regenerate)
+                if data.get('source') == 'osu!':
+                    print(f"OSZ import detected - using original chart")
+                    return data
+                
+                # For generated .tur files, also return the saved data
                 return data
             except Exception as e:
                 print(f"Error loading .tur file: {e}")
@@ -142,6 +149,7 @@ class BeatmapGenerator:
             'title': data.get('title', ''),
             'artist': data.get('artist', ''),
             'difficulty': difficulty, # The requested one
+            'source': data.get('source', 'generated'),  # 'osu!' for imports, 'generated' for MP3
             'audio_path': audio_path or (os.path.join(os.path.dirname(tur_path), data.get('audio')) if data.get('audio') else ''),
             'all_difficulties': list(data.get('difficulties', {}).keys()) if 'difficulties' in data else [data.get('difficulty', 'MEDIUM')]
         }
@@ -239,14 +247,17 @@ class BeatmapGenerator:
         return hasher.hexdigest()
 
     def _analyze_audio(self, path, difficulty="MEDIUM"):
+        """
+        Deterministic, intensity-based beatmap generation.
+        No random.random() - all decisions based on audio analysis.
+        """
         from core.config import DIFF_SETTINGS
         
         settings = DIFF_SETTINGS.get(difficulty, DIFF_SETTINGS["MEDIUM"])
-        density_mult = settings["density"]
         
         # Check for cached onset data (avoids re-analyzing same audio)
         onset_cache_key = hashlib.md5(path.encode()).hexdigest()
-        onset_cache_path = os.path.join(self.cache_dir, f"{onset_cache_key}_onsets.json")
+        onset_cache_path = os.path.join(self.cache_dir, f"{onset_cache_key}_onsets_v2.json")
         
         cached_onsets = None
         if os.path.exists(onset_cache_path):
@@ -257,134 +268,236 @@ class BeatmapGenerator:
                 pass
         
         if cached_onsets:
-            # Use cached analysis data
             onset_times = cached_onsets['onset_times']
             bpm = cached_onsets['bpm']
             duration = cached_onsets['duration']
             onset_strengths = cached_onsets.get('strengths', [1.0] * len(onset_times))
+            beat_times = cached_onsets.get('beat_times', [])
         else:
-            # Full audio analysis (only done once per song)
+            # Full audio analysis
             try:
-                # Use 22050 Hz for faster loading (sufficient for beat detection)
                 y, sr = librosa.load(path, sr=22050)
             except Exception as e:
                 print(f"Error loading audio: {e}")
-                return []
-
-            # For extreme difficulties, use full HPSS; otherwise simplified onset detection
-            is_extreme = difficulty in ["EXTREME", "FUCK YOU"]
+                return {'bpm': 120, 'notes': [], 'duration': 180}
             
-            hop_length = 512
+            # Always use full HPSS for maximum onset detection
+            y_harmonic, y_percussive = librosa.effects.hpss(y)
             
-            if is_extreme:
-                # Full HPSS for maximum accuracy on hard modes
-                y_harmonic, y_percussive = librosa.effects.hpss(y)
-                onset_env_p = librosa.onset.onset_strength(y=y_percussive, sr=sr)
-                onset_env_h = librosa.onset.onset_strength(y=y_harmonic, sr=sr)
-                onset_frames_p = librosa.onset.onset_detect(onset_envelope=onset_env_p, sr=sr, wait=1)
-                onset_frames_h = librosa.onset.onset_detect(onset_envelope=onset_env_h, sr=sr, wait=1)
-                combined_frames = sorted(list(set(onset_frames_p) | set(onset_frames_h)))
-                onset_strengths = [max(onset_env_p[f] if f < len(onset_env_p) else 0,
-                                       onset_env_h[f] if f < len(onset_env_h) else 0)
-                                   for f in combined_frames]
-            else:
-                # Simplified onset detection (much faster)
-                onset_env = librosa.onset.onset_strength(y=y, sr=sr)
-                wait = {"EASY": 12, "MEDIUM": 8, "HARD": 4}.get(difficulty, 8)
-                combined_frames = librosa.onset.onset_detect(onset_envelope=onset_env, sr=sr, wait=wait)
-                onset_strengths = [onset_env[f] if f < len(onset_env) else 1.0 for f in combined_frames]
+            # Get onset envelopes from both harmonic and percussive
+            onset_env_p = librosa.onset.onset_strength(y=y_percussive, sr=sr)
+            onset_env_h = librosa.onset.onset_strength(y=y_harmonic, sr=sr)
+            
+            # Detect onsets with minimal wait (catch everything)
+            onset_frames_p = librosa.onset.onset_detect(onset_envelope=onset_env_p, sr=sr, wait=1)
+            onset_frames_h = librosa.onset.onset_detect(onset_envelope=onset_env_h, sr=sr, wait=1)
+            
+            # Combine all onsets
+            combined_frames = sorted(list(set(onset_frames_p) | set(onset_frames_h)))
+            
+            # Get strength for each onset (max of harmonic/percussive)
+            onset_strengths = []
+            for f in combined_frames:
+                str_p = onset_env_p[f] if f < len(onset_env_p) else 0
+                str_h = onset_env_h[f] if f < len(onset_env_h) else 0
+                onset_strengths.append(float(max(str_p, str_h)))
             
             onset_times = [float(t) for t in librosa.frames_to_time(combined_frames, sr=sr)]
             
-            tempo, _ = librosa.beat.beat_track(y=y, sr=sr)
+            # Get tempo and beat positions
+            tempo, beat_frames = librosa.beat.beat_track(y=y, sr=sr)
             bpm = float(tempo)
+            beat_times = [float(t) for t in librosa.frames_to_time(beat_frames, sr=sr)]
             duration = float(librosa.get_duration(y=y, sr=sr))
             
-            # Cache onset data for reuse with other difficulties
+            # Cache analysis data
             try:
                 with open(onset_cache_path, 'w') as f:
                     json.dump({
                         'onset_times': onset_times,
                         'bpm': bpm,
                         'duration': duration,
-                        'strengths': [float(s) for s in onset_strengths]
+                        'strengths': onset_strengths,
+                        'beat_times': beat_times
                     }, f)
             except:
                 pass
         
         print(f"Detected BPM: {bpm:.1f} ({len(onset_times)} onsets)")
         
+        # Normalize strengths to 0-1 range
+        max_strength = max(onset_strengths) if onset_strengths else 1.0
+        norm_strengths = [s / max_strength for s in onset_strengths]
+        
+        # Difficulty configuration - DETERMINISTIC, multiplier-based
+        # note_mult: how many subdivisions to add
+        # chord_threshold: intensity above this = chord
+        # max_chord: maximum simultaneous notes
+        # subdivision: beat fraction (4 = quarter, 8 = 8th, 16 = 16th, 32 = 32nd)
+        diff_config = {
+            "EASY": {
+                "note_mult": 0.5, "chord_threshold": 0.9, "max_chord": 2,
+                "subdivision": 4, "hold_threshold": 0.95, "hold_min": 0.3
+            },
+            "MEDIUM": {
+                "note_mult": 0.8, "chord_threshold": 0.75, "max_chord": 2,
+                "subdivision": 8, "hold_threshold": 0.85, "hold_min": 0.25
+            },
+            "HARD": {
+                "note_mult": 1.0, "chord_threshold": 0.6, "max_chord": 3,
+                "subdivision": 16, "hold_threshold": 0.7, "hold_min": 0.2
+            },
+            "EXTREME": {
+                "note_mult": 1.5, "chord_threshold": 0.4, "max_chord": 3,
+                "subdivision": 16, "hold_threshold": 0.5, "hold_min": 0.15
+            },
+            "FUCK YOU": {
+                "note_mult": 2.0, "chord_threshold": 0.2, "max_chord": 4,
+                "subdivision": 32, "hold_threshold": 0.3, "hold_min": 0.1
+            }
+        }
+        
+        cfg = diff_config.get(difficulty, diff_config["MEDIUM"])
+        
         notes = []
-        last_note_time = 0
         
-        for idx, t in enumerate(onset_times):
-            seed = np.sin(t * 123.45)
+        # Helper: deterministic lane from time (no random!)
+        def get_lane(t, offset=0):
+            # Use time-based hash for deterministic lane selection
+            hash_val = int(abs(np.sin(t * 1000.0 + offset) * 10000))
+            return hash_val % 4
+        
+        # Helper: get chord lanes based on intensity
+        def get_chord_lanes(t, intensity, max_notes):
+            base_lane = get_lane(t)
+            lanes = [base_lane]
             
-            # Get strength from cached data
-            strength = onset_strengths[idx] if idx < len(onset_strengths) else 1.0
-            
-            # Gap Check (Long notes for atmospheric sections)
-            gap = t - last_note_time
-            if gap > 2.5 and len(notes) > 0:
-                hold_start = last_note_time + 0.2
-                hold_length = min(gap - 0.5, 3.0)
-                if hold_length > 0.5:
-                    hold_lane = (notes[-1]['lane'] + 2) % 4
-                    notes.append({'time': float(hold_start), 'lane': hold_lane, 'length': float(hold_length), 'hit': False})
-            
-            # Density Check
-            is_extreme = difficulty in ["EXTREME", "FUCK YOU"]
-            if not is_extreme:
-                if (seed + 1) / 2 > density_mult:
-                    continue
-            
-            # Lane selection based on seed
-            lane = int((seed + 1) * 2) % 4
-            chord_size = 1
-            
-            # Chord logic based on strength
-            if difficulty == "FUCK YOU":
-                if strength > 1.2: chord_size = 4
-                elif strength > 0.6: chord_size = 3
-                elif strength > 0.3: chord_size = 2
-            elif difficulty == "EXTREME":
-                if strength > 1.5: chord_size = 3
-                elif strength > 0.8: chord_size = 2
-            elif difficulty == "HARD":
-                if strength > 2.0: chord_size = 2
-            
-            # Generate primary notes
-            lanes = [lane]
-            while len(lanes) < chord_size:
-                next_lane = (lanes[-1] + 1) % 4
-                if next_lane not in lanes: lanes.append(next_lane)
-            
-            for l in lanes:
-                # Decide on hold length
-                length = 0.0
-                if strength_h > strength_p * 1.5 and seed > 0.5:
-                    # Harmonic lead -> likely a held synth or guitar note
-                    length = 0.1 + (seed + 1) * 0.4
+            if intensity >= cfg["chord_threshold"]:
+                # Add more lanes based on intensity
+                extra = 1
+                if intensity >= 0.9:
+                    extra = min(3, max_notes - 1)
+                elif intensity >= 0.7:
+                    extra = min(2, max_notes - 1)
                 
-                notes.append({'time': t, 'lane': l, 'length': length, 'hit': False})
+                for i in range(extra):
+                    new_lane = get_lane(t, offset=(i + 1) * 100)
+                    if new_lane not in lanes:
+                        lanes.append(new_lane)
             
-            # Technical Overlays for FAST fragments
-            if difficulty == "FUCK YOU":
-                # High energy harmonic content (The "Fastest Instrument" logic)
-                if strength_h > 1.5:
-                    # Append a 1/32nd repeat (vibrato/fast shred)
-                    notes.append({'time': t + 0.04, 'lane': (lane + 1) % 4, 'length': 0, 'hit': False})
-                    notes.append({'time': t + 0.08, 'lane': (lane + 2) % 4, 'length': 0, 'hit': False})
-                elif strength_p > 2.0:
-                    # Heavy percussive kick -> 1/16th double
-                    notes.append({'time': t + 0.08, 'lane': lane, 'length': 0, 'hit': False})
-
-            elif difficulty == "EXTREME" and strength_h > 2.0:
-                # Fast melodic flick
-                notes.append({'time': t + 0.1, 'lane': (lane + 2) % 4, 'length': 0, 'hit': False})
-            
-            last_note_time = t
+            return lanes[:max_notes]
         
+        # Process each onset - ALL onsets become notes
+        for idx, t in enumerate(onset_times):
+            if t < 0.5:  # Skip first 0.5s (usually silence)
+                continue
+            
+            intensity = norm_strengths[idx] if idx < len(norm_strengths) else 0.5
+            
+            # Determine chord size based on intensity
+            chord_lanes = get_chord_lanes(t, intensity, cfg["max_chord"])
+            
+            for lane in chord_lanes:
+                # Determine if this should be a hold note
+                hold_length = 0.0
+                if intensity >= cfg["hold_threshold"]:
+                    # Find next onset to determine hold length
+                    if idx + 1 < len(onset_times):
+                        gap = onset_times[idx + 1] - t
+                        if gap > cfg["hold_min"] * 2:
+                            hold_length = max(cfg["hold_min"], gap * 0.6)
+                
+                notes.append({
+                    'time': t,
+                    'lane': lane,
+                    'length': hold_length,
+                    'hit': False
+                })
+        
+        # Add beat subdivisions based on difficulty
+        if cfg["subdivision"] >= 8 and beat_times:
+            spb = 60.0 / bpm  # Seconds per beat
+            
+            for i, beat_t in enumerate(beat_times[:-1]):
+                next_beat = beat_times[i + 1]
+                beat_gap = next_beat - beat_t
+                
+                # Calculate subdivision interval
+                sub_count = cfg["subdivision"] // 4  # 8th = 2 subs, 16th = 4, 32nd = 8
+                sub_interval = beat_gap / sub_count
+                
+                for s in range(1, sub_count):
+                    sub_t = beat_t + s * sub_interval
+                    
+                    # Check if there's already a note near this time
+                    has_nearby = any(abs(n['time'] - sub_t) < 0.03 for n in notes)
+                    if has_nearby:
+                        continue
+                    
+                    # Add subdivision note
+                    lane = get_lane(sub_t)
+                    notes.append({
+                        'time': sub_t,
+                        'lane': lane,
+                        'length': 0,
+                        'hit': False
+                    })
+        
+        # For extreme difficulties, add stream patterns between onsets
+        if difficulty in ["EXTREME", "FUCK YOU"]:
+            stream_notes = []
+            for i in range(len(onset_times) - 1):
+                t1, t2 = onset_times[i], onset_times[i + 1]
+                gap = t2 - t1
+                
+                # If gap is moderate (good for streams)
+                if 0.15 < gap < 0.5:
+                    # Add rapid alternating notes
+                    interval = 0.05 if difficulty == "FUCK YOU" else 0.08
+                    cur_t = t1 + interval
+                    lane_offset = 0
+                    
+                    while cur_t < t2 - 0.03:
+                        has_nearby = any(abs(n['time'] - cur_t) < 0.025 for n in notes)
+                        if not has_nearby:
+                            # Alternating lanes for streams
+                            stream_lane = (get_lane(t1) + lane_offset) % 4
+                            stream_notes.append({
+                                'time': cur_t,
+                                'lane': stream_lane,
+                                'length': 0,
+                                'hit': False
+                            })
+                            lane_offset = (lane_offset + 1) % 4
+                        cur_t += interval
+            
+            notes.extend(stream_notes)
+        
+        # Apply note multiplier (add or remove notes)
+        if cfg["note_mult"] < 1.0:
+            # Remove some notes deterministically
+            keep_count = int(len(notes) * cfg["note_mult"])
+            # Sort by time, then by intensity (keep high intensity)
+            notes.sort(key=lambda n: n['time'])
+            # Keep every Nth note
+            step = max(1, int(1 / cfg["note_mult"]))
+            notes = [n for i, n in enumerate(notes) if i % step == 0]
+        
+        # Sort by time
         notes.sort(key=lambda n: n['time'])
+        
+        # Remove notes that are too close together (< 30ms)
+        filtered_notes = []
+        last_times = {0: 0, 1: 0, 2: 0, 3: 0}
+        for note in notes:
+            lane = note['lane']
+            if note['time'] - last_times[lane] >= 0.03:
+                filtered_notes.append(note)
+                last_times[lane] = note['time']
+        
+        notes = filtered_notes
+        
+        print(f"Generated {len(notes)} notes for {difficulty} (deterministic, intensity-based)")
         return {'bpm': bpm, 'notes': notes, 'duration': duration}
+
 
