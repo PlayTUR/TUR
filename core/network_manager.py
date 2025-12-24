@@ -64,6 +64,10 @@ class NetworkManager:
         self.transfer_total = 0
         self.pending_file_data = b''
         
+        # Spectate mode
+        self.is_spectator = False
+        self.spectators = []
+        
         # Status messages
         self.status_message = ""
         self.error_message = ""

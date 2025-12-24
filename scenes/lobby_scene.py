@@ -16,7 +16,7 @@ class LobbyScene(Scene):
         
         # Navigation
         self.menu_index = 0
-        self.menu_items = ["HOST GAME", "JOIN WITH CODE", "BROWSE SERVERS", "DIRECT CONNECT (IP)", "BACK"]
+        self.menu_items = ["HOST GAME", "JOIN WITH CODE", "SPECTATE", "BROWSE SERVERS", "DIRECT CONNECT (IP)", "BACK"]
         
         # Input
         self.code_buffer = ""
@@ -33,12 +33,16 @@ class LobbyScene(Scene):
         
         # Animation
         self.blink_timer = 0
+        
+        # Spectate mode flag
+        self.spectate_mode = False
 
     def on_enter(self, params=None):
         self.state = "MENU"
         self.menu_index = 0
         self.code_buffer = ""
         self.ip_buffer = ""
+        self.spectate_mode = False
         self.game.network.reset()
         
     def update(self):
@@ -172,15 +176,21 @@ class LobbyScene(Scene):
 
     def _draw_join_code(self, surface, r, theme):
         """Enter room code"""
-        r.draw_panel(surface, 200, 200, 600, 250, "ENTER_ROOM_CODE")
-        r.draw_text(surface, "Enter the room code from host:", 250, 230, theme["text"])
+        title = "SPECTATE ROOM" if getattr(self, 'spectate_mode', False) else "ENTER_ROOM_CODE"
+        r.draw_panel(surface, 200, 200, 600, 250, title)
+        
+        if getattr(self, 'spectate_mode', False):
+            r.draw_text(surface, "Enter room code to spectate:", 270, 230, theme["secondary"])
+        else:
+            r.draw_text(surface, "Enter the room code from host:", 250, 230, theme["text"])
         
         display = self.code_buffer.upper() + ("_" if self.blink_timer < 30 else " ")
         pygame.draw.rect(surface, (20, 20, 20), (280, 280, 400, 60))
         pygame.draw.rect(surface, theme["primary"], (280, 280, 400, 60), 2)
         r.draw_text(surface, display, 320, 295, theme["primary"], r.big_font)
-        r.draw_text(surface, "Format: XXXX-XXXX", 400, 360, (100, 100, 100))
-        r.draw_button(surface, "CONNECT", 370, 400, True, 200)
+        r.draw_text(surface, "Format: XXXX-XXXX-XXXX", 380, 360, (100, 100, 100))
+        btn_text = "SPECTATE" if getattr(self, 'spectate_mode', False) else "CONNECT"
+        r.draw_button(surface, btn_text, 370, 400, True, 200)
         r.draw_text(surface, "[ENTER] Connect  [ESC] Back", 330, 500, (80, 80, 80))
 
     def _draw_direct(self, surface, r, theme):
@@ -331,7 +341,7 @@ class LobbyScene(Scene):
         diff = self.game.network.selected_difficulty or "MEDIUM"
         
         params = {
-            'song': f"songs/{song}" if song else None,
+            'song': song,  # Just the filename, game_scene.py adds 'songs/' prefix
             'difficulty': diff,
             'mode': 'multiplayer'
         }
@@ -422,6 +432,10 @@ class LobbyScene(Scene):
             if item == "HOST GAME":
                 self.state = "HOST_SETUP"
             elif item == "JOIN WITH CODE":
+                self.spectate_mode = False
+                self.state = "JOIN_CODE"
+            elif item == "SPECTATE":
+                self.spectate_mode = True
                 self.state = "JOIN_CODE"
             elif item == "BROWSE SERVERS":
                 self.state = "SERVER_BROWSER"
@@ -463,6 +477,8 @@ class LobbyScene(Scene):
             clean_code = self.code_buffer.replace('-', '')
             if len(clean_code) == 12:
                 self.play_sfx("accept")
+                # Set spectator flag on network before connecting
+                self.game.network.is_spectator = getattr(self, 'spectate_mode', False)
                 self.game.network.join_with_code(self.code_buffer)
                 self.state = "JOINING"
         elif key == pygame.K_BACKSPACE:

@@ -10,6 +10,9 @@ class GameScene(Scene):
         self.mode = params.get('mode', 'single')
         self.audio_missing = False
         
+        # Spectator mode - read-only watching
+        self.is_spectator = getattr(self.game.network, 'is_spectator', False) if hasattr(self.game, 'network') else False
+        
         # Store for story continuation
         self.next_scene_class = params.get('next_scene_class')
         self.next_scene_params = params.get('next_scene_params')
@@ -69,7 +72,7 @@ class GameScene(Scene):
         self.intro_timer = 0.0
         self.intro_duration = 2.0
         
-        if self.mode == 'multi':
+        if self.mode == 'multiplayer':
             self.intro_active = False
             if self.game.network.is_host:
                 self.start_time = self.game.network.start_game_request()
@@ -254,10 +257,11 @@ class GameScene(Scene):
             elif event.key == pygame.K_MINUS:
                 self.change_volume(-0.1)
             else:
-                if not self.paused:
+                # Block note hits for spectators
+                if not self.paused and not getattr(self, 'is_spectator', False):
                     self.handle_hit(event.key)
         elif event.type == pygame.KEYUP:
-            if not self.paused:
+            if not self.paused and not getattr(self, 'is_spectator', False):
                 self.update_key(event.key, False)
 
     def toggle_pause(self):
@@ -488,6 +492,10 @@ class GameScene(Scene):
         self.game.renderer.draw_text(surface, f"SCORE: {self.score}", 20, 20, TERM_WHITE)
         self.game.renderer.draw_text(surface, f"COMBO: {self.combo}", 20, 50, TERM_AMBER)
         
+        # Spectator indicator
+        if getattr(self, 'is_spectator', False):
+            self.game.renderer.draw_text(surface, "◉ SPECTATING ◉", SCREEN_WIDTH - 200, 20, (255, 200, 50), self.game.renderer.font)
+        
         # Health Bar
         bar_w = 400
         bar_h = 10
@@ -527,9 +535,9 @@ class GameScene(Scene):
         if total_hits > 0:
             weighted = (self.perfects * 100 + self.goods * 75 + self.bads * 50)
             acc = weighted / (total_hits * 100) * 100
-            self.game.renderer.draw_text(surface, f"ACC: {acc:.1f}%", 20, 80 if self.mode != 'multi' else 110, TERM_WHITE)
+            self.game.renderer.draw_text(surface, f"ACC: {acc:.1f}%", 20, 80 if self.mode != 'multiplayer' else 110, TERM_WHITE)
         
-        if self.mode == 'multi':
+        if self.mode == 'multiplayer':
             self.game.renderer.draw_text(surface, f"OPPONENT: {self.game.network.opponent_score}", 20, 80, TERM_RED)
 
         # Draw Song Info (Bottom Right)
