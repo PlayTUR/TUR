@@ -133,37 +133,67 @@ class RoomConnect:
                 self.active_ws = None
 
     def join_game(self, room_code):
-        """Join via Room Code"""
+        """Join via Room Code with domain fallback"""
         self.error_message = ""
-        url = self._code_to_url(room_code)
-        if not url:
-            self.error_message = "Invalid Code"
-            return False
-            
-        # Convert https -> wss
-        if url.startswith("https://"):
-            url = url.replace("https://", "wss://")
-        elif url.startswith("http://"):
-            url = url.replace("http://", "ws://")
-            
+        
+        # Clean the code
+        code = room_code.strip()
+        
+        # Check if it's a full URL already
+        if "ngrok" in code.lower() or "." in code:
+            # Direct URL - try once
+            url = self._code_to_url(code)
+            return self._try_join_url(url)
+        
+        # Try multiple domain variants
+        for domain in self.NGROK_DOMAINS:
+            url = f"wss://{code}.{domain}"
+            print(f"Trying: {url}")
+            if self._try_join_url(url):
+                return True
+        
+        # All failed
+        if not self.error_message:
+            self.error_message = "Could not connect to room. Is the host still online?"
+        return False
+    
+    def _try_join_url(self, url):
+        """Attempt to join a single URL"""
         future = asyncio.run_coroutine_threadsafe(self._async_join(url), self.loop)
         try:
-            success = future.result(timeout=10)
+            success = future.result(timeout=8)
             if success:
                 self.is_host = False
                 self.connected = True
                 return True
+        except asyncio.TimeoutError:
+            self.error_message = "Connection timed out"
         except Exception as e:
-            self.error_message = f"Join Error: {e}"
-            
+            error_str = str(e)
+            # Provide user-friendly error messages
+            if "404" in error_str or "not found" in error_str.lower():
+                self.error_message = "Room not found - host may have closed it"
+            elif "refused" in error_str.lower():
+                self.error_message = "Connection refused - host not available"
+            elif "timeout" in error_str.lower():
+                self.error_message = "Connection timed out"
+            else:
+                self.error_message = f"Join Error: {error_str[:50]}"
         return False
 
     async def _async_join(self, url):
         try:
-            self.active_ws = await websockets.connect(url)
+            # Add connection timeout
+            self.active_ws = await asyncio.wait_for(
+                websockets.connect(url),
+                timeout=6.0
+            )
             # Start listener task
             self.loop.create_task(self._client_listen())
             return True
+        except asyncio.TimeoutError:
+            self.error_message = "Connection timed out"
+            return False
         except Exception as e:
             self.error_message = str(e)
             return False
@@ -221,87 +251,53 @@ class RoomConnect:
             except:
                 pass
 
+    # Known ngrok domains (try in order)
+    NGROK_DOMAINS = [
+        "ngrok-free.app",
+        "ngrok.io", 
+        "ngrok.app",
+    ]
+    
     # --- Utility ---
     def _url_to_code(self, url):
-        """Generate room code from URL: [Region]-[Hash]"""
-        # We can just hash the whole URL
-        # Or simplistic region detect
-        region = "US"
-        if ".eu." in url: region = "EU"
-        elif ".ap." in url: region = "AP"
-        elif ".jp." in url: region = "JP"
-        elif ".sa." in url: region = "SA"
-        
-        h = hashlib.md5(url.encode()).hexdigest()[:6].upper()
-        return f"{region}-{h}"
-
-    def _code_to_url(self, code):
-        """
-        Problem: We can't reverse the hash.
-        Previously we relied on the tunnel giving us a predictable URL or storing the URL.
-        WEBSOCKET approach means URL is dynamic from Ngrok.
-        We CANNOT accept just a hash code unless we have a directory service.
-        OR we must ask user to share the FULL URL?
-        The previous code relied on the user typing "EU-XXXXXX".
-        Wait. Previous implementation used standard TCP port tunnels which might have been static?
-        No, previous implementation assumed we could reverse it or send the IP?
-        Actually, previous implementation:
-            `NetworkManager.generate_room_code` -> `crc32(ip)`
-        Ngrok URLs are random strings: `https://gopher-hero-random.ngrok-free.app`
-        Usage without a DB means users must share the **URL**.
-        The "Code" concept is hard with random domains unless serialized.
-        URL is long.
-        
-        Solution for Free Tier Usability:
-        We must show the FULL URL or a compressed version.
-        Or use a tinyurl service?
-        Or keep the code UI but use a separate external KV store? (Too complex).
-        
-        Simplest: User shares the **Room Code** which IS the URL, but maybe we just ask them to share the URL?
-        Or we stick to "Code" but the "Code" is just the subdomain part?
-        e.g. `gopher-hero-random`.
-        Url: `https://<code >.ngrok-free.app`
-        YES. Ngrok free domains are `https://<subdomain>.ngrok-free.app`.
-        So the "Code" is the subdomain.
-        """
-        # Parse Code
-        try:
-            # Code might be "US-XYZ" (Old) or just "subdomain"
-            # If we assume ngrok-free.app
-            
-            # If code contains '.', treat as full URL or domain
-            if '.' in code:
-                 # Clean it
-                 if not code.startswith("http"):
-                     return f"https://{code}"
-                 return code
-            
-            # If code looks like subdomain
-            # Check if it has region prefix from our _url_to_code?
-            # Our _url_to_code generated a Hash. We can't reverse hash.
-            # We MUST change _url_to_code to return the Subdomain.
-            pass
-        except:
-            pass
-        return None 
-    
-    def _url_to_code(self, url):
-        # Extract subdomain
-        # https://xxxxxx.ngrok-free.app
+        """Extract subdomain from ngrok URL as room code"""
         try:
             clean = url.replace("https://", "").replace("http://", "")
+            # Remove trailing slashes
+            clean = clean.rstrip('/')
             parts = clean.split('.')
-            if len(parts) >= 3:
-                return parts[0] # The subdomain
-            return clean # Fallback
+            if len(parts) >= 2:
+                # Store the actual domain used for this session
+                self._ngrok_domain = '.'.join(parts[1:])
+                return parts[0]  # The subdomain is the code
+            return clean
         except:
             return url
 
     def _code_to_url(self, code):
-        # Reconstruct URL
-        # Assumption: Uses ngrok-free.app
-        # This is brittle if ngrok changes domains, but standard for free tier.
-        if "ngrok" in code: # User pasted full url?
-             return code if code.startswith("http") else f"wss://{code}"
+        """Reconstruct WebSocket URL from room code"""
+        # If user pasted full URL, clean and use it
+        if "ngrok" in code.lower():
+            url = code
+            if not url.startswith("http") and not url.startswith("ws"):
+                url = f"https://{code}"
+            # Convert to websocket
+            return url.replace("https://", "wss://").replace("http://", "ws://")
         
-        return f"wss://{code}.ngrok-free.app"
+        # If we have a stored domain from hosting, prefer that
+        if hasattr(self, '_ngrok_domain') and self._ngrok_domain:
+            return f"wss://{code}.{self._ngrok_domain}"
+        
+        # Default to trying the first known domain
+        return f"wss://{code}.{self.NGROK_DOMAINS[0]}"
+    
+    def _try_connect_with_fallback(self, code):
+        """Try connecting with multiple domain fallbacks"""
+        # If it's already a full URL, just try it
+        if "ngrok" in code.lower() or "." in code:
+            return self._code_to_url(code), None
+        
+        # Try each domain variant
+        for domain in self.NGROK_DOMAINS:
+            url = f"wss://{code}.{domain}"
+            yield url
