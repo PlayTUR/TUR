@@ -326,9 +326,6 @@ class GameScene(Scene):
                 self.combo += 1
                 if hit_sounds_enabled and self.sfx_perfect:
                     self.sfx_perfect.play()
-                # Post-effects: shake only (flash removed for seizure safety)
-                if post_effects:
-                    self.game.renderer.trigger_shake(6.0)
             elif min_diff < 0.1:
                 self.score += 100
                 self.goods += 1
@@ -337,9 +334,6 @@ class GameScene(Scene):
                 self.combo += 1
                 if hit_sounds_enabled and self.sfx_hit:
                     self.sfx_hit.play()
-                # Post-effects: light shake
-                if post_effects:
-                    self.game.renderer.trigger_shake(3.0)
             else:
                 self.score += 50
                 self.bads += 1

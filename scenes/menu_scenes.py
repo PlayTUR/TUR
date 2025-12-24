@@ -613,7 +613,7 @@ class SettingsScene(Scene):
         self.visible_items = 9
         self.show_regen_confirm = False
         
-        self.tabs = ["AUDIO", "VIDEO", "GAMEPLAY", "INPUT"]
+        self.tabs = ["AUDIO", "VIDEO", "GAMEPLAY", "INPUT", "THEMES"]
         self.current_tab = 0
         
         # Keybind mode
@@ -625,6 +625,16 @@ class SettingsScene(Scene):
         self.reloading = False
         self.reload_msg = ""
         self.regen_start_time = 0
+        self.regen_current_item = 0
+        self.regen_total_items = 0
+        self.regen_cancel_requested = False
+        
+        # Theme sharing state
+        self.share_code_display = ""
+        self.share_code_input = ""
+        self.showing_share_code = False
+        self.entering_share_code = False
+        self.theme_message = ""
         self.regen_current_item = 0
         self.regen_total_items = 0
         self.regen_cancel_requested = False
@@ -646,12 +656,12 @@ class SettingsScene(Scene):
             
         self.last_joy_count = joy_count
         
-        # Group items by category (Enriched with more features)
         self.all_items = {
             "AUDIO": ["VOLUME", "MUSIC_VOLUME", "SFX_VOLUME", "OFFSET", "HIT SOUNDS"],
             "VIDEO": ["RESOLUTION", "FULLSCREEN", "V-SYNC", "CRT FILTER", "THEME", "VISUAL FX", "POST EFFECTS", "SHOW FPS", "BG DIM"],
             "GAMEPLAY": ["SPEED", "UPSCROLL", "NOTE STYLE", "SCREEN SHAKE", "RE-GEN MAPS", "LANGUAGE", "VIM BINDINGS"],
-            "INPUT": ["KEYBINDS", "DEADZONE"]
+            "INPUT": ["KEYBINDS", "DEADZONE"],
+            "THEMES": ["NOTE COL 1", "NOTE COL 2", "EXPORT THEME", "SHARE CODE", "ENTER CODE"]
         }
         
         if joy_count > 0:
@@ -750,6 +760,12 @@ class SettingsScene(Scene):
         binds = s.get("keybinds")
         bind_names = ", ".join([pygame.key.name(k).upper() for k in binds])
 
+        # Format note colors for display
+        col1 = s.get("note_col_1") or [50, 255, 50]
+        col2 = s.get("note_col_2") or [255, 180, 50]
+        col1_str = f"R{col1[0]} G{col1[1]} B{col1[2]}"
+        col2_str = f"R{col2[0]} G{col2[1]} B{col2[2]}"
+
         items_map = {
             "VOLUME": f"< {int(s.get('volume')*100)}% >",
             "MUSIC_VOLUME": f"< {int(s.get('music_volume')*100)}% >",
@@ -775,6 +791,11 @@ class SettingsScene(Scene):
             "LANGUAGE": f"< {s.get('language')} >",
             "VIM BINDINGS": f"< {'ON' if s.get('vim_mode') else 'OFF'} >",
             "CONTROLLER CONFIG": ">",
+            "NOTE COL 1": f"< {col1_str} >",
+            "NOTE COL 2": f"< {col2_str} >",
+            "EXPORT THEME": "[SAVE TO FILE]",
+            "SHARE CODE": "[GENERATE]",
+            "ENTER CODE": "[INPUT CODE]",
             "BACK": ""
         }
         
@@ -924,6 +945,52 @@ class SettingsScene(Scene):
             # Cancel hint
             r.draw_text(surface, "[ESC] Cancel", bx + box_w - 130, by + 15, (100, 100, 100))
 
+        # Share code display overlay
+        if self.showing_share_code:
+            overlay = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT))
+            overlay.set_alpha(200)
+            overlay.fill((0, 0, 0))
+            surface.blit(overlay, (0, 0))
+            
+            w, h = 600, 200
+            x, y = (SCREEN_WIDTH - w) // 2, (SCREEN_HEIGHT - h) // 2
+            pygame.draw.rect(surface, theme["bg"], (x, y, w, h))
+            pygame.draw.rect(surface, theme["primary"], (x, y, w, h), 2)
+            
+            r.draw_text(surface, "YOUR SHARE CODE", x + 200, y + 20, theme["primary"], r.big_font)
+            r.draw_text(surface, self.share_code_display, x + 50, y + 80, theme["secondary"], r.big_font)
+            r.draw_text(surface, "[ENTER] Close   [CTRL+C] Copy", x + 150, y + 160, (100, 100, 100))
+
+        # Share code input overlay
+        if self.entering_share_code:
+            overlay = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT))
+            overlay.set_alpha(200)
+            overlay.fill((0, 0, 0))
+            surface.blit(overlay, (0, 0))
+            
+            w, h = 600, 200
+            x, y = (SCREEN_WIDTH - w) // 2, (SCREEN_HEIGHT - h) // 2
+            pygame.draw.rect(surface, theme["bg"], (x, y, w, h))
+            pygame.draw.rect(surface, theme["primary"], (x, y, w, h), 2)
+            
+            r.draw_text(surface, "ENTER SHARE CODE", x + 180, y + 20, theme["primary"], r.big_font)
+            
+            # Input box
+            pygame.draw.rect(surface, (20, 20, 20), (x + 50, y + 70, 500, 40))
+            pygame.draw.rect(surface, theme["secondary"], (x + 50, y + 70, 500, 40), 2)
+            display_code = self.share_code_input + ("_" if pygame.time.get_ticks() % 1000 < 500 else "")
+            r.draw_text(surface, display_code, x + 60, y + 78, theme["text"])
+            
+            r.draw_text(surface, "[ENTER] Apply   [ESC] Cancel", x + 170, y + 160, (100, 100, 100))
+
+        # Theme message display (bottom of screen)
+        if self.theme_message:
+            msg_w = r.font.size(self.theme_message)[0] + 40
+            msg_x = (SCREEN_WIDTH - msg_w) // 2
+            pygame.draw.rect(surface, theme["bg"], (msg_x, 650, msg_w, 30))
+            pygame.draw.rect(surface, theme["secondary"], (msg_x, 650, msg_w, 30), 1)
+            r.draw_text(surface, self.theme_message, msg_x + 20, 655, theme["secondary"])
+
     def handle_input(self, event):
         if self.show_regen_confirm:
             if event.type == pygame.KEYDOWN:
@@ -967,6 +1034,45 @@ class SettingsScene(Scene):
                 elif event.key == pygame.K_n or event.key == pygame.K_ESCAPE:
                     self.play_sfx("back")
                     self.show_regen_confirm = False
+            return
+
+        # Share code display - ESC to close
+        if self.showing_share_code:
+            if event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_ESCAPE or event.key == pygame.K_RETURN:
+                    self.play_sfx("back")
+                    self.showing_share_code = False
+                elif event.key == pygame.K_c and (event.mod & pygame.KMOD_CTRL):
+                    # Copy to clipboard (if pygame supports it)
+                    try:
+                        import pyperclip
+                        pyperclip.copy(self.share_code_display)
+                        self.theme_message = "Copied to clipboard!"
+                    except:
+                        self.theme_message = "Copy manually: " + self.share_code_display[:20]
+            return
+
+        # Share code input mode
+        if self.entering_share_code:
+            if event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_ESCAPE:
+                    self.play_sfx("back")
+                    self.entering_share_code = False
+                elif event.key == pygame.K_RETURN:
+                    if self.share_code_input:
+                        from core.theme_manager import apply_share_code
+                        success, msg = apply_share_code(self.game.settings, self.share_code_input)
+                        self.theme_message = msg
+                        if success:
+                            self.play_sfx("accept")
+                        else:
+                            self.play_sfx("error")
+                    self.entering_share_code = False
+                elif event.key == pygame.K_BACKSPACE:
+                    self.share_code_input = self.share_code_input[:-1]
+                elif event.unicode.isalnum() or event.unicode in '-_':
+                    if len(self.share_code_input) < 100:
+                        self.share_code_input += event.unicode.upper()
             return
 
         if self.reloading:
@@ -1057,6 +1163,18 @@ class SettingsScene(Scene):
                     else:
                         self.play_sfx("back")
                         self.game.settings.set("auto_recreate_beatmaps", False)
+                elif sel == "EXPORT THEME":
+                    from core.theme_manager import export_theme_to_file
+                    filepath = export_theme_to_file(self.game.settings, "custom_theme")
+                    self.theme_message = f"Saved to {os.path.basename(filepath)}"
+                elif sel == "SHARE CODE":
+                    from core.theme_manager import generate_share_code
+                    code = generate_share_code(self.game.settings)
+                    self.share_code_display = code
+                    self.showing_share_code = True
+                elif sel == "ENTER CODE":
+                    self.entering_share_code = True
+                    self.share_code_input = ""
             elif event.key == pygame.K_ESCAPE:
                 self.play_sfx("back")
                 self.game.scene_manager.switch_to(TitleScene)
@@ -1199,6 +1317,44 @@ class SettingsScene(Scene):
             cur = s.get("bg_dim")
             cur += direction * 0.1
             s.set("bg_dim", max(0.0, min(1.0, cur)))
+        elif item == "NOTE COL 1":
+            # Cycle through predefined colors
+            colors = [
+                [50, 255, 50],    # Green
+                [0, 200, 255],    # Cyan
+                [255, 100, 255],  # Pink
+                [255, 255, 50],   # Yellow
+                [100, 100, 255],  # Blue
+                [255, 150, 50],   # Orange
+                [255, 50, 50],    # Red
+                [200, 200, 200],  # White
+            ]
+            cur = s.get("note_col_1") or [50, 255, 50]
+            try:
+                idx = next(i for i, c in enumerate(colors) if c == cur)
+            except StopIteration:
+                idx = 0
+            new_idx = (idx + direction) % len(colors)
+            s.set("note_col_1", colors[new_idx])
+        elif item == "NOTE COL 2":
+            # Cycle through predefined colors
+            colors = [
+                [255, 180, 50],   # Orange
+                [255, 50, 100],   # Red-pink
+                [50, 150, 255],   # Blue
+                [150, 255, 100],  # Lime
+                [255, 255, 100],  # Light yellow
+                [200, 100, 255],  # Purple
+                [255, 200, 200],  # Pink-white
+                [100, 255, 255],  # Aqua
+            ]
+            cur = s.get("note_col_2") or [255, 180, 50]
+            try:
+                idx = next(i for i, c in enumerate(colors) if c == cur)
+            except StopIteration:
+                idx = 0
+            new_idx = (idx + direction) % len(colors)
+            s.set("note_col_2", colors[new_idx])
 
         s.save()
         return True

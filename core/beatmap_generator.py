@@ -541,11 +541,11 @@ class BeatmapGenerator:
         # MINIMUM NOTE DENSITY GUARANTEE
         # Ensures harder difficulties have enough notes even for "easy" songs
         min_notes_per_second = {
-            "EASY": 0.5,
-            "MEDIUM": 1.0,
-            "HARD": 2.0,
-            "EXTREME": 3.5,
-            "FUCK YOU": 5.0
+            "EASY": 0.3,
+            "MEDIUM": 0.6,
+            "HARD": 1.2,
+            "EXTREME": 2.0,
+            "FUCK YOU": 3.0
         }
         
         min_nps = min_notes_per_second.get(difficulty, 1.0)

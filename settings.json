@@ -3,7 +3,7 @@
     "volume": 0.10000000000000014,
     "music_volume": 0.7,
     "sfx_volume": 1.0,
-    "speed": 1200,
+    "speed": 1100,
     "keybinds": [
         115,
         100,
@@ -43,7 +43,7 @@
         5
     ],
     "joy_deadzone": 0.10000000000000002,
-    "screen_shake": 1.3877787807814457e-16,
+    "screen_shake": 0.0,
     "hit_sounds": true,
     "miss_sounds": true,
     "combo_sounds": true,
@@ -58,7 +58,7 @@
     "is_admin": false,
     "discord_client_id": "1453128602110529678",
     "user_id": "38159493",
-    "auto_recreate_beatmaps": true,
+    "auto_recreate_beatmaps": false,
     "language": "EN",
     "vim_mode": false,
     "note_skin": "DEFAULT"

@@ -71,19 +71,19 @@ class NetworkManager:
     # === Room Code System ===
     
     def generate_room_code(self):
-        """Generate a shareable room code from external IP:port"""
+        """Generate a shareable room code from external IP:port (format: XXXX-XXXX)"""
         if not self.external_ip or not self.external_port:
             return None
         
         try:
             ip_parts = [int(x) for x in self.external_ip.split('.')]
+            # Pack: 4 bytes IP + 2 bytes port = 6 bytes
             data = bytes(ip_parts) + struct.pack('>H', self.external_port)
-            encoded = base64.b32encode(data).decode('ascii').rstrip('=')
             
-            if len(encoded) >= 8:
-                self.room_code = f"{encoded[:4]}-{encoded[4:8]}"
-            else:
-                self.room_code = encoded
+            # Use hex encoding for simplicity (6 bytes = 12 hex chars)
+            # Format as XXXX-XXXX-XXXX
+            hex_str = data.hex().upper()
+            self.room_code = f"{hex_str[:4]}-{hex_str[4:8]}-{hex_str[8:12]}"
             
             return self.room_code
         except Exception as e:
@@ -93,13 +93,27 @@ class NetworkManager:
     def decode_room_code(self, code):
         """Decode room code back to IP:port"""
         try:
+            # Remove dashes and spaces
             clean = code.replace('-', '').replace(' ', '').upper()
-            padding = (8 - len(clean) % 8) % 8
-            clean += '=' * padding
-            data = base64.b32decode(clean)
+            
+            # Must be exactly 12 hex characters
+            if len(clean) != 12:
+                print(f"Invalid code length: {len(clean)} (expected 12)")
+                return None, None
+            
+            # Decode hex to bytes
+            data = bytes.fromhex(clean)
+            
+            if len(data) != 6:
+                print(f"Invalid data length: {len(data)} (expected 6)")
+                return None, None
+            
             ip = '.'.join(str(b) for b in data[:4])
             port = struct.unpack('>H', data[4:6])[0]
             return ip, port
+        except ValueError as e:
+            print(f"Room code decode error (invalid hex): {e}")
+            return None, None
         except Exception as e:
             print(f"Room code decode error: {e}")
             return None, None
@@ -119,9 +133,20 @@ class NetworkManager:
     
     def _host_thread(self):
         try:
-            # Step 1: Discover external address via STUN
+            # Step 1: Discover external address via STUN (with retry)
             self.status_message = "Discovering external address..."
-            ip, port, sock = discover_external_address()
+            ip, port, sock = None, None, None
+            
+            # Retry STUN up to 3 times
+            for attempt in range(3):
+                try:
+                    self.status_message = f"STUN attempt {attempt + 1}/3..."
+                    ip, port, sock = discover_external_address()
+                    if ip:
+                        break
+                except Exception as e:
+                    print(f"STUN attempt {attempt + 1} failed: {e}")
+                    time.sleep(0.5)
             
             if ip:
                 self.external_ip = ip
@@ -156,6 +181,8 @@ class NetworkManager:
                         self.connected = True
                         self.status_message = "Player connected!"
                         threading.Thread(target=self._tcp_listen, args=(conn,), daemon=True).start()
+                        # Start keepalive thread
+                        threading.Thread(target=self._keepalive_thread, daemon=True).start()
                         
                 except socket.timeout:
                     continue
@@ -168,6 +195,21 @@ class NetworkManager:
             self.error_message = f"Host error: {e}"
         finally:
             self.connecting = False
+    
+    def _keepalive_thread(self):
+        """Send periodic keepalive to detect disconnections"""
+        last_ping = time.time()
+        while self.running and self.connected:
+            try:
+                if time.time() - last_ping >= 5.0:  # Every 5 seconds
+                    self.send({'type': 'ping', 'time': time.time()})
+                    last_ping = time.time()
+                time.sleep(1.0)
+            except Exception as e:
+                print(f"Keepalive error: {e}")
+                self.connected = False
+                self.error_message = "Connection lost"
+                break
 
     # === Joining ===
     
@@ -207,16 +249,44 @@ class NetworkManager:
                         pass
                     time.sleep(0.1)
             
-            # TCP connection
-            self.tcp_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            self.tcp_socket.settimeout(10.0)
-            self.tcp_socket.connect((ip, self.port))
+            # TCP connection with retry
+            connected = False
+            last_error = None
+            for attempt in range(2):
+                try:
+                    self.status_message = f"Connecting... (attempt {attempt + 1}/2)"
+                    self.tcp_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                    self.tcp_socket.settimeout(10.0)
+                    self.tcp_socket.connect((ip, self.port))
+                    connected = True
+                    break
+                except socket.timeout:
+                    last_error = "Connection timed out - host may be unreachable"
+                except ConnectionRefusedError:
+                    last_error = "Connection refused - room may be closed"
+                    break  # Don't retry refused connections
+                except OSError as e:
+                    if "Network is unreachable" in str(e):
+                        last_error = "Network unreachable - check your internet"
+                    else:
+                        last_error = f"Network error: {e}"
+                except Exception as e:
+                    last_error = str(e)
+                time.sleep(0.5)
+            
+            if not connected:
+                self.error_message = last_error or "Could not connect"
+                self.connecting = False
+                return
             
             self.connection = self.tcp_socket
             self.peer_address = (ip, self.port)
             self.connected = True
             self.connecting = False
             self.status_message = "Connected!"
+            
+            # Start keepalive for client too
+            threading.Thread(target=self._keepalive_thread, daemon=True).start()
             
             # Handshake
             self.send({
@@ -227,12 +297,6 @@ class NetworkManager:
             
             self._tcp_listen(self.tcp_socket)
             
-        except socket.timeout:
-            self.error_message = "Connection timed out"
-            self.connecting = False
-        except ConnectionRefusedError:
-            self.error_message = "Connection refused"
-            self.connecting = False
         except Exception as e:
             self.error_message = f"Failed: {e}"
             self.connecting = False
@@ -339,8 +403,23 @@ class NetworkManager:
                 self.start_timestamp = msg.get('start_time', 0)
                 self.seed = msg.get('seed', 0)
             
+            elif msg_type == 'ping':
+                # Respond to keepalive ping
+                self.send({'type': 'pong', 'time': msg.get('time', 0)})
+            
+            elif msg_type == 'pong':
+                # Keepalive response received - connection is alive
+                pass
+            
             elif msg_type == 'error':
-                self.error_message = msg.get('msg', 'Error')
+                error_msg = msg.get('msg', 'Unknown error')
+                # Provide more helpful error messages
+                if 'password' in error_msg.lower():
+                    self.error_message = "Incorrect room password"
+                elif 'refused' in error_msg.lower():
+                    self.error_message = "Connection refused - host may be offline"
+                else:
+                    self.error_message = error_msg
     
     def send(self, data, conn=None):
         target = conn or self.connection

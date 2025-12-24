@@ -590,36 +590,30 @@ class PygameRenderer:
                 pygame.Rect(x + 30, y - 5, lane_w - 60, 10))
     
     def _draw_arrow_note(self, surface, cx, y, lane, color, upscroll):
-        """Draw 8-bit arrow-style note pointing in lane direction"""
-        size = 40  # Same visual size as bar
-        half = size // 2
+        """Draw 8-bit arrow-style note - sized to match bar notes (90x30)"""
+        # Use same dimensions as bar notes for consistent feel
+        note_w = 90  # Same as lane_w - 10
+        note_h = 30  # Same height as bar
+        half_w = note_w // 2
+        half_h = note_h // 2
         
-        # 8-bit style arrows using rectangles (pixelated look)
-        # Lane 0: Left, Lane 1: Down, Lane 2: Up, Lane 3: Right
         dark_color = tuple(max(0, c - 60) for c in color)
         
-        if lane == 0:  # Left arrow
-            # Arrow body
-            pygame.draw.rect(surface, color, (cx - 10, y - 8, 30, 16))
-            # Arrow tip (triangular using rects)
-            pygame.draw.rect(surface, color, (cx - 20, y - 4, 10, 8))
-            pygame.draw.rect(surface, color, (cx - 30, y - 2, 10, 4))
-            pygame.draw.rect(surface, (255, 255, 255), (cx - 30, y - 8, 50, 16), 2)
-        elif lane == 1:  # Down arrow
-            pygame.draw.rect(surface, color, (cx - 8, y - 20, 16, 30))
-            pygame.draw.rect(surface, color, (cx - 16, y + 5, 32, 8))
-            pygame.draw.rect(surface, color, (cx - 8, y + 13, 16, 6))
-            pygame.draw.rect(surface, (255, 255, 255), (cx - 16, y - 20, 32, 40), 2)
-        elif lane == 2:  # Up arrow
-            pygame.draw.rect(surface, color, (cx - 8, y - 10, 16, 30))
-            pygame.draw.rect(surface, color, (cx - 16, y - 13, 32, 8))
-            pygame.draw.rect(surface, color, (cx - 8, y - 19, 16, 6))
-            pygame.draw.rect(surface, (255, 255, 255), (cx - 16, y - 20, 32, 40), 2)
-        else:  # Right arrow (lane 3)
-            pygame.draw.rect(surface, color, (cx - 20, y - 8, 30, 16))
-            pygame.draw.rect(surface, color, (cx + 10, y - 4, 10, 8))
-            pygame.draw.rect(surface, color, (cx + 20, y - 2, 10, 4))
-            pygame.draw.rect(surface, (255, 255, 255), (cx - 20, y - 8, 50, 16), 2)
+        # All arrows use the same hitbox size (90x30), just with directional styling
+        # Main body rectangle (same as bar)
+        rect = pygame.Rect(cx - half_w, y - half_h, note_w, note_h)
+        pygame.draw.rect(surface, color, rect)
+        pygame.draw.rect(surface, (255, 255, 255), rect, 2)
+        
+        # Directional indicator (small arrow inside)
+        if lane == 0:  # Left
+            pygame.draw.polygon(surface, (0, 0, 0), [(cx + 15, y - 8), (cx - 15, y), (cx + 15, y + 8)])
+        elif lane == 1:  # Down
+            pygame.draw.polygon(surface, (0, 0, 0), [(cx - 10, y - 8), (cx + 10, y - 8), (cx, y + 8)])
+        elif lane == 2:  # Up
+            pygame.draw.polygon(surface, (0, 0, 0), [(cx - 10, y + 8), (cx + 10, y + 8), (cx, y - 8)])
+        else:  # Right
+            pygame.draw.polygon(surface, (0, 0, 0), [(cx - 15, y - 8), (cx + 15, y), (cx - 15, y + 8)])
     
     def _draw_circle_receptor(self, surface, cx, y, color, active):
         """Draw 8-bit circle-style receptor"""
@@ -662,33 +656,24 @@ class PygameRenderer:
             pygame.draw.polygon(surface, color, pts, 2)
 
     def _draw_circle_note(self, surface, cx, y, color, is_long=False, size=28):
-        """Draw 8-bit circle-style note (octagon for pixelated look)"""
+        """Draw 8-bit circle-style note - sized to match bar notes"""
+        # Use bar-like dimensions for consistent feel (90x30)
+        note_w = 90
+        note_h = 30
+        half_w = note_w // 2
+        half_h = note_h // 2
+        
         dark_color = tuple(max(0, c - 60) for c in color)
         
-        # Draw as octagon (8-sided) for 8-bit feel
-        points = []
-        import math
-        for i in range(8):
-            angle = i * math.pi / 4 - math.pi / 8
-            px = cx + int(size * math.cos(angle))
-            py = y + int(size * math.sin(angle))
-            points.append((px, py))
+        # Draw rounded rectangle (pill shape) to match bar proportions
+        rect = pygame.Rect(cx - half_w, y - half_h, note_w, note_h)
+        pygame.draw.rect(surface, color, rect, border_radius=15)
+        pygame.draw.rect(surface, (255, 255, 255), rect, 2, border_radius=15)
         
-        pygame.draw.polygon(surface, color, points)
-        pygame.draw.polygon(surface, (255, 255, 255), points, 2 if size < 20 else 3)
-        
-        # Inner octagon
-        if size > 15:
-            inner_points = []
-            for i in range(8):
-                angle = i * math.pi / 4 - math.pi / 8
-                px = cx + int(size * 0.5 * math.cos(angle))
-                py = y + int(size * 0.5 * math.sin(angle))
-                inner_points.append((px, py))
-            pygame.draw.polygon(surface, (0, 0, 0), inner_points, 2)
-            
-            if is_long:
-                pygame.draw.polygon(surface, (255, 255, 255), inner_points)
+        # Inner circle indicator
+        pygame.draw.circle(surface, (0, 0, 0), (cx, y), 8, 2)
+        if is_long:
+            pygame.draw.circle(surface, (255, 255, 255), (cx, y), 6)
             
     def draw_effects(self, surface):
         # Effects have their own color embedded

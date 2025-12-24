@@ -459,14 +459,34 @@ class LobbyScene(Scene):
 
     def _handle_join_code(self, key, event):
         if key == pygame.K_RETURN:
-            if len(self.code_buffer) >= 4:
+            # Need exactly 14 chars (XXXX-XXXX-XXXX) or 12 chars without dashes
+            clean_code = self.code_buffer.replace('-', '')
+            if len(clean_code) == 12:
                 self.play_sfx("accept")
                 self.game.network.join_with_code(self.code_buffer)
                 self.state = "JOINING"
         elif key == pygame.K_BACKSPACE:
-            self.code_buffer = self.code_buffer[:-1]
-        elif (event.unicode.isalnum() or event.unicode == '-') and len(self.code_buffer) < 10:
-            self.code_buffer += event.unicode.upper()
+            if self.code_buffer:
+                # If deleting the dash, delete the char before it too
+                if self.code_buffer.endswith('-'):
+                    self.code_buffer = self.code_buffer[:-2]
+                else:
+                    self.code_buffer = self.code_buffer[:-1]
+        elif event.unicode.isalnum() and len(self.code_buffer) < 14:
+            # Only allow alphanumeric (hex chars), auto-insert dashes
+            char = event.unicode.upper()
+            # Only allow valid hex characters
+            if char in '0123456789ABCDEF':
+                clean = self.code_buffer.replace('-', '')
+                if len(clean) < 12:
+                    clean += char
+                    # Auto-format as XXXX-XXXX-XXXX
+                    if len(clean) > 8:
+                        self.code_buffer = f"{clean[:4]}-{clean[4:8]}-{clean[8:]}"
+                    elif len(clean) > 4:
+                        self.code_buffer = f"{clean[:4]}-{clean[4:]}"
+                    else:
+                        self.code_buffer = clean
 
     def _handle_direct(self, key, event):
         if key == pygame.K_TAB:
