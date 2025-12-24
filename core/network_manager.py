@@ -22,7 +22,7 @@ from core.stun_client import discover_external_address, get_local_ip
 class NetworkManager:
     DISCOVERY_PORT = 9998
     
-    def __init__(self, port=9999):
+    def __init__(self, port=1337):
         self.port = port
         self.udp_socket = None
         self.tcp_socket = None
@@ -58,6 +58,7 @@ class NetworkManager:
         self.seed = 0
         self.selected_song = None
         self.selected_difficulty = None
+        self.peer_has_song = False
         
         # File transfer
         self.transfer_progress = 0
@@ -68,6 +69,9 @@ class NetworkManager:
         self.is_spectator = False
         self.spectators = []
         
+        # Helper for RoomConnect
+        self.room_connect = None
+
         # Status messages
         self.status_message = ""
         self.error_message = ""
@@ -377,7 +381,10 @@ class NetworkManager:
                     self.send({'type': 'song_ready', 'have_it': False})
             
             elif msg_type == 'song_ready':
-                if not msg.get('have_it'):
+                if msg.get('have_it'):
+                    self.peer_has_song = True
+                else:
+                    self.peer_has_song = False
                     self._send_song_file()
             
             elif msg_type == 'file_start':
@@ -426,6 +433,9 @@ class NetworkManager:
                     self.error_message = error_msg
     
     def send(self, data, conn=None):
+        if self.room_connect and self.room_connect.connected:
+            return self.room_connect.send_game_data(data)
+        
         target = conn or self.connection
         if target:
             try:
@@ -435,6 +445,38 @@ class NetworkManager:
             except:
                 return False
         return False
+
+    def use_room_connect(self, room_connect):
+        """Switch to using RoomConnect (ngrok) transport"""
+        self.room_connect = room_connect
+        self.connected = True
+        self.running = True
+        self.is_host = room_connect.is_host
+        
+        # Start polling thread
+        threading.Thread(target=self._poll_room_connect, daemon=True).start()
+        
+        # If client, initiate handshake
+        if not self.is_host:
+            self.send({
+                'type': 'hello',
+                'name': 'Player',
+                'password': self.room_password
+            })
+        
+    def _poll_room_connect(self):
+        """Poll messages from RoomConnect queue"""
+        while self.running and self.room_connect and self.room_connect.connected:
+            messages = self.room_connect.get_messages()
+            for msg in messages:
+                # Handle message directly
+                self._handle_message(msg, None)
+            time.sleep(0.01)
+        
+        self.connected = False
+        self.status_message = "Disconnected"
+        if self.room_connect and self.room_connect.error_message:
+             self.error_message = self.room_connect.error_message
 
     # === Song Transfer ===
     
@@ -494,6 +536,10 @@ class NetworkManager:
             'hash': file_hash
         })
     
+    def propose_song(self, song, difficulty):
+        """Alias for select_song"""
+        self.select_song(song, difficulty)
+    
     def start_game_request(self, seed=None):
         """Start the game (host only)"""
         if self.is_host:
@@ -531,6 +577,10 @@ class NetworkManager:
                     sock.close()
                 except:
                     pass
+        
+        if self.room_connect:
+            self.room_connect.close()
+            self.room_connect = None
         
         self.connection = None
         self.tcp_socket = None
@@ -610,3 +660,4 @@ class NetworkManager:
             print(f"LAN scan error: {e}")
         
         return servers
+

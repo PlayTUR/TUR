@@ -371,31 +371,36 @@ class BeatmapGenerator:
         # note_mult: how many subdivisions to add
         # chord_threshold: intensity above this = chord
         # max_chord: maximum simultaneous notes
-        # subdivision: beat fraction (4 = quarter, 8 = 8th, 16 = 16th, 32 = 32nd)
         diff_config = {
             "EASY": {
-                "note_mult": 0.5, "chord_threshold": 0.9, "max_chord": 2,
-                "subdivision": 4, "hold_threshold": 0.95, "hold_min": 0.3
+                "intensity_percentile": 75, "chord_threshold": 0.98, "max_chord": 1,
+                "subdivision": 2, "hold_threshold": 0.95, "hold_min": 0.4, "min_gap": 0.25
             },
             "MEDIUM": {
-                "note_mult": 0.8, "chord_threshold": 0.75, "max_chord": 2,
-                "subdivision": 4, "hold_threshold": 0.85, "hold_min": 0.25
+                "intensity_percentile": 60, "chord_threshold": 0.9, "max_chord": 2,
+                "subdivision": 4, "hold_threshold": 0.9, "hold_min": 0.3, "min_gap": 0.18
             },
             "HARD": {
-                "note_mult": 1.0, "chord_threshold": 0.6, "max_chord": 3,
-                "subdivision": 16, "hold_threshold": 0.7, "hold_min": 0.2
+                "intensity_percentile": 40, "chord_threshold": 0.8, "max_chord": 2,
+                "subdivision": 4, "hold_threshold": 0.8, "hold_min": 0.25, "min_gap": 0.12
             },
             "EXTREME": {
-                "note_mult": 1.5, "chord_threshold": 0.4, "max_chord": 3,
-                "subdivision": 16, "hold_threshold": 0.5, "hold_min": 0.15
+                "intensity_percentile": 20, "chord_threshold": 0.65, "max_chord": 2,
+                "subdivision": 8, "hold_threshold": 0.6, "hold_min": 0.2, "min_gap": 0.08
             },
             "FUCK YOU": {
-                "note_mult": 2.5, "chord_threshold": 0.15, "max_chord": 4,
-                "subdivision": 32, "hold_threshold": 0.3, "hold_min": 0.1
+                "intensity_percentile": 5, "chord_threshold": 0.4, "max_chord": 3,
+                "subdivision": 16, "hold_threshold": 0.4, "hold_min": 0.15, "min_gap": 0.06
             }
         }
         
         cfg = diff_config.get(difficulty, diff_config["MEDIUM"])
+        
+        # Calculate Intensity Threshold dynamically
+        # We keep only onsets stronger than the Xth percentile
+        intensity_thresh = 0.0
+        if norm_strengths:
+            intensity_thresh = np.percentile(norm_strengths, cfg["intensity_percentile"])
         
         notes = []
         
@@ -431,6 +436,10 @@ class BeatmapGenerator:
                 continue
             
             intensity = norm_strengths[idx] if idx < len(norm_strengths) else 0.5
+            
+            # Filter weak onsets (Noise Reduction) based on difficulty
+            if intensity < intensity_thresh:
+                 continue
             
             # Determine chord size based on intensity
             chord_lanes = get_chord_lanes(t, intensity, cfg["max_chord"])
@@ -488,8 +497,9 @@ class BeatmapGenerator:
                 t1, t2 = onset_times[i], onset_times[i + 1]
                 gap = t2 - t1
                 
-                # If gap is moderate (good for streams)
-                if 0.15 < gap < 0.5:
+                # If gap is moderate (good for streams) AND intensity is high
+                intensity = norm_strengths[i] if i < len(norm_strengths) else 0.5
+                if 0.15 < gap < 0.5 and intensity > 0.6:
                     # Add rapid alternating notes
                     if difficulty == "FUCK YOU":
                         interval = 0.05
@@ -514,25 +524,20 @@ class BeatmapGenerator:
             
             notes.extend(stream_notes)
         
-        # Apply note multiplier (add or remove notes)
-        if cfg["note_mult"] < 1.0:
-            # Remove some notes deterministically
-            keep_count = int(len(notes) * cfg["note_mult"])
-            # Sort by time, then by intensity (keep high intensity)
-            notes.sort(key=lambda n: n['time'])
-            # Keep every Nth note
-            step = max(1, int(1 / cfg["note_mult"]))
-            notes = [n for i, n in enumerate(notes) if i % step == 0]
+        # Note Multiplier logic removed - replaced by Intensity Percentile logic above
+        # This allows for natural phrasing based on song dynamics.
         
         # Sort by time
         notes.sort(key=lambda n: n['time'])
         
-        # Remove notes that are too close together (< 30ms)
+        # Remove notes that are too close together (< min_gap)
         filtered_notes = []
         last_times = {0: 0, 1: 0, 2: 0, 3: 0}
+        min_gap = cfg.get("min_gap", 0.03) # Use Config Min Gap
+        
         for note in notes:
             lane = note['lane']
-            if note['time'] - last_times[lane] >= 0.03:
+            if note['time'] - last_times[lane] >= min_gap:
                 filtered_notes.append(note)
                 last_times[lane] = note['time']
         
@@ -541,11 +546,11 @@ class BeatmapGenerator:
         # MINIMUM NOTE DENSITY GUARANTEE
         # Ensures harder difficulties have enough notes even for "easy" songs
         min_notes_per_second = {
-            "EASY": 0.3,
-            "MEDIUM": 0.6,
-            "HARD": 1.2,
-            "EXTREME": 2.0,
-            "FUCK YOU": 3.0
+            "EASY": 0.1,
+            "MEDIUM": 0.3,
+            "HARD": 0.6,
+            "EXTREME": 1.2,
+            "FUCK YOU": 1.8
         }
         
         min_nps = min_notes_per_second.get(difficulty, 1.0)
@@ -637,9 +642,10 @@ class BeatmapGenerator:
             # Re-filter notes that are too close
             filtered_notes = []
             last_times = {0: 0, 1: 0, 2: 0, 3: 0}
+            # Use same min_gap for density boost
             for note in notes:
                 lane = note['lane']
-                if note['time'] - last_times[lane] >= 0.03:
+                if note['time'] - last_times[lane] >= min_gap:
                     filtered_notes.append(note)
                     last_times[lane] = note['time']
             notes = filtered_notes

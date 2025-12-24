@@ -47,3 +47,5 @@ Thumbs.db
 
 # Local settings
 local_settings.py
+# Secrets
+ngrok.token

@@ -7,7 +7,7 @@ import json
 from core.beatmap_generator import BeatmapGenerator
 
 
-def auto_convert_songs(songs_dir="songs", default_difficulty="MEDIUM", callback=None, cancel_check=None):
+def auto_convert_songs(songs_dir="songs", default_difficulty="MEDIUM", callback=None, cancel_check=None, force_regen=None):
     """
     Scans songs directory for .mp3 / .osz and converts them to .tur
     cancel_check: Optional callable that returns True if cancellation requested
@@ -17,7 +17,8 @@ def auto_convert_songs(songs_dir="songs", default_difficulty="MEDIUM", callback=
         
     from core.settings_manager import SettingsManager
     settings = SettingsManager()
-    force_regen = settings.get("auto_recreate_beatmaps") or False
+    if force_regen is None:
+        force_regen = settings.get("auto_recreate_beatmaps") or False
     
     converted_count = 0
     

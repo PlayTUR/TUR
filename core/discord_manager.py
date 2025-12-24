@@ -23,16 +23,20 @@ class DiscordRPCManager:
             client_id = CLIENT_ID
         
         if PYPRESENCE_AVAILABLE:
-            try:
-                self.rpc = Presence(client_id)
-                self.rpc.connect()
-                self.connected = True
-                print("Discord RPC Connected!")
-            except Exception as e:
-                print(f"Discord RPC Failed to Connect: {e}")
-                self.connected = False
+            import threading
+            threading.Thread(target=self._connect, args=(client_id,), daemon=True).start()
         else:
             print("pypresence not installed. Discord RPC disabled.")
+
+    def _connect(self, client_id):
+        try:
+            self.rpc = Presence(client_id)
+            self.rpc.connect()
+            self.connected = True
+            print("Discord RPC Connected!")
+        except Exception as e:
+            print(f"Discord RPC Failed to Connect: {e}")
+            self.connected = False
 
     def update(self, details="In Menu", state=None, large_image="logo", large_text="TUR: The Rhythm"):
         if not self.connected:

@@ -16,13 +16,14 @@ class LobbyScene(Scene):
         
         # Navigation
         self.menu_index = 0
-        self.menu_items = ["HOST GAME", "JOIN WITH CODE", "SPECTATE", "BROWSE SERVERS", "DIRECT CONNECT (IP)", "BACK"]
+        self.menu_items = ["HOST (LAN)", "JOIN (LAN)", "HOST (NGROK)", "JOIN (NGROK)", "SPECTATE", "BACK"]
         
         # Input
         self.code_buffer = ""
         self.ip_buffer = ""
         self.password_buffer = ""
         self.room_name_buffer = "TUR ROOM"
+        self.ngrok_token_buffer = ""
         self.input_focus = 0
         
         # Server browser
@@ -36,10 +37,24 @@ class LobbyScene(Scene):
         
         # Spectate mode flag
         self.spectate_mode = False
+        
+        # Clipboard support
+        try:
+            pygame.scrap.init()
+            self.has_clipboard = True
+        except:
+            self.has_clipboard = False
 
-    def on_enter(self, params=None):
-        self.state = "MENU"
+        # Navigation
         self.menu_index = 0
+        self.menu_items = ["LAN", "DIRECT CONNECT", "ONLINE", "BACK"]
+        
+        # Mode Selection Overlay
+        self.selected_mode = None # "LAN" or "NGROK"
+        self.mode_menu_index = 0
+        self.mode_menu_items = []
+        
+        # Input
         self.code_buffer = ""
         self.ip_buffer = ""
         self.spectate_mode = False
@@ -51,6 +66,11 @@ class LobbyScene(Scene):
         # Auto-transition when connected as client
         if self.state == "JOINING" and self.game.network.connected:
             self.state = "CLIENT_LOBBY"
+            
+        # Check for game start signal (Client side)
+        if self.state == "CLIENT_LOBBY" and self.game.network.start_timestamp > 0:
+             if self.game.network.selected_song:
+                 self._start_game()
 
     def draw(self, surface):
         r = self.game.renderer
@@ -68,20 +88,42 @@ class LobbyScene(Scene):
         # Draw current state
         if self.state == "MENU":
             self._draw_menu(surface, r, theme)
+        elif self.state == "MODE_SELECT":
+            self._draw_menu(surface, r, theme) # Draw background menu
+            self._draw_mode_select(surface, r, theme) # Draw overlay
         elif self.state == "HOST_SETUP":
             self._draw_host_setup(surface, r, theme)
         elif self.state == "HOSTING":
             self._draw_hosting(surface, r, theme)
-        elif self.state == "JOIN_CODE":
-            self._draw_join_code(surface, r, theme)
-        elif self.state == "SERVER_BROWSER":
-            self._draw_server_browser(surface, r, theme)
-        elif self.state == "DIRECT":
-            self._draw_direct(surface, r, theme)
+        elif self.state == "LAN_JOIN":
+            self._draw_lan_join(surface, r, theme)
+        elif self.state == "TOKEN_OVERLAY":
+            self._draw_token_overlay(surface, r, theme)
+        elif self.state == "NGROK_JOIN":
+            self._draw_ngrok_join(surface, r, theme)
+        elif self.state == "DIRECT_JOIN":
+            self._draw_direct_join(surface, r, theme)
         elif self.state == "JOINING":
             self._draw_joining(surface, r, theme)
         elif self.state == "CLIENT_LOBBY":
             self._draw_client_lobby(surface, r, theme)
+
+    def _draw_mode_select(self, surface, r, theme):
+        """Draw mode selection overlay"""
+        # Dim background
+        dim = pygame.Surface(surface.get_size(), pygame.SRCALPHA)
+        dim.fill((0, 0, 0, 180))
+        surface.blit(dim, (0, 0))
+        
+        title = f"{self.selected_mode} OPTIONS"
+        r.draw_panel(surface, 300, 200, 400, 300, title)
+        
+        y = 250
+        for i, item in enumerate(self.mode_menu_items):
+            r.draw_button(surface, item, 350, y, i == self.mode_menu_index, 300)
+            y += 60
+            
+        r.draw_text(surface, "[↑/↓] Select  [ENTER] Confirm  [ESC] Back", 320, 520, (150, 150, 150))
 
     def _draw_menu(self, surface, r, theme):
         """Main menu"""
@@ -130,7 +172,8 @@ class LobbyScene(Scene):
 
     def _draw_host_setup(self, surface, r, theme):
         """Host setup screen"""
-        r.draw_panel(surface, 150, 150, 700, 250, "HOST_SETUP")
+        title = "ONLINE_SETUP" if getattr(self, 'use_ngrok', False) else "HOST_SETUP"
+        r.draw_panel(surface, 150, 150, 700, 250, title)
         
         y = 180
         r.draw_input_field(surface, "ROOM NAME:", self.room_name_buffer, 180, y, 500, self.input_focus == 0)
@@ -147,11 +190,17 @@ class LobbyScene(Scene):
         code = self.game.network.room_code or "Generating..."
         if code and code != "LAN-ONLY":
             r.draw_text(surface, code, 350, 150, theme["primary"], r.big_font)
-            r.draw_text(surface, "Share this code with your friend!", 320, 210, (150, 150, 150))
+            
+            if self.selected_mode == "DIRECT":
+                 r.draw_text(surface, "Share this code with friends.", 330, 190, (150, 150, 150))
+                 r.draw_text(surface, "Remember to port-forward 1337!", 310, 215, theme["error"])
+            else:
+                 r.draw_text(surface, "Share this code with friends to play!", 260, 200, (150, 150, 150))
         else:
-            r.draw_text(surface, "LAN Mode - Share your IP:", 300, 140, theme["secondary"])
-            r.draw_text(surface, f"{self.game.network.local_ip}:{self.game.network.port}", 350, 180, theme["text"])
-        
+             r.draw_text(surface, "Generating..." if not code else "LAN MODE - No Internet", 300, 150, (150, 150, 150))
+             if self.selected_mode == "DIRECT":
+                 r.draw_text(surface, "STUN Failed. Use LAN or Manual IP.", 300, 200, theme["error"])
+
         r.draw_panel(surface, 200, 280, 600, 250, "ROOM_STATUS")
         y = 300
         r.draw_text(surface, f"ROOM: {self.room_name_buffer}", 230, y, theme["secondary"])
@@ -174,36 +223,82 @@ class LobbyScene(Scene):
         
         r.draw_text(surface, "[ESC] Close Room", 50, 650, (150, 100, 100))
 
-    def _draw_join_code(self, surface, r, theme):
-        """Enter room code"""
-        title = "SPECTATE ROOM" if getattr(self, 'spectate_mode', False) else "ENTER_ROOM_CODE"
-        r.draw_panel(surface, 200, 200, 600, 250, title)
+    def _draw_lan_join(self, surface, r, theme):
+        """LAN game browser - shows games on same network"""
+        r.draw_panel(surface, 100, 120, 800, 420, "LAN_GAMES")
+        
+        r.draw_text(surface, "Games on your local network:", 130, 155, theme["secondary"])
+        
+        # Server list
+        filtered = self._get_filtered_servers()
+        
+        if self.refreshing:
+            dots = "." * ((self.blink_timer // 10) % 4)
+            r.draw_text(surface, f"Scanning network{dots}", 350, 300, (100, 100, 100))
+        elif not filtered:
+            r.draw_text(surface, "No games found on LAN.", 350, 280, (100, 100, 100))
+            r.draw_text(surface, "Make sure host is on same network.", 310, 310, (80, 80, 80))
+        else:
+            y = 190
+            for i, server in enumerate(filtered[:8]):
+                if i == self.server_index:
+                    pygame.draw.rect(surface, theme["grid"], (110, y - 3, 780, 32))
+                
+                name = server.get("name", "TUR Room")[:30]
+                ip = server.get("ip", "?")
+                r.draw_text(surface, name, 130, y, theme["primary"] if i == self.server_index else theme["text"])
+                r.draw_text(surface, ip, 500, y, (150, 150, 150))
+                
+                if server.get("password"):
+                    r.draw_text(surface, "🔒", 700, y, (255, 100, 100))
+                y += 40
+        
+        r.draw_text(surface, "[↑/↓] Select  [ENTER] Join  [R] Refresh  [ESC] Back", 200, 560, (80, 80, 80))
+
+    def _draw_token_overlay(self, surface, r, theme):
+        """Overlay for first-time token setup"""
+        # Draw background context (Menu + Mode Select)
+        self._draw_menu(surface, r, theme)
+        self._draw_mode_select(surface, r, theme)
+        
+        # Dimming
+        dim = pygame.Surface(surface.get_size(), pygame.SRCALPHA)
+        dim.fill((0, 0, 0, 220))
+        surface.blit(dim, (0, 0))
+        
+        r.draw_panel(surface, 200, 220, 600, 250, "ONLINE_SETUP")
+        
+        r.draw_text(surface, "To host online, you need a free ngrok Authtoken.", 250, 260, theme["secondary"])
+        r.draw_text(surface, "Only needed once! Get it at dashboard.ngrok.com", 260, 285, (150, 150, 150))
+        
+        r.draw_input_field(surface, "AUTHTOKEN:", self.ngrok_token_buffer, 250, 330, 500, True)
+        
+        r.draw_button(surface, "SAVE & CONTINUE", 350, 410, True, 250)
+        r.draw_text(surface, "[CTRL+V] Paste  [ENTER] Save  [ESC] Cancel", 280, 550, (100, 100, 100))
+
+    def _draw_ngrok_join(self, surface, r, theme):
+        """Join NGROK room by code"""
+        title = "SPECTATE" if getattr(self, 'spectate_mode', False) else "JOIN_NGROK_ROOM"
+        r.draw_panel(surface, 200, 180, 600, 280, title)
         
         if getattr(self, 'spectate_mode', False):
-            r.draw_text(surface, "Enter room code to spectate:", 270, 230, theme["secondary"])
+            r.draw_text(surface, "Enter room code to spectate:", 270, 220, theme["secondary"])
         else:
-            r.draw_text(surface, "Enter the room code from host:", 250, 230, theme["text"])
+            r.draw_text(surface, "Enter the NGROK room code:", 260, 220, theme["text"])
         
+        # Room code input
         display = self.code_buffer.upper() + ("_" if self.blink_timer < 30 else " ")
-        pygame.draw.rect(surface, (20, 20, 20), (280, 280, 400, 60))
-        pygame.draw.rect(surface, theme["primary"], (280, 280, 400, 60), 2)
-        r.draw_text(surface, display, 320, 295, theme["primary"], r.big_font)
-        r.draw_text(surface, "Format: XXXX-XXXX-XXXX", 380, 360, (100, 100, 100))
-        btn_text = "SPECTATE" if getattr(self, 'spectate_mode', False) else "CONNECT"
-        r.draw_button(surface, btn_text, 370, 400, True, 200)
-        r.draw_text(surface, "[ENTER] Connect  [ESC] Back", 330, 500, (80, 80, 80))
-
-    def _draw_direct(self, surface, r, theme):
-        """Direct IP connection"""
-        r.draw_panel(surface, 150, 180, 700, 280, "DIRECT_CONNECT")
+        pygame.draw.rect(surface, (20, 20, 20), (280, 260, 400, 60))
+        pygame.draw.rect(surface, theme["primary"], (280, 260, 400, 60), 2)
+        r.draw_text(surface, display, 300, 280, theme["primary"], r.big_font)
         
-        y = 210
-        r.draw_input_field(surface, "HOST IP:", self.ip_buffer, 180, y, 500, self.input_focus == 0)
-        y += 80
-        r.draw_input_field(surface, "PASSWORD:", self.password_buffer, 180, y, 500, self.input_focus == 1)
-        y += 90
-        r.draw_button(surface, "CONNECT", 370, y, True, 200)
-        r.draw_text(surface, "[TAB] Switch  [ENTER] Connect  [ESC] Back", 200, 520, (80, 80, 80))
+        r.draw_text(surface, "Format: 812345 or REGION-CODE", 340, 340, (100, 100, 100))
+        
+        btn_text = "SPECTATE" if getattr(self, 'spectate_mode', False) else "JOIN"
+        r.draw_button(surface, btn_text, 370, 380, True, 200)
+        r.draw_text(surface, "[ENTER] Connect  [ESC] Back", 330, 480, (80, 80, 80))
+
+
 
     def _draw_joining(self, surface, r, theme):
         """Connecting animation"""
@@ -252,63 +347,7 @@ class LobbyScene(Scene):
         
         r.draw_text(surface, "[ESC] Disconnect", 380, 550, (150, 100, 100))
 
-    def _draw_server_browser(self, surface, r, theme):
-        """Server browser"""
-        r.draw_panel(surface, 50, 100, 920, 500, "SERVER_BROWSER")
-        
-        # Header row
-        r.draw_text(surface, "ROOM NAME", 80, 130, theme["secondary"])
-        r.draw_text(surface, "CODE", 350, 130, theme["secondary"])
-        r.draw_text(surface, "HOST", 500, 130, theme["secondary"])
-        r.draw_text(surface, "🔒", 750, 130, theme["secondary"])
-        r.draw_text(surface, "PLAYERS", 820, 130, theme["secondary"])
-        
-        pygame.draw.line(surface, theme["grid"], (60, 155), (950, 155), 1)
-        
-        # Filter indicator
-        if self.filter_locked is None:
-            filter_text = "ALL"
-        elif self.filter_locked:
-            filter_text = "LOCKED ONLY"
-        else:
-            filter_text = "UNLOCKED ONLY"
-        r.draw_text(surface, f"Filter: {filter_text}", 700, 80, (100, 100, 100))
-        
-        # Server list
-        filtered = self._get_filtered_servers()
-        
-        if not filtered:
-            if self.refreshing:
-                dots = "." * ((self.blink_timer // 10) % 4)
-                r.draw_text(surface, f"Searching for servers{dots}", 350, 300, (100, 100, 100))
-            else:
-                r.draw_text(surface, "No servers found. Press R to refresh.", 300, 300, (100, 100, 100))
-        else:
-            y = 165
-            for i, server in enumerate(filtered[:10]):
-                if i == self.server_index:
-                    pygame.draw.rect(surface, theme["grid"], (55, y - 3, 910, 32))
-                
-                name = server.get("name", "Unknown Room")[:25]
-                r.draw_text(surface, name, 80, y, theme["primary"] if i == self.server_index else theme["text"])
-                
-                code = server.get("code", "????-????")
-                r.draw_text(surface, code, 350, y, (150, 150, 150))
-                
-                host = server.get("host", "Unknown")[:15]
-                r.draw_text(surface, host, 500, y, (150, 150, 150))
-                
-                if server.get("password"):
-                    r.draw_text(surface, "🔒", 750, y, (255, 100, 100))
-                else:
-                    r.draw_text(surface, "🔓", 750, y, (100, 255, 100))
-                
-                players = f"{server.get('players', 1)}/2"
-                r.draw_text(surface, players, 840, y, (150, 150, 150))
-                
-                y += 35
-        
-        r.draw_text(surface, "[↑/↓] Select  [ENTER] Join  [R] Refresh  [F] Filter  [ESC] Back", 150, 620, (80, 80, 80))
+
 
     def _get_filtered_servers(self):
         if self.filter_locked is None:
@@ -359,16 +398,20 @@ class LobbyScene(Scene):
         
         if self.state == "MENU":
             self._handle_menu(key)
+        elif self.state == "MODE_SELECT":
+            self._handle_mode_select(key)
         elif self.state == "HOST_SETUP":
             self._handle_host_setup(key, event)
         elif self.state == "HOSTING":
             self._handle_hosting(key)
-        elif self.state == "JOIN_CODE":
-            self._handle_join_code(key, event)
-        elif self.state == "SERVER_BROWSER":
-            self._handle_server_browser(key, event)
-        elif self.state == "DIRECT":
-            self._handle_direct(key, event)
+        elif self.state == "LAN_JOIN":
+            self._handle_lan_join(key, event)
+        elif self.state == "DIRECT_JOIN":
+            self._handle_direct_join(key, event)
+        elif self.state == "TOKEN_OVERLAY":
+            self._handle_token_overlay(key, event)
+        elif self.state == "NGROK_JOIN":
+            self._handle_ngrok_join(key, event)
         elif self.state == "JOINING":
             pass
         elif self.state == "CLIENT_LOBBY":
@@ -388,36 +431,48 @@ class LobbyScene(Scene):
         else:
             self.state = "MENU"
     
-    def _handle_server_browser(self, key, event):
-        filtered = self._get_filtered_servers()
+
+
+    def _draw_direct_join(self, surface, r, theme):
+        """Direct Connect Join UI"""
+        r.draw_panel(surface, 150, 150, 700, 300, "DIRECT_CONNECT")
         
-        if key == pygame.K_UP and filtered:
-            self.server_index = (self.server_index - 1) % len(filtered)
-            self.play_sfx("blip")
-        elif key == pygame.K_DOWN and filtered:
-            self.server_index = (self.server_index + 1) % len(filtered)
-            self.play_sfx("blip")
-        elif key == pygame.K_r:
-            self.play_sfx("accept")
-            self._refresh_servers()
-        elif key == pygame.K_f:
-            self.play_sfx("blip")
-            if self.filter_locked is None:
-                self.filter_locked = False
-            elif self.filter_locked is False:
-                self.filter_locked = True
-            else:
-                self.filter_locked = None
-            self.server_index = 0
-        elif key == pygame.K_RETURN and filtered:
-            self.play_sfx("accept")
-            server = filtered[self.server_index]
-            self.code_buffer = server.get("code", "")
-            if server.get("password"):
-                pass  # TODO: Show password prompt
-            else:
+        r.draw_text(surface, "Enter Host IP or Room Code:", 180, 190, theme["secondary"])
+        
+        r.draw_input_field(surface, "ADDRESS/CODE:", self.code_buffer, 180, 230, 600, self.input_focus == 0)
+        
+        r.draw_button(surface, "CONNECT", 370, 320, True, 200)
+        r.draw_text(surface, "[ENTER] Connect  [ESC] Back", 330, 420, (80, 80, 80))
+
+    def _handle_direct_join(self, key, event):
+        ctrl = (pygame.key.get_mods() & pygame.KMOD_CTRL)
+        
+        if key == pygame.K_RETURN:
+            if self.code_buffer:
+                self.play_sfx("accept")
+                # Try to determine if it's a code or IP
+                if '-' in self.code_buffer or len(self.code_buffer) == 12:
+                    # Assume Code
+                    self.game.network.join_with_code(self.code_buffer)
+                else:
+                    # Assume IP
+                    self.game.network.join_game(self.code_buffer)
+                
                 self.state = "JOINING"
-                self.game.network.join_by_code(self.code_buffer)
+        
+        elif key == pygame.K_v and ctrl:
+            text = self._get_clipboard()
+            if text:
+                self.code_buffer += text
+                
+        elif key == pygame.K_BACKSPACE:
+             self.code_buffer = self.code_buffer[:-1]
+             
+        elif event.unicode.isprintable() and len(self.code_buffer) < 60:
+             self.code_buffer += event.unicode
+             
+        elif key == pygame.K_ESCAPE:
+             self.state = "MODE_SELECT"
 
     def _handle_menu(self, key):
         if key == pygame.K_UP:
@@ -429,41 +484,152 @@ class LobbyScene(Scene):
         elif key == pygame.K_RETURN:
             self.play_sfx("accept")
             item = self.menu_items[self.menu_index]
-            if item == "HOST GAME":
-                self.state = "HOST_SETUP"
-            elif item == "JOIN WITH CODE":
-                self.spectate_mode = False
-                self.state = "JOIN_CODE"
-            elif item == "SPECTATE":
-                self.spectate_mode = True
-                self.state = "JOIN_CODE"
-            elif item == "BROWSE SERVERS":
-                self.state = "SERVER_BROWSER"
-                self._refresh_servers()
-            elif item.startswith("DIRECT"):
-                self.state = "DIRECT"
-                self.input_focus = 0
+            
+            if item == "LAN":
+                self.selected_mode = "LAN"
+                self.mode_menu_items = ["HOST GAME", "JOIN GAME", "BACK"]
+                self.mode_menu_index = 0
+                self.state = "MODE_SELECT"
+            elif item == "DIRECT CONNECT":
+                self.selected_mode = "DIRECT"
+                self.mode_menu_items = ["HOST GAME", "JOIN GAME", "BACK"]
+                self.mode_menu_index = 0
+                self.state = "MODE_SELECT"
+            elif item == "ONLINE":
+                self.selected_mode = "NGROK"
+                self.mode_menu_items = ["HOST GAME", "JOIN GAME", "SPECTATE", "BACK"]
+                self.mode_menu_index = 0
+                self.state = "MODE_SELECT"
             elif item == "BACK":
-                self._handle_back()
+                self.game.scene_manager.pop_scene()
+
+    def _handle_mode_select(self, key):
+        if key == pygame.K_UP:
+            self.mode_menu_index = (self.mode_menu_index - 1) % len(self.mode_menu_items)
+            self.play_sfx("blip")
+        elif key == pygame.K_DOWN:
+            self.mode_menu_index = (self.mode_menu_index + 1) % len(self.mode_menu_items)
+            self.play_sfx("blip")
+        elif key == pygame.K_ESCAPE:
+            self.state = "MENU"
+        elif key == pygame.K_RETURN:
+            self.play_sfx("accept")
+            item = self.mode_menu_items[self.mode_menu_index]
+            
+            if item == "BACK":
+                self.state = "MENU"
+                return
+
+            # Dispatch based on Mode + Item
+            if self.selected_mode == "LAN":
+                self.use_ngrok = False
+                if item == "HOST GAME":
+                    self.state = "HOST_SETUP"
+                    self.input_focus = 0
+                elif item == "JOIN GAME":
+                    self.state = "LAN_JOIN"
+                    self._refresh_servers()
+            
+            elif self.selected_mode == "DIRECT":
+                self.use_ngrok = False
+                if item == "HOST GAME":
+                    self.state = "HOST_SETUP"
+                    self.input_focus = 0
+                elif item == "JOIN GAME":
+                    self.state = "DIRECT_JOIN"
+                    self.input_focus = 0
+            
+            elif self.selected_mode == "NGROK":
+                self.use_ngrok = True
+                if item == "HOST GAME":
+                    # Check token logic
+                    has_token = False
+                    try:
+                        from core.room_connect import RoomConnect
+                        if not hasattr(self.game, 'room_connect'):
+                            self.game.room_connect = RoomConnect()
+                        if self.game.room_connect.ngrok_token:
+                            has_token = True
+                    except: pass
+                    
+                    if has_token:
+                        self.state = "HOST_SETUP"
+                        self.input_focus = 0
+                    else:
+                        self.state = "TOKEN_OVERLAY"
+                        self.ngrok_token_buffer = ""
+                        self.input_focus = 0
+                
+                elif item == "JOIN GAME":
+                     self.state = "NGROK_JOIN"
+                     self.input_focus = 0
+                     self.spectate_mode = False
+                
+                elif item == "SPECTATE":
+                     self.state = "NGROK_JOIN"
+                     self.input_focus = 0
+                     self.spectate_mode = True 
+                     # Note: _draw_ngrok_join handles spectate label if sethandle_back()
 
     def _handle_host_setup(self, key, event):
+        ctrl = (pygame.key.get_mods() & pygame.KMOD_CTRL)
+        
         if key == pygame.K_TAB:
             self.input_focus = (self.input_focus + 1) % 2
             self.play_sfx("blip")
+        
+        elif key == pygame.K_v and ctrl:
+            text = self._get_clipboard()
+            if text:
+                if self.input_focus == 0:
+                    self.room_name_buffer += text
+                elif self.input_focus == 1:
+                    self.password_buffer += text
+                    
         elif key == pygame.K_RETURN:
             self.play_sfx("accept")
-            self.game.network.host_game(self.room_name_buffer, self.password_buffer)
-            self.state = "HOSTING"
+            room_name = self.room_name_buffer or "TUR Room"
+            password = self.password_buffer
+            
+            # Branch: NGROK vs LAN
+            if getattr(self, 'use_ngrok', False):
+                try:
+                    if not hasattr(self.game, 'room_connect'):
+                        from core.room_connect import RoomConnect
+                        self.game.room_connect = RoomConnect()
+                    
+                    # Ensure token is loaded
+                    if not self.game.room_connect.ngrok_token:
+                         self.game.room_connect._load_token()
+                         
+                    room_code = self.game.room_connect.host_game(room_name) # NGROK
+                    if room_code:
+                        self.game.network.room_code = room_code
+                        self.game.network.is_host = True
+                        self.game.network.use_room_connect(self.game.room_connect)
+                        self.state = "HOSTING"
+                    else:
+                        self.game.network.error_message = "Online host failed. Check token."
+                except Exception as e:
+                     self.game.network.error_message = str(e)
+            else:
+                # LAN / DIRECT
+                self.game.network.host_game(room_name, password)
+                self.state = "HOSTING"
+                
         elif key == pygame.K_BACKSPACE:
             if self.input_focus == 0:
                 self.room_name_buffer = self.room_name_buffer[:-1]
             else:
                 self.password_buffer = self.password_buffer[:-1]
-        elif event.unicode.isprintable() and len(event.unicode) == 1:
+        elif event.unicode.isprintable() and not ctrl:
             if self.input_focus == 0 and len(self.room_name_buffer) < 20:
                 self.room_name_buffer += event.unicode.upper()
-            elif self.input_focus == 1 and len(self.password_buffer) < 16:
-                self.password_buffer += event.unicode
+            elif self.input_focus == 1:
+                if len(self.password_buffer) < 16:
+                    self.password_buffer += event.unicode
+        elif key == pygame.K_ESCAPE:
+            self.state = "MODE_SELECT"
 
     def _handle_hosting(self, key):
         if key == pygame.K_RETURN and self.game.network.connected:
@@ -471,58 +637,130 @@ class LobbyScene(Scene):
             from scenes.menu_scenes import SongSelectScene
             self.game.scene_manager.switch_to(SongSelectScene, {'mode': 'multiplayer'})
 
-    def _handle_join_code(self, key, event):
-        if key == pygame.K_RETURN:
-            # Need exactly 14 chars (XXXX-XXXX-XXXX) or 12 chars without dashes
-            clean_code = self.code_buffer.replace('-', '')
-            if len(clean_code) == 12:
-                self.play_sfx("accept")
-                # Set spectator flag on network before connecting
-                self.game.network.is_spectator = getattr(self, 'spectate_mode', False)
-                self.game.network.join_with_code(self.code_buffer)
-                self.state = "JOINING"
-        elif key == pygame.K_BACKSPACE:
-            if self.code_buffer:
-                # If deleting the dash, delete the char before it too
-                if self.code_buffer.endswith('-'):
-                    self.code_buffer = self.code_buffer[:-2]
-                else:
-                    self.code_buffer = self.code_buffer[:-1]
-        elif event.unicode.isalnum() and len(self.code_buffer) < 14:
-            # Only allow alphanumeric (hex chars), auto-insert dashes
-            char = event.unicode.upper()
-            # Only allow valid hex characters
-            if char in '0123456789ABCDEF':
-                clean = self.code_buffer.replace('-', '')
-                if len(clean) < 12:
-                    clean += char
-                    # Auto-format as XXXX-XXXX-XXXX
-                    if len(clean) > 8:
-                        self.code_buffer = f"{clean[:4]}-{clean[4:8]}-{clean[8:]}"
-                    elif len(clean) > 4:
-                        self.code_buffer = f"{clean[:4]}-{clean[4:]}"
-                    else:
-                        self.code_buffer = clean
 
-    def _handle_direct(self, key, event):
-        if key == pygame.K_TAB:
-            self.input_focus = (self.input_focus + 1) % 2
+
+    def _handle_lan_join(self, key, event):
+        """Handle LAN join browser"""
+        filtered = self._get_filtered_servers()
+        
+        if key == pygame.K_UP and filtered:
+            self.server_index = (self.server_index - 1) % len(filtered)
             self.play_sfx("blip")
-        elif key == pygame.K_RETURN:
-            if self.ip_buffer:
-                self.play_sfx("accept")
-                self.game.network.join_game(self.ip_buffer, self.password_buffer)
+        elif key == pygame.K_DOWN and filtered:
+            self.server_index = (self.server_index + 1) % len(filtered)
+            self.play_sfx("blip")
+        elif key == pygame.K_r:
+            self.play_sfx("accept")
+            self._refresh_servers()
+        elif key == pygame.K_RETURN and filtered:
+            self.play_sfx("accept")
+            server = filtered[self.server_index]
+            ip = server.get("ip", "")
+            if ip:
+                self.game.network.join_game(ip)
                 self.state = "JOINING"
+
+    def _get_clipboard(self):
+        """Safe clipboard retrieval with multiple fallbacks"""
+        text = ""
+        
+        # Method 1: Pygame Scrap (Primary)
+        if getattr(self, 'has_clipboard', False):
+            try:
+                content = pygame.scrap.get(pygame.SCRAP_TEXT)
+                if content:
+                    text = content.decode('utf-8').strip('\x00')
+            except:
+                pass
+        
+        if text: return text
+
+        # Method 2: Tkinter (Universal Fallback)
+        try:
+            import tkinter as tk
+            root = tk.Tk()
+            root.withdraw()
+            text = root.clipboard_get()
+            root.destroy()
+            if text: return text
+        except:
+            pass
+
+        # Method 3: Linux System Commands (Wayland/X11)
+        import platform
+        if platform.system() == "Linux":
+            import subprocess
+            commands = [
+                ['wl-paste'],
+                ['xclip', '-o', '-selection', 'clipboard'],
+                ['xsel', '-ob']
+            ]
+            for cmd in commands:
+                try:
+                    out = subprocess.check_output(cmd, stderr=subprocess.DEVNULL, timeout=0.5)
+                    text = out.decode('utf-8').strip()
+                    if text: return text
+                except:
+                    continue
+                    
+        return ""
+
+    def _handle_token_overlay(self, key, event):
+        ctrl = (pygame.key.get_mods() & pygame.KMOD_CTRL)
+        
+        if key == pygame.K_v and ctrl:
+            text = self._get_clipboard()
+            if text:
+                self.ngrok_token_buffer += text
+                
+        elif key == pygame.K_RETURN:
+            if self.ngrok_token_buffer:
+                self.play_sfx("accept")
+                try:
+                    from core.room_connect import RoomConnect
+                    if not hasattr(self.game, 'room_connect'):
+                         self.game.room_connect = RoomConnect()
+                    self.game.room_connect.set_token(self.ngrok_token_buffer)
+                    # Proceed to Host Setup
+                    self.state = "HOST_SETUP"
+                    self.input_focus = 0
+                except:
+                    pass
+
         elif key == pygame.K_BACKSPACE:
-            if self.input_focus == 0:
-                self.ip_buffer = self.ip_buffer[:-1]
-            else:
-                self.password_buffer = self.password_buffer[:-1]
-        elif event.unicode.isprintable() and len(event.unicode) == 1:
-            if self.input_focus == 0 and len(self.ip_buffer) < 45:
-                self.ip_buffer += event.unicode
-            elif self.input_focus == 1 and len(self.password_buffer) < 16:
-                self.password_buffer += event.unicode
+            self.ngrok_token_buffer = self.ngrok_token_buffer[:-1]
+            
+        elif event.unicode.isprintable() and not ctrl and len(self.ngrok_token_buffer) < 100:
+             self.ngrok_token_buffer += event.unicode
+        
+        elif key == pygame.K_ESCAPE:
+            self.state = "MODE_SELECT"
+
+    def _handle_ngrok_join(self, key, event):
+        """Handle NGROK room code input"""
+        if key == pygame.K_RETURN:
+            if self.code_buffer:
+                self.play_sfx("accept")
+                try:
+                    from core.room_connect import RoomConnect
+                    if not hasattr(self.game, 'room_connect'):
+                        self.game.room_connect = RoomConnect()
+                    
+                    if self.game.room_connect.join_game(self.code_buffer):
+                        self.game.network.connected = True
+                        self.game.network.use_room_connect(self.game.room_connect)
+                        self.game.network.is_spectator = getattr(self, 'spectate_mode', False)
+                        self.state = "CLIENT_LOBBY"
+                    else:
+                        self.game.network.error_message = self.game.room_connect.error_message or "Failed to join"
+                except ImportError:
+                    self.game.network.error_message = "RoomConnect not available"
+                except Exception as e:
+                    self.game.network.error_message = str(e)
+        elif key == pygame.K_BACKSPACE:
+            self.code_buffer = self.code_buffer[:-1]
+        elif (event.unicode.isprintable()) and len(self.code_buffer) < 60:
+            self.code_buffer += event.unicode
 
     def _handle_client_lobby(self, key):
         pass

@@ -22,15 +22,15 @@
     "note_shape": "BAR",
     "note_col_1": [
         255,
-        50,
-        200
+        150,
+        50
     ],
     "note_col_2": [
-        50,
-        200,
-        255
+        255,
+        80,
+        100
     ],
-    "theme": "SYNTHWAVE",
+    "theme": "SUNSET",
     "setup_complete": true,
     "joy_binds": [
         0,

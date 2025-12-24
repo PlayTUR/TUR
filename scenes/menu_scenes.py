@@ -411,6 +411,23 @@ class SongSelectScene(Scene):
         self.game.discord.update("Selecting Song", "In Menu")
         self.load_songs()
         self.mode = params.get('mode', 'single') if params else 'single'
+        self.waiting_for_peer = False
+
+    def update(self):
+        if getattr(self, 'waiting_for_peer', False):
+             if self.game.network.peer_has_song:
+                 self._start_multiplayer_match()
+                 
+    def _start_multiplayer_match(self):
+         song = self.songs[self.selected_index]
+         diff = self.difficulties[self.diff_index]
+         self.game.network.start_game_request()
+         from scenes.game_scene import GameScene
+         self.game.scene_manager.switch_to(GameScene, {
+             'song': song,
+             'difficulty': diff,
+             'mode': 'multiplayer'
+         })
 
     def load_songs(self):
         s_dir = "songs"
@@ -496,21 +513,22 @@ class SongSelectScene(Scene):
         r.draw_text(surface, "[←/→] to change", 720, 205, (80, 80, 80))
         
         # Controls panel
-        r.draw_panel(surface, 620, 270, 340, 200, "CONTROLS")
+        r.draw_panel(surface, 620, 250, 340, 240, "CONTROLS")
         controls = [
             ("[↑/↓]", "Select Song"),
             ("[ENTER]", "Play"),
             ("[E]", "Beatmap Editor"),
             ("[S]", "Shuffle List"),
             ("[R]", "Random Song"),
-            ("[F5]", "Refresh List"),
+            ("[F5]", "Reload List"),
+            ("[F6]", "Regenerate Maps"),
             ("[ESC]", "Back to Menu")
         ]
-        y = 295
+        y = 280
         for key, action in controls:
-            r.draw_text(surface, key, 640, y, theme["secondary"])
-            r.draw_text(surface, action, 720, y, theme["text"])
-            y += 35
+            r.draw_text(surface, key, 640, y, theme["secondary"], font=r.small_font)
+            r.draw_text(surface, action, 720, y, theme["text"], font=r.small_font)
+            y += 24
         
         # Download panel
         r.draw_panel(surface, 620, 500, 340, 80, "DOWNLOAD")
@@ -526,6 +544,19 @@ class SongSelectScene(Scene):
         r.draw_text(surface, "S Shuffle", 600, 720, r_col)
         r.draw_text(surface, "R Random", 730, 720, r_col)
         r.draw_text(surface, "ESC Back", 860, 720, (100, 100, 100))
+        
+        if getattr(self, 'waiting_for_peer', False):
+             # Draw Waiting Overlay
+             dim = pygame.Surface(surface.get_size(), pygame.SRCALPHA)
+             dim.fill((0, 0, 0, 180))
+             surface.blit(dim, (0, 0))
+             
+             r.draw_panel(surface, 300, 300, 424, 150, "SYNCING")
+             r.draw_text(surface, "Waiting for peer to download...", 330, 350, theme["primary"])
+             
+             # Show progress from NetworkManager
+             status = self.game.network.status_message
+             if status: r.draw_text(surface, status, 330, 390, theme["secondary"])
 
     def handle_input(self, event):
         if event.type == pygame.KEYDOWN:
@@ -533,16 +564,81 @@ class SongSelectScene(Scene):
                 self.play_sfx("back")
                 self.game.scene_manager.switch_to(TitleScene)
             elif event.key == pygame.K_F5:
-                self.play_sfx("hdd") # "Reload" sound
-                
-                # Run conversion first to catch new MP3s
+                self.play_sfx("hdd")
                 from core.song_converter import auto_convert_songs
-                auto_convert_songs("songs", "MEDIUM")
+                auto_convert_songs("songs", "MEDIUM", force_regen=False)
                 
-                # Clear cache to force rescan
+                # Clear cache
                 if hasattr(self.game, 'song_cache'):
                     self.game.song_cache = []
                 self.load_songs()
+                
+            elif event.key == pygame.K_F6:
+                self.play_sfx("hdd")
+                
+                # Dynamic Loading Overlay
+                r = self.game.renderer
+                theme = r.get_theme()
+                screen = pygame.display.get_surface()
+                
+                # Snapshot background for clean redraws (optional, or just clear panel area)
+                # Drawing over the same panel works if we clear the panel rect first.
+                
+                dim = pygame.Surface(screen.get_size(), pygame.SRCALPHA)
+                dim.fill((0, 0, 0, 200))
+                screen.blit(dim, (0, 0))
+                pygame.display.flip()
+                
+                panel_w = 600
+                panel_h = 200
+                sw, sh = screen.get_size()
+                panel_x = (sw - panel_w) // 2
+                panel_y = (sh - panel_h) // 2
+                
+                def regen_callback(text, progress):
+                    # 1. Clear Panel Area inside dim (redrawing panel bg)
+                    r.draw_panel(screen, panel_x, panel_y, panel_w, panel_h, "REGENERATING")
+                    
+                    # 2. Text Handling (Truncate)
+                    max_chars = 45
+                    display_text = text
+                    if len(display_text) > max_chars:
+                        display_text = display_text[:max_chars-3] + "..."
+                    
+                    # Draw Text Centered
+                    font = r.fonts["default"]
+                    text_w = font.size(display_text)[0]
+                    t_x = panel_x + (panel_w - text_w) // 2
+                    r.draw_text(screen, display_text, t_x, panel_y + 60, theme["text"])
+                    
+                    # 3. Progress Bar (Confined)
+                    bar_x = panel_x + 30
+                    bar_y = panel_y + 110
+                    bar_w = panel_w - 60
+                    bar_h = 40
+                    
+                    # Border
+                    pygame.draw.rect(screen, theme["grid"], (bar_x, bar_y, bar_w, bar_h), 2)
+                    
+                    # Fill
+                    fill_w = int((bar_w - 6) * (progress / 100))
+                    if fill_w > 0:
+                        pygame.draw.rect(screen, theme["primary"], (bar_x + 3, bar_y + 3, fill_w, bar_h - 6))
+                        
+                    # Percentage
+                    r.draw_text(screen, f"{int(progress)}%", bar_x + bar_w // 2 - 20, bar_y + 8, theme["bg"])
+                    
+                    pygame.display.flip()
+                    pygame.event.pump()
+                
+                # Run Logic
+                from core.song_converter import auto_convert_songs
+                auto_convert_songs("songs", "MEDIUM", force_regen=True, callback=regen_callback)
+                
+                if hasattr(self.game, 'song_cache'):
+                    self.game.song_cache = []
+                self.load_songs()
+                
             elif event.key == pygame.K_UP:
                 self.selected_index = (self.selected_index - 1) % max(1, len(self.songs))
                 self.play_sfx("blip")
@@ -564,7 +660,16 @@ class SongSelectScene(Scene):
                         song = self.songs[self.selected_index]
                         diff = self.difficulties[self.diff_index]
                         self.game.network.propose_song(song, diff)
-                        # Show status "Waiting"
+                        
+                        if self.game.network.is_host:
+                            # Check if peer is connected (and not just "Waiting...")
+                            has_peer = self.game.network.opponent_name != "Waiting..."
+                            
+                            if has_peer:
+                                self.waiting_for_peer = True
+                                self.game.network.peer_has_song = False
+                            else:
+                                self._start_multiplayer_match()
                     else:
                         from scenes.game_scene import GameScene
                         self.game.scene_manager.switch_to(GameScene, {
@@ -659,7 +764,7 @@ class SettingsScene(Scene):
         self.all_items = {
             "AUDIO": ["VOLUME", "MUSIC_VOLUME", "SFX_VOLUME", "OFFSET", "HIT SOUNDS"],
             "VIDEO": ["RESOLUTION", "FULLSCREEN", "V-SYNC", "CRT FILTER", "THEME", "VISUAL FX", "POST EFFECTS", "SHOW FPS", "BG DIM"],
-            "GAMEPLAY": ["SPEED", "UPSCROLL", "NOTE STYLE", "SCREEN SHAKE", "RE-GEN MAPS", "LANGUAGE", "VIM BINDINGS"],
+            "GAMEPLAY": ["SPEED", "UPSCROLL", "SCREEN SHAKE", "RE-GEN MAPS", "LANGUAGE", "VIM BINDINGS"],
             "INPUT": ["KEYBINDS", "DEADZONE"],
             "THEMES": [
                 "-- PRIMARY --", "PRIMARY R", "PRIMARY G", "PRIMARY B",
@@ -1310,15 +1415,6 @@ class SettingsScene(Scene):
             cur += direction * (0.05 if not fast else 0.2)
             s.set("bg_dim", max(0.0, min(1.0, cur)))
             
-        elif item == "NOTE STYLE":
-            shapes = ["BAR", "CIRCLE", "ARROW"]
-            cur = s.get("note_shape") or "BAR"
-            try:
-                idx = shapes.index(cur)
-            except:
-                idx = 0
-            new_idx = (idx + direction) % len(shapes)
-            s.set("note_shape", shapes[new_idx])
         elif item == "VIM BINDINGS":
             s.set("vim_mode", not s.get("vim_mode"))
         elif item == "MUSIC_VOLUME":
