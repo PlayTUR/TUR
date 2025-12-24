@@ -1,6 +1,6 @@
 {
-    "name": "ryan",
-    "volume": 0.20000000000000015,
+    "name": "wyind",
+    "volume": 0.10000000000000014,
     "music_volume": 0.7,
     "sfx_volume": 1.0,
     "speed": 1200,
@@ -21,16 +21,16 @@
     "audio_offset": 0,
     "note_shape": "BAR",
     "note_col_1": [
-        50,
+        255,
+        0,
+        150
+    ],
+    "note_col_2": [
+        0,
         200,
         255
     ],
-    "note_col_2": [
-        100,
-        255,
-        200
-    ],
-    "theme": "OCEAN",
+    "theme": "CYBERPUNK",
     "setup_complete": true,
     "joy_binds": [
         0,
@@ -42,7 +42,7 @@
         4,
         5
     ],
-    "joy_deadzone": 0.2,
+    "joy_deadzone": 0.10000000000000002,
     "screen_shake": 1.3877787807814457e-16,
     "hit_sounds": true,
     "miss_sounds": true,
@@ -58,7 +58,7 @@
     "is_admin": false,
     "discord_client_id": "1453128602110529678",
     "user_id": "38159493",
-    "auto_recreate_beatmaps": false,
+    "auto_recreate_beatmaps": true,
     "language": "EN",
     "vim_mode": false,
     "note_skin": "DEFAULT"

@@ -215,7 +215,8 @@ class BeatmapGenerator:
             'artist': existing_data.get('artist', 'Unknown'),
             'bpm': beatmap.get('bpm', existing_data.get('bpm', 120)),
             'duration': beatmap.get('duration', existing_data.get('duration', 180)),
-            'difficulties': existing_data.get('difficulties', {})
+            'difficulties': existing_data.get('difficulties', {}),
+            'source': beatmap.get('source', existing_data.get('source', 'generated'))  # Preserve source
         }
         
         # If legacy existing data, migrate it
@@ -536,6 +537,114 @@ class BeatmapGenerator:
                 last_times[lane] = note['time']
         
         notes = filtered_notes
+        
+        # MINIMUM NOTE DENSITY GUARANTEE
+        # Ensures harder difficulties have enough notes even for "easy" songs
+        min_notes_per_second = {
+            "EASY": 0.5,
+            "MEDIUM": 1.0,
+            "HARD": 2.0,
+            "EXTREME": 3.5,
+            "FUCK YOU": 5.0
+        }
+        
+        min_nps = min_notes_per_second.get(difficulty, 1.0)
+        min_total_notes = int(duration * min_nps)
+        
+        if len(notes) < min_total_notes and beat_times and len(beat_times) > 2:
+            print(f"Adding notes to meet minimum density ({len(notes)} < {min_total_notes})...")
+            spb = 60.0 / bpm if bpm > 0 else 0.5
+            
+            # Subdivision level based on difficulty
+            subs_per_beat = {
+                "EASY": 1,
+                "MEDIUM": 2,
+                "HARD": 4,
+                "EXTREME": 6,
+                "FUCK YOU": 8
+            }.get(difficulty, 2)
+            
+            # Generate additional notes at beat subdivisions
+            additional_notes = []
+            for i, beat_t in enumerate(beat_times):
+                if beat_t < 0.5 or beat_t > duration - 1.0:
+                    continue
+                    
+                # Add note on the beat itself if no note nearby
+                has_nearby = any(abs(n['time'] - beat_t) < 0.04 for n in notes)
+                if not has_nearby:
+                    additional_notes.append({
+                        'time': beat_t,
+                        'lane': get_lane(beat_t),
+                        'length': 0,
+                        'hit': False
+                    })
+                
+                # Add subdivision notes for harder difficulties
+                if i + 1 < len(beat_times):
+                    next_beat = beat_times[i + 1]
+                    beat_gap = next_beat - beat_t
+                    sub_interval = beat_gap / subs_per_beat
+                    
+                    for s in range(1, subs_per_beat):
+                        sub_t = beat_t + s * sub_interval
+                        has_nearby = any(abs(n['time'] - sub_t) < 0.04 for n in notes)
+                        has_nearby = has_nearby or any(abs(n['time'] - sub_t) < 0.04 for n in additional_notes)
+                        
+                        if not has_nearby:
+                            # For extreme difficulties, add some chords
+                            if difficulty in ["EXTREME", "FUCK YOU"] and s % 2 == 0:
+                                lane1 = get_lane(sub_t)
+                                lane2 = get_lane(sub_t, offset=50)
+                                if lane1 != lane2:
+                                    additional_notes.append({
+                                        'time': sub_t,
+                                        'lane': lane1,
+                                        'length': 0,
+                                        'hit': False
+                                    })
+                                    additional_notes.append({
+                                        'time': sub_t,
+                                        'lane': lane2,
+                                        'length': 0,
+                                        'hit': False
+                                    })
+                                else:
+                                    additional_notes.append({
+                                        'time': sub_t,
+                                        'lane': lane1,
+                                        'length': 0,
+                                        'hit': False
+                                    })
+                            else:
+                                additional_notes.append({
+                                    'time': sub_t,
+                                    'lane': get_lane(sub_t),
+                                    'length': 0,
+                                    'hit': False
+                                })
+                        
+                        # Check if we have enough
+                        if len(notes) + len(additional_notes) >= min_total_notes:
+                            break
+                    
+                    if len(notes) + len(additional_notes) >= min_total_notes:
+                        break
+            
+            notes.extend(additional_notes)
+            notes.sort(key=lambda n: n['time'])
+            
+            # Re-filter notes that are too close
+            filtered_notes = []
+            last_times = {0: 0, 1: 0, 2: 0, 3: 0}
+            for note in notes:
+                lane = note['lane']
+                if note['time'] - last_times[lane] >= 0.03:
+                    filtered_notes.append(note)
+                    last_times[lane] = note['time']
+            notes = filtered_notes
+            
+            print(f"After density boost: {len(notes)} notes")
         
         print(f"Generated {len(notes)} notes for {difficulty} (deterministic, intensity-based)")
         return {'bpm': bpm, 'notes': notes, 'duration': duration}

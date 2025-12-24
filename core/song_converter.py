@@ -96,6 +96,7 @@ def auto_convert_songs(songs_dir="songs", default_difficulty="MEDIUM", callback=
             
             # Save the original OSU difficulty
             diff_name = osu_data['difficulty_name'].upper() or default_difficulty
+            osu_data['source'] = 'osu!'  # Mark as osu! import to prevent regeneration
             generator.save_tur(osu_data, tur_path, audio_path=audio_full, difficulty=diff_name, delete_original=False)
             
             # Generate all difficulties ONLY during explicit regeneration
@@ -179,6 +180,12 @@ def auto_convert_songs(songs_dir="songs", default_difficulty="MEDIUM", callback=
             try:
                 # Load will extract the audio back to a file
                 data = generator.load_tur(tur_path)
+                
+                # Skip osu! imports - don't regenerate their beatmaps
+                if data.get('source') == 'osu!':
+                    print(f"Skipping osu! import: {filename}")
+                    continue
+                    
                 audio_path = data.get('audio_path')
                 
                 if audio_path and os.path.exists(audio_path):

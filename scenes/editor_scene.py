@@ -130,6 +130,7 @@ class EditorScene(Scene):
         pygame.draw.line(surface, TERM_RED, (0, timeline_y), (SCREEN_WIDTH, timeline_y), 2)
         
         # Lanes
+        center_x = SCREEN_WIDTH // 2
         lane_w = 80
         start_x = center_x - (2 * lane_w)
         

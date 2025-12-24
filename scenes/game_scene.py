@@ -124,6 +124,12 @@ class GameScene(Scene):
             state=f"{self.display_artist} | {self.difficulty} | Score: 0"
         )
         self.rpc_timer = 0
+        
+        # Event system initialization
+        self.event_index = 0
+        self.song_time = 0.0
+        self.base_scroll_speed = 500.0  # Base speed in pixels per second
+        self.scroll_speed = self.base_scroll_speed
     
     def _load_sfx(self, path, volume):
         if os.path.exists(path):
@@ -486,6 +492,9 @@ class GameScene(Scene):
         hp_color = (0, 255, 100) if self.health > 30 else (255, 180, 0) if self.health > 15 else (255, 50, 50)
         pygame.draw.rect(surface, hp_color, (bar_x, bar_y, int(bar_w * (self.health / 100.0)), bar_h))
         pygame.draw.rect(surface, (200, 200, 200), (bar_x, bar_y, bar_w, bar_h), 1)
+        
+        # Update song time for event processing
+        self.song_time = self.game.audio.get_position()
         
         # Process Events
         while self.event_index < len(self.events):
