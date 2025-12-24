@@ -661,7 +661,15 @@ class SettingsScene(Scene):
             "VIDEO": ["RESOLUTION", "FULLSCREEN", "V-SYNC", "CRT FILTER", "THEME", "VISUAL FX", "POST EFFECTS", "SHOW FPS", "BG DIM"],
             "GAMEPLAY": ["SPEED", "UPSCROLL", "NOTE STYLE", "SCREEN SHAKE", "RE-GEN MAPS", "LANGUAGE", "VIM BINDINGS"],
             "INPUT": ["KEYBINDS", "DEADZONE"],
-            "THEMES": ["NOTE COL 1", "NOTE COL 2", "EXPORT THEME", "SHARE CODE", "ENTER CODE"]
+            "THEMES": [
+                "-- PRIMARY --", "PRIMARY R", "PRIMARY G", "PRIMARY B",
+                "-- SECONDARY --", "SECONDARY R", "SECONDARY G", "SECONDARY B", 
+                "-- BACKGROUND --", "BG R", "BG G", "BG B",
+                "-- TEXT --", "TEXT R", "TEXT G", "TEXT B",
+                "-- NOTE COLORS --", "NOTE1 R", "NOTE1 G", "NOTE1 B",
+                "NOTE2 R", "NOTE2 G", "NOTE2 B",
+                "RESET COLORS", "EXPORT THEME", "SHARE CODE", "ENTER CODE"
+            ]
         }
         
         if joy_count > 0:
@@ -729,9 +737,10 @@ class SettingsScene(Scene):
             r.draw_text(surface, tab_text, tab_x, tab_y, col)
             tab_x += r.font.size(tab_text)[0] + 40
 
-        # Settings panel
+        # Settings panel - draw title ABOVE the panel
         cat_title = get_text(self.game, self.tabs[self.current_tab])
-        r.draw_panel(surface, 50, 125, 520, 480, f"SETTINGS // {cat_title}")
+        r.draw_text(surface, f"◉ {cat_title}", 55, 128, theme["secondary"])
+        r.draw_panel(surface, 50, 150, 550, 460, None)  # No title in header
         
         # Fetch Data
         s = self.game.settings
@@ -763,8 +772,12 @@ class SettingsScene(Scene):
         # Format note colors for display
         col1 = s.get("note_col_1") or [50, 255, 50]
         col2 = s.get("note_col_2") or [255, 180, 50]
-        col1_str = f"R{col1[0]} G{col1[1]} B{col1[2]}"
-        col2_str = f"R{col2[0]} G{col2[1]} B{col2[2]}"
+        
+        # Get current custom theme colors (or defaults from current theme)
+        custom_primary = s.get("custom_primary") or list(theme["primary"])
+        custom_secondary = s.get("custom_secondary") or list(theme["secondary"])
+        custom_bg = s.get("custom_bg") or list(theme["bg"])
+        custom_text = s.get("custom_text") or list(theme["text"])
 
         items_map = {
             "VOLUME": f"< {int(s.get('volume')*100)}% >",
@@ -791,8 +804,32 @@ class SettingsScene(Scene):
             "LANGUAGE": f"< {s.get('language')} >",
             "VIM BINDINGS": f"< {'ON' if s.get('vim_mode') else 'OFF'} >",
             "CONTROLLER CONFIG": ">",
-            "NOTE COL 1": f"< {col1_str} >",
-            "NOTE COL 2": f"< {col2_str} >",
+            # Theme color sections (headers)
+            "-- PRIMARY --": "",
+            "-- SECONDARY --": "",
+            "-- BACKGROUND --": "",
+            "-- TEXT --": "",
+            "-- NOTE COLORS --": "",
+            # RGB sliders
+            "PRIMARY R": f"< {custom_primary[0]} >",
+            "PRIMARY G": f"< {custom_primary[1]} >",
+            "PRIMARY B": f"< {custom_primary[2]} >",
+            "SECONDARY R": f"< {custom_secondary[0]} >",
+            "SECONDARY G": f"< {custom_secondary[1]} >",
+            "SECONDARY B": f"< {custom_secondary[2]} >",
+            "BG R": f"< {custom_bg[0]} >",
+            "BG G": f"< {custom_bg[1]} >",
+            "BG B": f"< {custom_bg[2]} >",
+            "TEXT R": f"< {custom_text[0]} >",
+            "TEXT G": f"< {custom_text[1]} >",
+            "TEXT B": f"< {custom_text[2]} >",
+            "NOTE1 R": f"< {col1[0]} >",
+            "NOTE1 G": f"< {col1[1]} >",
+            "NOTE1 B": f"< {col1[2]} >",
+            "NOTE2 R": f"< {col2[0]} >",
+            "NOTE2 G": f"< {col2[1]} >",
+            "NOTE2 B": f"< {col2[2]} >",
+            "RESET COLORS": "[RESET TO THEME]",
             "EXPORT THEME": "[SAVE TO FILE]",
             "SHARE CODE": "[GENERATE]",
             "ENTER CODE": "[INPUT CODE]",
@@ -809,7 +846,7 @@ class SettingsScene(Scene):
         elif self.index >= self.scroll_offset + self.visible_items:
             self.scroll_offset = self.index - self.visible_items + 1
 
-        y = 140
+        y = 165
         for i in range(self.scroll_offset, min(self.scroll_offset + self.visible_items, len(items))):
             item_data = items[i]
             label = item_data[0]
@@ -819,7 +856,7 @@ class SettingsScene(Scene):
             color = theme["primary"] if selected else theme["text"]
             
             if selected:
-                pygame.draw.rect(surface, theme["grid"], (55, y - 2, 510, 32))
+                pygame.draw.rect(surface, theme["grid"], (55, y - 2, 540, 32))
             
             # Label
             display_label = get_text(self.game, label)
@@ -829,14 +866,15 @@ class SettingsScene(Scene):
             if value:
                 val_col = theme["secondary"] if selected else (120, 120, 150)
                 vw = r.font.size(value)[0]
-                r.draw_text(surface, value, 540 - vw, y, val_col)
+                # Keep value inside panel bounds (panel ends at 600)
+                r.draw_text(surface, value, min(580 - vw, 350), y, val_col)
             y += 44
 
         # Scroll indicators (positioned inside panel bounds)
         if self.scroll_offset > 0:
-            r.draw_text(surface, "▲ MORE", 280, 128, (100, 100, 100))
+            r.draw_text(surface, "▲ MORE", 280, 153, (100, 100, 100))
         if self.scroll_offset + self.visible_items < len(items):
-            r.draw_text(surface, "▼ MORE", 280, 590, (100, 100, 100))
+            r.draw_text(surface, "▼ MORE", 280, 595, (100, 100, 100))
 
         # Help panel (Right side, standardized position)
         r.draw_panel(surface, 600, 125, 380, 200, "CONTROLS")
@@ -1215,8 +1253,12 @@ class SettingsScene(Scene):
             new_theme = themes_list[new_idx]
             s.set("theme", new_theme)
             
-            # Auto-apply theme colors to Note Colors
+            # Clear all custom color overrides so new theme takes effect
             t_data = THEMES[new_theme]
+            s.set("custom_primary", None)
+            s.set("custom_secondary", None)
+            s.set("custom_bg", None)
+            s.set("custom_text", None)
             s.set("note_col_1", list(t_data["primary"]))
             s.set("note_col_2", list(t_data["secondary"]))
             
@@ -1312,52 +1354,176 @@ class SettingsScene(Scene):
                 idx = 0
             new_idx = (idx + direction) % len(langs)
             s.set("language", langs[new_idx])
-            s.set("show_fps", not s.get("show_fps"))
         elif item == "BG DIM":
             cur = s.get("bg_dim")
             cur += direction * 0.1
             s.set("bg_dim", max(0.0, min(1.0, cur)))
-        elif item == "NOTE COL 1":
-            # Cycle through predefined colors
-            colors = [
-                [50, 255, 50],    # Green
-                [0, 200, 255],    # Cyan
-                [255, 100, 255],  # Pink
-                [255, 255, 50],   # Yellow
-                [100, 100, 255],  # Blue
-                [255, 150, 50],   # Orange
-                [255, 50, 50],    # Red
-                [200, 200, 200],  # White
-            ]
+        
+        # RGB component handlers - adjust values by 5 (or 10 with shift)
+        # Primary color RGB
+        if item == "PRIMARY R":
+            step = 10 if pygame.key.get_mods() & pygame.KMOD_SHIFT else 5
+            cur = s.get("custom_primary") or list(self.game.renderer.get_theme()["primary"])
+            cur[0] = max(0, min(255, cur[0] + direction * step))
+            s.set("custom_primary", cur)
+            self._apply_custom_theme()
+        elif item == "PRIMARY G":
+            step = 10 if pygame.key.get_mods() & pygame.KMOD_SHIFT else 5
+            cur = s.get("custom_primary") or list(self.game.renderer.get_theme()["primary"])
+            cur[1] = max(0, min(255, cur[1] + direction * step))
+            s.set("custom_primary", cur)
+            self._apply_custom_theme()
+        elif item == "PRIMARY B":
+            step = 10 if pygame.key.get_mods() & pygame.KMOD_SHIFT else 5
+            cur = s.get("custom_primary") or list(self.game.renderer.get_theme()["primary"])
+            cur[2] = max(0, min(255, cur[2] + direction * step))
+            s.set("custom_primary", cur)
+            self._apply_custom_theme()
+        
+        # Secondary color RGB
+        elif item == "SECONDARY R":
+            step = 10 if pygame.key.get_mods() & pygame.KMOD_SHIFT else 5
+            cur = s.get("custom_secondary") or list(self.game.renderer.get_theme()["secondary"])
+            cur[0] = max(0, min(255, cur[0] + direction * step))
+            s.set("custom_secondary", cur)
+            self._apply_custom_theme()
+        elif item == "SECONDARY G":
+            step = 10 if pygame.key.get_mods() & pygame.KMOD_SHIFT else 5
+            cur = s.get("custom_secondary") or list(self.game.renderer.get_theme()["secondary"])
+            cur[1] = max(0, min(255, cur[1] + direction * step))
+            s.set("custom_secondary", cur)
+            self._apply_custom_theme()
+        elif item == "SECONDARY B":
+            step = 10 if pygame.key.get_mods() & pygame.KMOD_SHIFT else 5
+            cur = s.get("custom_secondary") or list(self.game.renderer.get_theme()["secondary"])
+            cur[2] = max(0, min(255, cur[2] + direction * step))
+            s.set("custom_secondary", cur)
+            self._apply_custom_theme()
+        elif item == "SECONDARY G":
+            cur = s.get("custom_secondary") or list(self.game.renderer.get_theme()["secondary"])
+            cur[1] = max(0, min(255, cur[1] + direction * step))
+            s.set("custom_secondary", cur)
+            self._apply_custom_theme()
+        elif item == "SECONDARY B":
+            cur = s.get("custom_secondary") or list(self.game.renderer.get_theme()["secondary"])
+            cur[2] = max(0, min(255, cur[2] + direction * step))
+            s.set("custom_secondary", cur)
+            self._apply_custom_theme()
+        
+        # Background color RGB
+        elif item == "BG R":
+            step = 10 if pygame.key.get_mods() & pygame.KMOD_SHIFT else 5
+            cur = s.get("custom_bg") or list(self.game.renderer.get_theme()["bg"])
+            cur[0] = max(0, min(255, cur[0] + direction * step))
+            s.set("custom_bg", cur)
+            self._apply_custom_theme()
+        elif item == "BG G":
+            step = 10 if pygame.key.get_mods() & pygame.KMOD_SHIFT else 5
+            cur = s.get("custom_bg") or list(self.game.renderer.get_theme()["bg"])
+            cur[1] = max(0, min(255, cur[1] + direction * step))
+            s.set("custom_bg", cur)
+            self._apply_custom_theme()
+        elif item == "BG B":
+            step = 10 if pygame.key.get_mods() & pygame.KMOD_SHIFT else 5
+            cur = s.get("custom_bg") or list(self.game.renderer.get_theme()["bg"])
+            cur[2] = max(0, min(255, cur[2] + direction * step))
+            s.set("custom_bg", cur)
+            self._apply_custom_theme()
+        
+        # Text color RGB
+        elif item == "TEXT R":
+            step = 10 if pygame.key.get_mods() & pygame.KMOD_SHIFT else 5
+            cur = s.get("custom_text") or list(self.game.renderer.get_theme()["text"])
+            cur[0] = max(0, min(255, cur[0] + direction * step))
+            s.set("custom_text", cur)
+            self._apply_custom_theme()
+        elif item == "TEXT G":
+            step = 10 if pygame.key.get_mods() & pygame.KMOD_SHIFT else 5
+            cur = s.get("custom_text") or list(self.game.renderer.get_theme()["text"])
+            cur[1] = max(0, min(255, cur[1] + direction * step))
+            s.set("custom_text", cur)
+            self._apply_custom_theme()
+        elif item == "TEXT B":
+            step = 10 if pygame.key.get_mods() & pygame.KMOD_SHIFT else 5
+            cur = s.get("custom_text") or list(self.game.renderer.get_theme()["text"])
+            cur[2] = max(0, min(255, cur[2] + direction * step))
+            s.set("custom_text", cur)
+            self._apply_custom_theme()
+        
+        # Note color 1 RGB
+        elif item == "NOTE1 R":
+            step = 10 if pygame.key.get_mods() & pygame.KMOD_SHIFT else 5
             cur = s.get("note_col_1") or [50, 255, 50]
-            try:
-                idx = next(i for i, c in enumerate(colors) if c == cur)
-            except StopIteration:
-                idx = 0
-            new_idx = (idx + direction) % len(colors)
-            s.set("note_col_1", colors[new_idx])
-        elif item == "NOTE COL 2":
-            # Cycle through predefined colors
-            colors = [
-                [255, 180, 50],   # Orange
-                [255, 50, 100],   # Red-pink
-                [50, 150, 255],   # Blue
-                [150, 255, 100],  # Lime
-                [255, 255, 100],  # Light yellow
-                [200, 100, 255],  # Purple
-                [255, 200, 200],  # Pink-white
-                [100, 255, 255],  # Aqua
-            ]
+            cur[0] = max(0, min(255, cur[0] + direction * step))
+            s.set("note_col_1", cur)
+        elif item == "NOTE1 G":
+            step = 10 if pygame.key.get_mods() & pygame.KMOD_SHIFT else 5
+            cur = s.get("note_col_1") or [50, 255, 50]
+            cur[1] = max(0, min(255, cur[1] + direction * step))
+            s.set("note_col_1", cur)
+        elif item == "NOTE1 B":
+            step = 10 if pygame.key.get_mods() & pygame.KMOD_SHIFT else 5
+            cur = s.get("note_col_1") or [50, 255, 50]
+            cur[2] = max(0, min(255, cur[2] + direction * step))
+            s.set("note_col_1", cur)
+        
+        # Note color 2 RGB
+        elif item == "NOTE2 R":
+            step = 10 if pygame.key.get_mods() & pygame.KMOD_SHIFT else 5
             cur = s.get("note_col_2") or [255, 180, 50]
-            try:
-                idx = next(i for i, c in enumerate(colors) if c == cur)
-            except StopIteration:
-                idx = 0
-            new_idx = (idx + direction) % len(colors)
-            s.set("note_col_2", colors[new_idx])
+            cur[0] = max(0, min(255, cur[0] + direction * step))
+            s.set("note_col_2", cur)
+        elif item == "NOTE2 G":
+            step = 10 if pygame.key.get_mods() & pygame.KMOD_SHIFT else 5
+            cur = s.get("note_col_2") or [255, 180, 50]
+            cur[1] = max(0, min(255, cur[1] + direction * step))
+            s.set("note_col_2", cur)
+        elif item == "NOTE2 B":
+            step = 10 if pygame.key.get_mods() & pygame.KMOD_SHIFT else 5
+            cur = s.get("note_col_2") or [255, 180, 50]
+            cur[2] = max(0, min(255, cur[2] + direction * step))
+            s.set("note_col_2", cur)
+        
+        # Reset colors to current theme defaults
+        elif item == "RESET COLORS":
+            base_theme_name = s.get("theme")
+            if base_theme_name and base_theme_name in THEMES:
+                base = THEMES[base_theme_name]
+                # Clear custom overrides so base theme shows through
+                s.set("custom_primary", None)
+                s.set("custom_secondary", None)
+                s.set("custom_bg", None)
+                s.set("custom_text", None)
+                # Reset note colors to theme defaults
+                s.set("note_col_1", list(base["primary"]))
+                s.set("note_col_2", list(base["secondary"]))
 
         s.save()
         return True
+    
+    def _apply_custom_theme(self):
+        """Apply custom colors to the active theme"""
+        s = self.game.settings
+        base_name = s.get("theme")
+        
+        # Get base theme or current
+        if base_name and base_name in THEMES:
+            base = dict(THEMES[base_name])
+        else:
+            base = dict(self.game.renderer.get_theme())
+        
+        # Override with custom values if set
+        if s.get("custom_primary"):
+            base["primary"] = tuple(s.get("custom_primary"))
+        if s.get("custom_secondary"):
+            base["secondary"] = tuple(s.get("custom_secondary"))
+        if s.get("custom_bg"):
+            base["bg"] = tuple(s.get("custom_bg"))
+        if s.get("custom_text"):
+            base["text"] = tuple(s.get("custom_text"))
+        
+        # Apply to renderer
+        self.game.renderer.current_theme = base
 
 class ControllerConfigScene(Scene):
     def on_enter(self, params):

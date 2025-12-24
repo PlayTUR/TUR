@@ -171,6 +171,17 @@ class GameScene(Scene):
         if not music_playing and not self.finished and not self.waiting_for_sync and not self.intro_active:
             self.finish_game()
             return
+        
+        # In story mode, finish when all notes are done (don't wait for full song)
+        if self.mode == 'story' and not self.finished:
+            all_notes_done = all(n['hit'] for n in self.beatmap)
+            if all_notes_done and self.beatmap:
+                # Get the last note time and wait 2 seconds after it
+                last_note_time = max(n.get('end_time', n['time']) for n in self.beatmap)
+                current_time = self.game.audio.get_position()
+                if current_time > last_note_time + 2.0:
+                    self.finish_game()
+                    return
 
         if self.failed:
             self.fail_anim += 1.0 / 60.0 * 2

@@ -22,15 +22,15 @@
     "note_shape": "BAR",
     "note_col_1": [
         255,
-        0,
-        150
+        50,
+        200
     ],
     "note_col_2": [
-        0,
+        50,
         200,
         255
     ],
-    "theme": "CYBERPUNK",
+    "theme": "SYNTHWAVE",
     "setup_complete": true,
     "joy_binds": [
         0,
@@ -61,5 +61,9 @@
     "auto_recreate_beatmaps": false,
     "language": "EN",
     "vim_mode": false,
-    "note_skin": "DEFAULT"
+    "note_skin": "DEFAULT",
+    "custom_bg": null,
+    "custom_primary": null,
+    "custom_secondary": null,
+    "custom_text": null
 }

@@ -205,7 +205,26 @@ class PygameRenderer:
             name = self.game.settings.get("theme")
         except (AttributeError, Exception):
             name = "TERMINAL"
-        return THEMES.get(name, THEMES["TERMINAL"])
+        
+        # Start with base theme
+        base = THEMES.get(name, THEMES["TERMINAL"])
+        theme = dict(base)  # Make a copy to avoid modifying the original
+        
+        # Apply custom color overrides if set
+        try:
+            s = self.game.settings
+            if s.get("custom_primary"):
+                theme["primary"] = tuple(s.get("custom_primary"))
+            if s.get("custom_secondary"):
+                theme["secondary"] = tuple(s.get("custom_secondary"))
+            if s.get("custom_bg"):
+                theme["bg"] = tuple(s.get("custom_bg"))
+            if s.get("custom_text"):
+                theme["text"] = tuple(s.get("custom_text"))
+        except (AttributeError, Exception):
+            pass
+        
+        return theme
 
     # === Text Wrapping Helpers ===
     # === UI Helper Methods ===

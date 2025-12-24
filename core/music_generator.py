@@ -204,7 +204,7 @@ class MusicGenerator:
     # === Track Generation ===
 
     def generate_track(self, bpm, scale_name, progression_type, duration=90, mood='neutral'):
-        """Generate a complete track with proper structure"""
+        """Generate a complete track with mood-specific variations"""
         n_samples = int(duration * self.sr)
         buffer = [0.0] * n_samples
         
@@ -215,8 +215,64 @@ class MusicGenerator:
         scale = self.scales[scale_name]
         prog = self.progressions[progression_type]
         
-        # Generate melodic motif (reused for coherence)
+        # Mood-specific settings
+        mood_config = {
+            'atmospheric': {
+                'drum_start': 3,  # Drums enter late
+                'drum_sparse': True,
+                'pad_heavy': True,
+                'arp_style': 'slow',
+                'lead_chance': 0.2,
+                'bass_style': 'subtle'
+            },
+            'intense': {
+                'drum_start': 1,
+                'drum_sparse': False,
+                'pad_heavy': False,
+                'arp_style': 'fast',
+                'lead_chance': 0.6,
+                'bass_style': 'punchy'
+            },
+            'suspense': {
+                'drum_start': 2,
+                'drum_sparse': True,
+                'pad_heavy': True,
+                'arp_style': 'none',
+                'lead_chance': 0.15,
+                'bass_style': 'drone'
+            },
+            'aggressive': {
+                'drum_start': 0,  # Drums from the beginning
+                'drum_sparse': False,
+                'pad_heavy': False,
+                'arp_style': 'none',
+                'lead_chance': 0.7,
+                'bass_style': 'distorted'
+            },
+            'uplifting': {
+                'drum_start': 1,
+                'drum_sparse': False,
+                'pad_heavy': True,
+                'arp_style': 'bright',
+                'lead_chance': 0.5,
+                'bass_style': 'bouncy'
+            },
+            'climactic': {
+                'drum_start': 0,
+                'drum_sparse': False,
+                'pad_heavy': True,
+                'arp_style': 'fast',
+                'lead_chance': 0.65,
+                'bass_style': 'punchy'
+            }
+        }
+        
+        config = mood_config.get(mood, mood_config['intense'])
+        
+        # Generate melodic motif (seeded by mood for consistency)
+        random.seed(hash(mood) % 1000)
         motif = [random.choice([0, 2, 4, 5]) for _ in range(4)]
+        random.seed()
         
         for beat in range(total_beats):
             beat_start = beat * samples_per_beat
@@ -228,48 +284,96 @@ class MusicGenerator:
             chord_degrees = prog[chord_idx]
             root_freq = scale[chord_degrees[0]] / 2  # Bass octave
             
-            # === DRUMS ===
-            if section >= 1:  # Drums enter after intro
+            # === DRUMS (mood-specific) ===
+            if section >= config['drum_start']:
                 drum_intensity = 1.0 if section >= 2 else 0.7
                 
-                # Kick on 1 and 3
+                if config['drum_sparse']:
+                    # Sparse drums: kick only on 1, snare on 3
+                    if beat_in_bar == 0:
+                        kick = self.gen_kick()
+                        self.mix_at(buffer, [s * drum_intensity * 0.8 for s in kick], beat_start)
+                    if beat_in_bar == 2 and bar % 2 == 0:
+                        snare = self.gen_snare()
+                        self.mix_at(buffer, [s * drum_intensity * 0.5 for s in snare], beat_start)
+                else:
+                    # Full drums: kick on 1 and 3, snare on 2 and 4
+                    if beat_in_bar in [0, 2]:
+                        kick = self.gen_kick()
+                        self.mix_at(buffer, [s * drum_intensity for s in kick], beat_start)
+                    if beat_in_bar in [1, 3]:
+                        snare = self.gen_snare()
+                        self.mix_at(buffer, [s * drum_intensity for s in snare], beat_start)
+                    
+                    # Hi-hats (only for non-sparse)
+                    for hh in range(4):
+                        hh_pos = beat_start + hh * (samples_per_beat // 4)
+                        is_open = (hh == 2 and beat_in_bar == 3)
+                        hat = self.gen_hihat(open_hat=is_open)
+                        self.mix_at(buffer, [s * drum_intensity * 0.6 for s in hat], hh_pos)
+            
+            # === BASS (mood-specific) ===
+            if config['bass_style'] == 'drone':
+                # Continuous drone bass
+                if beat == 0 or beat % 32 == 0:
+                    bass = self.gen_pad([root_freq * 0.5], spb * 32)
+                    self.mix_at(buffer, [s * 0.4 for s in bass], beat_start)
+            elif config['bass_style'] == 'bouncy':
+                # Bouncy offbeat bass
                 if beat_in_bar in [0, 2]:
-                    kick = self.gen_kick()
-                    self.mix_at(buffer, [s * drum_intensity for s in kick], beat_start)
-                
-                # Snare on 2 and 4
-                if beat_in_bar in [1, 3]:
-                    snare = self.gen_snare()
-                    self.mix_at(buffer, [s * drum_intensity for s in snare], beat_start)
-                
-                # Hi-hats
-                for hh in range(4):  # 16th notes
-                    hh_pos = beat_start + hh * (samples_per_beat // 4)
-                    is_open = (hh == 2 and beat_in_bar == 3)
-                    hat = self.gen_hihat(open_hat=is_open)
-                    self.mix_at(buffer, [s * drum_intensity * 0.7 for s in hat], hh_pos)
+                    bass = self.gen_bass(root_freq, spb * 0.5)
+                    self.mix_at(buffer, bass, beat_start)
+            elif config['bass_style'] == 'distorted':
+                # Heavy distorted bass (add harmonics)
+                if beat_in_bar == 0:
+                    bass = self.gen_bass(root_freq, spb * 1.5)
+                    # Add distortion by clipping
+                    bass = [min(1.0, max(-1.0, s * 2)) for s in bass]
+                    self.mix_at(buffer, bass, beat_start)
+            else:
+                # Normal/punchy bass
+                if beat_in_bar == 0:
+                    dur = spb * (2.0 if config['bass_style'] == 'subtle' else 1.5)
+                    bass = self.gen_bass(root_freq, dur)
+                    vol = 0.5 if config['bass_style'] == 'subtle' else 1.0
+                    self.mix_at(buffer, [s * vol for s in bass], beat_start)
             
-            # === BASS ===
-            if beat_in_bar == 0:
-                bass = self.gen_bass(root_freq, spb * 1.5)
-                self.mix_at(buffer, bass, beat_start)
+            # === PADS (mood-specific) ===
+            if config['pad_heavy']:
+                # More pad coverage for atmospheric/uplifting
+                if beat_in_bar == 0 and bar % 2 == 0:
+                    chord_freqs = [scale[d] for d in chord_degrees]
+                    pad = self.gen_pad(chord_freqs, spb * 8)
+                    self.mix_at(buffer, [s * 0.8 for s in pad], beat_start)
+            else:
+                # Minimal pads (intro/outro only)
+                if section in [0, 3] and beat_in_bar == 0 and bar % 4 == 0:
+                    chord_freqs = [scale[d] for d in chord_degrees]
+                    pad = self.gen_pad(chord_freqs, spb * 8)
+                    self.mix_at(buffer, [s * 0.5 for s in pad], beat_start)
             
-            # === CHORDS/PADS ===
-            if section in [0, 3] and beat_in_bar == 0 and bar % 2 == 0:
-                chord_freqs = [scale[d] for d in chord_degrees]
-                pad = self.gen_pad(chord_freqs, spb * 8)
-                self.mix_at(buffer, pad, beat_start)
+            # === ARPEGGIOS (mood-specific) ===
+            if config['arp_style'] == 'fast' and section >= 1:
+                if beat_in_bar == 0 and bar % 2 == 0:
+                    arp_freqs = [scale[d] * 2 for d in chord_degrees]
+                    arp = self.gen_arp(arp_freqs, spb * 4, spb * 0.125)  # Fast 16ths
+                    self.mix_at(buffer, [s * 0.7 for s in arp], beat_start)
+            elif config['arp_style'] == 'slow' and section >= 2:
+                if beat_in_bar == 0 and bar % 4 == 0:
+                    arp_freqs = [scale[d] * 2 for d in chord_degrees]
+                    arp = self.gen_arp(arp_freqs, spb * 8, spb * 0.5)  # Slow 8ths
+                    self.mix_at(buffer, [s * 0.5 for s in arp], beat_start)
+            elif config['arp_style'] == 'bright' and section >= 1:
+                if beat_in_bar == 0:
+                    arp_freqs = [scale[d] * 4 for d in chord_degrees]  # Very high octave
+                    arp = self.gen_arp(arp_freqs, spb * 4, spb * 0.25)
+                    self.mix_at(buffer, [s * 0.4 for s in arp], beat_start)
             
-            # === ARPEGGIOS ===
-            if section == 2 and beat_in_bar == 0:
-                arp_freqs = [scale[d] * 2 for d in chord_degrees]  # High octave
-                arp = self.gen_arp(arp_freqs, spb * 4, spb * 0.25)
-                self.mix_at(buffer, arp, beat_start)
-            
-            # === MELODY ===
-            if section >= 1 and random.random() < 0.4:
+            # === MELODY (mood-specific density) ===
+            if section >= 1 and random.random() < config['lead_chance']:
                 m_deg = motif[beat_in_bar % len(motif)]
-                m_freq = scale[m_deg] * random.choice([1, 2])
+                octave = 2 if mood in ['uplifting', 'climactic'] else random.choice([1, 2])
+                m_freq = scale[m_deg] * octave
                 lead = self.gen_lead(m_freq, spb * random.choice([0.5, 1.0, 1.5]))
                 offset = random.randint(0, samples_per_beat // 4)
                 self.mix_at(buffer, lead, beat_start + offset)

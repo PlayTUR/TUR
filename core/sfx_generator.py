@@ -20,6 +20,7 @@ def generate_sfx(output_dir="sfx"):
     generate_hit_sound(os.path.join(output_dir, "sfx_hit.wav"), sr)
     generate_miss_sound(os.path.join(output_dir, "sfx_miss.wav"), sr)
     generate_perfect_sound(os.path.join(output_dir, "sfx_perfect.wav"), sr)
+    generate_great_sound(os.path.join(output_dir, "sfx_great.wav"), sr)
     generate_combo_sound(os.path.join(output_dir, "sfx_combo.wav"), sr)
     
     # Boot sounds
@@ -261,6 +262,49 @@ def generate_perfect_sound(path, sr=44100):
         val = math.tanh(val * 1.1)
         
         data.append(int(val * 32767 * 0.75))
+    
+    write_wav(path, data, sr)
+
+
+def generate_great_sound(path, sr=44100):
+    """
+    Deep, punchy great hit sound:
+    - Lower frequency than perfect (satisfying thump)
+    - More body and punch
+    - Distinct mid-range tone
+    """
+    # Force regenerate
+    if os.path.exists(path):
+        os.remove(path)
+    
+    duration = 0.18
+    samples = int(sr * duration)
+    data = []
+    
+    for i in range(samples):
+        t = i / sr
+        
+        # Layer 1: Deep bass thump (60-100Hz, pitch slide)
+        thump_env = math.exp(-t * 25)
+        thump_freq = 100 * math.exp(-t * 10) + 60
+        thump = 0.6 * math.sin(2 * math.pi * thump_freq * t) * thump_env
+        
+        # Layer 2: Mid punch (300-400Hz)
+        punch_env = math.exp(-t * 40)
+        punch = 0.35 * math.sin(2 * math.pi * 350 * t) * punch_env
+        punch += 0.2 * math.sin(2 * math.pi * 500 * t) * punch_env
+        
+        # Layer 3: Light click (subtle high end)
+        click_env = math.exp(-t * 80)
+        click = 0.15 * math.sin(2 * math.pi * 1200 * t) * click_env
+        
+        # Combine
+        val = thump + punch + click
+        
+        # Soft saturation for warmth
+        val = math.tanh(val * 1.3)
+        
+        data.append(int(val * 32767 * 0.85))
     
     write_wav(path, data, sr)
 

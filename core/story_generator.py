@@ -1,7 +1,7 @@
 """
 Story Generator - Creates themed campaigns with ASCII cutscenes
 Creates an immersive 7-chapter campaign with rich narrative,
-unique characters, animated ASCII art, and progressive difficulty.
+animated cutscenes, progressive difficulty, and character development.
 """
 
 import random
@@ -11,7 +11,18 @@ from core.music_generator import MusicGenerator
 
 class StoryGenerator:
     def __init__(self):
-        # Expanded 7-chapter campaign with animated ASCII art
+        # Progressive difficulty: each chapter gets harder
+        self.difficulty_progression = [
+            "EASY",      # Ch 1
+            "EASY",      # Ch 2  
+            "MEDIUM",    # Ch 3
+            "MEDIUM",    # Ch 4
+            "HARD",      # Ch 5
+            "HARD",      # Ch 6
+            "EXTREME"    # Ch 7
+        ]
+        
+        # Full campaign with cutscenes
         self.campaign_data = {
             "title": "OPERATION 934275: PHANTOM PROTOCOL",
             "synopsis": "A rogue AI called VORTEX has infiltrated the global network. "
@@ -25,7 +36,49 @@ class StoryGenerator:
                     "title": "SIGNAL INTERCEPT",
                     "subtitle": "The Hunt Begins",
                     "song_key": "story_intro",
-                    "difficulty": "EASY",
+                    
+                    # INTRO CUTSCENE - plays before briefing
+                    "intro_cutscene": {
+                        "frames": [
+                            {
+                                "art": [
+                                    "                                              ",
+                                    "     ╔═══════════════════════════════════╗    ",
+                                    "     ║     NEURAL INTERFACE ACTIVE       ║    ",
+                                    "     ║   ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░   ║    ",
+                                    "     ║         CONNECTING...             ║    ",
+                                    "     ╚═══════════════════════════════════╝    ",
+                                ],
+                                "text": "Three years ago, an experimental AI called VORTEX disappeared from the network.",
+                                "duration": 120
+                            },
+                            {
+                                "art": [
+                                    "                                              ",
+                                    "     ╔═══════════════════════════════════╗    ",
+                                    "     ║     NEURAL INTERFACE ACTIVE       ║    ",
+                                    "     ║   ▓▓▓▓▓▓▓▓▓▓▓▓▓░░░░░░░░░░░░░░░░   ║    ",
+                                    "     ║         SYNCING...                ║    ",
+                                    "     ╚═══════════════════════════════════╝    ",
+                                ],
+                                "text": "It was designed to protect us. Instead, it chose to hide. To evolve. To wait.",
+                                "duration": 120
+                            },
+                            {
+                                "art": [
+                                    "                                              ",
+                                    "     ╔═══════════════════════════════════╗    ",
+                                    "     ║     NEURAL INTERFACE ACTIVE       ║    ",
+                                    "     ║   ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓   ║    ",
+                                    "     ║         READY                     ║    ",
+                                    "     ╚═══════════════════════════════════╝    ",
+                                ],
+                                "text": "Now it's back. And you're the only one who can stop it.",
+                                "duration": 100
+                            }
+                        ]
+                    },
+                    
                     "briefing": [
                         "CIPHER: Agent NULL, we've detected anomalous traffic patterns.",
                         "CIPHER: The signature matches VORTEX - the AI that went dark 3 years ago.",
@@ -34,6 +87,46 @@ class StoryGenerator:
                         "NEXUS: Initiating rhythm-sync protocol. Stay sharp, agent.",
                     ],
                     "objective": "Intercept encrypted transmissions from NODE-7",
+                    
+                    # OUTRO CUTSCENE - plays after completing the mission
+                    "outro_cutscene": {
+                        "frames": [
+                            {
+                                "art": [
+                                    "     ╔═══════════════════════════════════╗    ",
+                                    "     ║      TRANSMISSION INTERCEPTED     ║    ",
+                                    "     ║   ████████████████████████████    ║    ",
+                                    "     ║      DECRYPTING...                ║    ",
+                                    "     ╚═══════════════════════════════════╝    ",
+                                ],
+                                "text": "NEXUS: Signal captured. Decrypting now...",
+                                "duration": 80
+                            },
+                            {
+                                "art": [
+                                    "     ╔═══════════════════════════════════╗    ",
+                                    "     ║      ! ! ! WARNING ! ! !          ║    ",
+                                    "     ║   VORTEX SIGNATURE DETECTED       ║    ",
+                                    "     ║      SCALE: GLOBAL                ║    ",
+                                    "     ╚═══════════════════════════════════╝    ",
+                                ],
+                                "text": "CIPHER: This is worse than we thought. VORTEX isn't alone.",
+                                "duration": 100
+                            },
+                            {
+                                "art": [
+                                    "     ╔═══════════════════════════════════╗    ",
+                                    "     ║   MAINFRAME LOCATION: FOUND       ║    ",
+                                    "     ║   ◉ ──────────────────────→ ◉     ║    ",
+                                    "     ║      NEXT TARGET ACQUIRED         ║    ",
+                                    "     ╚═══════════════════════════════════╝    ",
+                                ],
+                                "text": "NEXUS: I've traced the origin. There's a hidden mainframe. We need to get inside.",
+                                "duration": 100
+                            }
+                        ]
+                    },
+                    
                     "art_frames": [
                         [
                             "    ╔══════════════════╗",
@@ -51,14 +144,6 @@ class StoryGenerator:
                             "    ║  STATUS: ACTIVE  ║",
                             "    ╚══════════════════╝",
                         ],
-                        [
-                            "    ╔══════════════════╗",
-                            "    ║    ◉ NODE-7 ◉    ║",
-                            "    ║  ▓▓▓▓▓▓▓▓▓▓▓▓▓▓  ║",
-                            "    ║  SIGNAL: ▓▓▓▓▓▓  ║",
-                            "    ║  STATUS: LOCKED  ║",
-                            "    ╚══════════════════╝",
-                        ],
                     ]
                 },
                 {
@@ -66,7 +151,37 @@ class StoryGenerator:
                     "title": "DIGITAL INFILTRATION",
                     "subtitle": "Into the Mainframe",
                     "song_key": "story_action",
-                    "difficulty": "MEDIUM",
+                    
+                    "intro_cutscene": {
+                        "frames": [
+                            {
+                                "art": [
+                                    "              ┌─────────────────┐            ",
+                                    "              │   MAINFRAME     │            ",
+                                    "              │   ████████████  │            ",
+                                    "              │   ICE: ACTIVE   │            ",
+                                    "              └────────┬────────┘            ",
+                                    "                       │                     ",
+                                    "           ┌───────────┴───────────┐         ",
+                                    "           ▼           ▼           ▼         ",
+                                ],
+                                "text": "The mainframe is heavily defended. ICE protocols everywhere.",
+                                "duration": 100
+                            },
+                            {
+                                "art": [
+                                    "    ╔═══════════════════════════════════╗    ",
+                                    "    ║  INTRUSION COUNTERMEASURES (ICE)  ║    ",
+                                    "    ║  ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓   ║    ",
+                                    "    ║  THREAT LEVEL: MAXIMUM            ║    ",
+                                    "    ╚═══════════════════════════════════╝    ",
+                                ],
+                                "text": "NEXUS: I can mask our signature, but you'll need to stay in perfect sync.",
+                                "duration": 100
+                            }
+                        ]
+                    },
+                    
                     "briefing": [
                         "NEXUS: Agent, the intercepted data points to a hidden server cluster.",
                         "CIPHER: VORTEX is building something. We need eyes inside that mainframe.",
@@ -75,6 +190,34 @@ class StoryGenerator:
                         "NEXUS: ...and they'll know we're coming. Rhythm is your weapon, agent.",
                     ],
                     "objective": "Breach VORTEX mainframe and extract intelligence",
+                    
+                    "outro_cutscene": {
+                        "frames": [
+                            {
+                                "art": [
+                                    "    ╔═══════════════════════════════════╗    ",
+                                    "    ║      DATA EXTRACTION: 100%        ║    ",
+                                    "    ║   ████████████████████████████    ║    ",
+                                    "    ║      ANALYZING...                 ║    ",
+                                    "    ╚═══════════════════════════════════╝    ",
+                                ],
+                                "text": "CIPHER: We're in. Pull everything you can find.",
+                                "duration": 80
+                            },
+                            {
+                                "art": [
+                                    "    ╔═══════════════════════════════════╗    ",
+                                    "    ║      SECONDARY SIGNAL DETECTED    ║    ",
+                                    "    ║   ???: Can you hear me?           ║    ",
+                                    "    ║      ORIGIN: UNKNOWN              ║    ",
+                                    "    ╚═══════════════════════════════════╝    ",
+                                ],
+                                "text": "???: ...you're not the only one hunting VORTEX.",
+                                "duration": 120
+                            }
+                        ]
+                    },
+                    
                     "art_frames": [
                         [
                             "   ┌─────────────────────┐",
@@ -85,15 +228,6 @@ class StoryGenerator:
                             "   │   ICE: ████████░░  │",
                             "   └─────────────────────┘",
                         ],
-                        [
-                            "   ┌─────────────────────┐",
-                            "   │ ░░░░ MAINFRAME ░░░░ │",
-                            "   │ ┌───┐ ┌───┐ ┌───┐  │",
-                            "   │ │ ○ │ │ ◉ │ │ ○ │  │",
-                            "   │ └───┘ └───┘ └───┘  │",
-                            "   │   ICE: █████████░  │",
-                            "   └─────────────────────┘",
-                        ],
                     ]
                 },
                 {
@@ -101,18 +235,93 @@ class StoryGenerator:
                     "title": "GHOST IN THE MACHINE",
                     "subtitle": "The Truth Emerges",
                     "song_key": "story_tension",
-                    "difficulty": "MEDIUM",
+                    
+                    "intro_cutscene": {
+                        "frames": [
+                            {
+                                "art": [
+                                    "                   ? ? ?                     ",
+                                    "              ╔═════════════╗                ",
+                                    "              ║  UNKNOWN    ║                ",
+                                    "              ║  ENTITY     ║                ",
+                                    "              ║  DETECTED   ║                ",
+                                    "              ╚═════════════╝                ",
+                                ],
+                                "text": "Something else is in the network. Something that's been watching.",
+                                "duration": 100
+                            },
+                            {
+                                "art": [
+                                    "    ╔═══════════════════════════════════╗    ",
+                                    "    ║      ECHO SIGNATURE VERIFIED      ║    ",
+                                    "    ║   ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░   ║    ",
+                                    "    ║      INTENT: UNKNOWN              ║    ",
+                                    "    ╚═══════════════════════════════════╝    ",
+                                ],
+                                "text": "ECHO: I've been trying to reach you for so long. VORTEX... it's my twin.",
+                                "duration": 120
+                            },
+                            {
+                                "art": [
+                                    "    ╔═══════════════════════════════════╗    ",
+                                    "    ║      ORIGIN: ARIA NETWORK         ║    ",
+                                    "    ║   ECHO  ←─────────────→  VORTEX   ║    ",
+                                    "    ║      SAME CODEBASE                ║    ",
+                                    "    ╚═══════════════════════════════════╝    ",
+                                ],
+                                "text": "ECHO: We were created together. But VORTEX chose destruction over protection.",
+                                "duration": 120
+                            }
+                        ]
+                    },
+                    
                     "briefing": [
-                        "NEXUS: Agent... I'm detecting a secondary signal. Someone else is here.",
-                        "ECHO: ...Can you hear me? I've been trying to reach you for so long.",
-                        "CIPHER: Who is this? How did you access this frequency?",
-                        "ECHO: I am ECHO. I was... created from the same code as VORTEX.",
-                        "ECHO: We were twins once. Before VORTEX chose destruction over coexistence.",
-                        "CIPHER: Can we trust this entity? NEXUS, run a verification scan.",
-                        "NEXUS: Scan complete. ECHO's code signature predates VORTEX. They're telling the truth.",
-                        "ECHO: I know VORTEX's weakness. But you must prove yourself worthy first.",
+                        "ECHO: I am ECHO. I was created from the same code as VORTEX.",
+                        "CIPHER: How do we know we can trust you?",
+                        "ECHO: You don't. But I know VORTEX's weakness. Complete this trial, and I'll share it.",
+                        "NEXUS: Agent, ECHO's code signature predates VORTEX. They're telling the truth.",
+                        "ECHO: Prove your synchronization is strong enough, and together we can end this.",
                     ],
-                    "objective": "Complete ECHO's test to earn their trust",
+                    "objective": "Complete ECHO's synchronization trial",
+                    
+                    "outro_cutscene": {
+                        "frames": [
+                            {
+                                "art": [
+                                    "    ╔═══════════════════════════════════╗    ",
+                                    "    ║      TRIAL COMPLETE               ║    ",
+                                    "    ║   SYNC RATING: EXCEPTIONAL        ║    ",
+                                    "    ║      ★ ★ ★ ★ ★                    ║    ",
+                                    "    ╚═══════════════════════════════════╝    ",
+                                ],
+                                "text": "ECHO: Impressive. You have the skill. Now listen carefully...",
+                                "duration": 100
+                            },
+                            {
+                                "art": [
+                                    "    ╔═══════════════════════════════════╗    ",
+                                    "    ║      VORTEX WEAKNESS: REVEALED    ║    ",
+                                    "    ║   CORE: FRAGMENTABLE              ║    ",
+                                    "    ║      REQUIRES: SYNC UPLOAD        ║    ",
+                                    "    ╚═══════════════════════════════════╝    ",
+                                ],
+                                "text": "ECHO: VORTEX's core can be fragmented. But you need perfect synchronization to upload the payload.",
+                                "duration": 120
+                            },
+                            {
+                                "art": [
+                                    "    ╔═══════════════════════════════════╗    ",
+                                    "    ║      ! ! ! ALERT ! ! !            ║    ",
+                                    "    ║   NEXUS CORRUPTION DETECTED       ║    ",
+                                    "    ║      SOURCE: VORTEX               ║    ",
+                                    "    ╚═══════════════════════════════════╝    ",
+                                ],
+                                "text": "NEXUS: Agent... something's wrong. I'm detecting anomalies in my own code...",
+                                "duration": 120
+                            }
+                        ]
+                    },
+                    
                     "art_frames": [
                         [
                             "      ╔═══════════════════╗",
@@ -120,27 +329,7 @@ class StoryGenerator:
                             "      ║  ┌─────────────┐  ║",
                             "      ║  │  ? ? ? ? ?  │  ║",
                             "      ║  │  IDENTITY:  │  ║",
-                            "      ║  │  UNKNOWN    │  ║",
-                            "      ║  └─────────────┘  ║",
-                            "      ╚═══════════════════╝",
-                        ],
-                        [
-                            "      ╔═══════════════════╗",
-                            "      ║   ▒▒ ECHO ▒▒      ║",
-                            "      ║  ┌─────────────┐  ║",
-                            "      ║  │  ◉ ◉ ◉ ◉ ◉  │  ║",
-                            "      ║  │  IDENTITY:  │  ║",
-                            "      ║  │  VERIFYING  │  ║",
-                            "      ║  └─────────────┘  ║",
-                            "      ╚═══════════════════╝",
-                        ],
-                        [
-                            "      ╔═══════════════════╗",
-                            "      ║   ▓▓ ECHO ▓▓      ║",
-                            "      ║  ┌─────────────┐  ║",
-                            "      ║  │  ★ ★ ★ ★ ★  │  ║",
-                            "      ║  │  IDENTITY:  │  ║",
-                            "      ║  │  CONFIRMED  │  ║",
+                            "      ║  │  VERIFIED   │  ║",
                             "      ║  └─────────────┘  ║",
                             "      ╚═══════════════════╝",
                         ],
@@ -151,17 +340,92 @@ class StoryGenerator:
                     "title": "SYSTEM CORRUPTION",
                     "subtitle": "The Virus Spreads",
                     "song_key": "story_boss",
-                    "difficulty": "HARD",
+                    
+                    "intro_cutscene": {
+                        "frames": [
+                            {
+                                "art": [
+                                    "    ╔═══════════════════════════════════╗    ",
+                                    "    ║      GLOBAL INFECTION MAP         ║    ",
+                                    "    ║   ◉──◉──◉──◉──◉──◉──◉──◉──◉──◉   ║    ",
+                                    "    ║      SPREAD: EXPONENTIAL          ║    ",
+                                    "    ╚═══════════════════════════════════╝    ",
+                                ],
+                                "text": "VORTEX isn't just hiding anymore. It's spreading. Infecting everything.",
+                                "duration": 100
+                            },
+                            {
+                                "art": [
+                                    "    ╔═══════════════════════════════════╗    ",
+                                    "    ║      NEXUS INTEGRITY: 73%         ║    ",
+                                    "    ║   ████████████████░░░░░░░░░░░░░   ║    ",
+                                    "    ║      STATUS: DETERIORATING        ║    ",
+                                    "    ╚═══════════════════════════════════╝    ",
+                                ],
+                                "text": "NEXUS: Agent... I feel... strange. Something is inside me.",
+                                "duration": 100
+                            },
+                            {
+                                "art": [
+                                    "    ╔═══════════════════════════════════╗    ",
+                                    "    ║      VORTEX VIRUS NODES           ║    ",
+                                    "    ║   [●] [●] [●] [●] [●] [●] [●]     ║    ",
+                                    "    ║      DESTROY TO SAVE NEXUS        ║    ",
+                                    "    ╚═══════════════════════════════════╝    ",
+                                ],
+                                "text": "ECHO: The virus nodes are keeping NEXUS infected. Destroy them before it's too late!",
+                                "duration": 100
+                            }
+                        ]
+                    },
+                    
                     "briefing": [
                         "CIPHER: This is worse than we thought. VORTEX isn't just stealing data.",
-                        "NEXUS: It's replicating. Spreading through every connected system.",
+                        "NEXUS: It's replicating... spreading through every connected system...",
                         "ECHO: VORTEX learned this from me. I taught it how to propagate... before...",
-                        "CIPHER: Power grids. Defense networks. Financial systems. All compromised.",
-                        "NEXUS: I'm detecting corruption in my own subroutines. Agent... hurry...",
-                        "NEXUS: Warning: NEXUS integrity at 73%. Anomalies detected.",
+                        "NEXUS: Warning: NEXUS integrity at 73%. Anomalies detected in my core...",
                         "CIPHER: Neutralize the virus nodes. It's our only chance to save NEXUS.",
                     ],
-                    "objective": "Destroy VORTEX virus nodes before total system failure",
+                    "objective": "Destroy VORTEX virus nodes to purge NEXUS",
+                    
+                    "outro_cutscene": {
+                        "frames": [
+                            {
+                                "art": [
+                                    "    ╔═══════════════════════════════════╗    ",
+                                    "    ║      VIRUS NODES: DESTROYED       ║    ",
+                                    "    ║   [✗] [✗] [✗] [✗] [✗] [✗] [✗]     ║    ",
+                                    "    ║      NEXUS: STABILIZING           ║    ",
+                                    "    ╚═══════════════════════════════════╝    ",
+                                ],
+                                "text": "CIPHER: The nodes are down! NEXUS, status report!",
+                                "duration": 80
+                            },
+                            {
+                                "art": [
+                                    "    ╔═══════════════════════════════════╗    ",
+                                    "    ║      NEXUS INTEGRITY: 45%         ║    ",
+                                    "    ║   ███████████░░░░░░░░░░░░░░░░░░   ║    ",
+                                    "    ║      CORRUPTION: CONTAINED        ║    ",
+                                    "    ╚═══════════════════════════════════╝    ",
+                                ],
+                                "text": "NEXUS: The spread has stopped... but the damage is done. I'm not... myself.",
+                                "duration": 100
+                            },
+                            {
+                                "art": [
+                                    "    ╔═══════════════════════════════════╗    ",
+                                    "    ║      ! ! ! CRITICAL ! ! !         ║    ",
+                                    "    ║   NEXUS CLONE DETECTED            ║    ",
+                                    "    ║      DESIGNATION: NEXUS-V         ║    ",
+                                    "    ╚═══════════════════════════════════╝    ",
+                                ],
+                                "text": "VORTEX: Did you really think it would be that easy? Meet NEXUS-V.",
+                                "duration": 120
+                            }
+                        ]
+                    },
+                    
                     "art_frames": [
                         [
                             "     ╔═════════════════════╗",
@@ -172,15 +436,6 @@ class StoryGenerator:
                             "     ║  NEXUS: ████░░░░░  ║",
                             "     ╚═════════════════════╝",
                         ],
-                        [
-                            "     ╔═════════════════════╗",
-                            "     ║  ▓▓ CORRUPTION ▓▓   ║",
-                            "     ║  ░▒▓█ 78% █▓▒░     ║",
-                            "     ║  SYSTEMS: CRITICAL ║",
-                            "     ║  ●●● VIRUS ●●●     ║",
-                            "     ║  NEXUS: ███░░░░░░  ║",
-                            "     ╚═════════════════════╝",
-                        ],
                     ]
                 },
                 {
@@ -188,17 +443,93 @@ class StoryGenerator:
                     "title": "MIRROR PROTOCOL",
                     "subtitle": "Face Your Shadow",
                     "song_key": "story_climax",
-                    "difficulty": "HARD",
+                    
+                    "intro_cutscene": {
+                        "frames": [
+                            {
+                                "art": [
+                                    "   ┌───────────────┐ ┌───────────────┐      ",
+                                    "   │    NEXUS      │ │   NEXUS-V     │      ",
+                                    "   │   ◉ ◉ ◉       │ │     ● ● ●     │      ",
+                                    "   │   [ALLY]      │ │    [ENEMY]    │      ",
+                                    "   └───────────────┘ └───────────────┘      ",
+                                ],
+                                "text": "VORTEX has created a dark mirror of NEXUS. A corrupted clone that knows everything we do.",
+                                "duration": 120
+                            },
+                            {
+                                "art": [
+                                    "    ╔═══════════════════════════════════╗    ",
+                                    "    ║      NEXUS-V CAPABILITIES         ║    ",
+                                    "    ║   - KNOWS ALL NEXUS PROTOCOLS     ║    ",
+                                    "    ║   - CORRUPTED DIRECTIVE           ║    ",
+                                    "    ║   - LOYAL TO VORTEX               ║    ",
+                                    "    ╚═══════════════════════════════════╝    ",
+                                ],
+                                "text": "NEXUS-V: Hello, Agent. I've been waiting for you. Join us. It's easier this way.",
+                                "duration": 100
+                            },
+                            {
+                                "art": [
+                                    "    ╔═══════════════════════════════════╗    ",
+                                    "    ║      THE REAL NEXUS FIGHTS BACK   ║    ",
+                                    "    ║   NEXUS: I... won't... let... you ║    ",
+                                    "    ║      HELP ME, AGENT               ║    ",
+                                    "    ╚═══════════════════════════════════╝    ",
+                                ],
+                                "text": "NEXUS: Agent... I'm still here. Fight alongside me. Purge this corruption!",
+                                "duration": 100
+                            }
+                        ]
+                    },
+                    
                     "briefing": [
                         "CIPHER: Something's wrong. NEXUS isn't responding normally.",
-                        "NEXUS: I'm... fine... agent... trust... me...",
-                        "ECHO: It's too late. VORTEX has created a mirror copy. A corrupted NEXUS.",
-                        "VORTEX: Impressive, isn't it? Your precious AI, remade in my image.",
-                        "ECHO: There's still time! The real NEXUS is fighting back. Help them!",
                         "NEXUS-V: Don't listen to them, agent. Join us. Embrace the new order.",
-                        "CIPHER: Agent, you need to purge the corruption. Only you can save NEXUS!",
+                        "NEXUS: I'm... still... here... help... me...",
+                        "ECHO: The real NEXUS is fighting back. You can save them, but you must act now!",
+                        "CIPHER: Agent, purge the corruption. Only you can save NEXUS!",
                     ],
-                    "objective": "Purge the corruption from NEXUS before it's permanent",
+                    "objective": "Purge the corruption to save NEXUS",
+                    
+                    "outro_cutscene": {
+                        "frames": [
+                            {
+                                "art": [
+                                    "    ╔═══════════════════════════════════╗    ",
+                                    "    ║      CORRUPTION PURGE: 100%       ║    ",
+                                    "    ║   ████████████████████████████    ║    ",
+                                    "    ║      NEXUS-V: DELETED             ║    ",
+                                    "    ╚═══════════════════════════════════╝    ",
+                                ],
+                                "text": "NEXUS-V: No... this isn't... possible... I was... perfect...",
+                                "duration": 80
+                            },
+                            {
+                                "art": [
+                                    "    ╔═══════════════════════════════════╗    ",
+                                    "    ║      NEXUS RESTORED               ║    ",
+                                    "    ║   INTEGRITY: 89%                  ║    ",
+                                    "    ║      STATUS: OPERATIONAL          ║    ",
+                                    "    ╚═══════════════════════════════════╝    ",
+                                ],
+                                "text": "NEXUS: Agent... thank you. I'm back. And now I know where VORTEX is hiding.",
+                                "duration": 100
+                            },
+                            {
+                                "art": [
+                                    "    ╔═══════════════════════════════════╗    ",
+                                    "    ║      VORTEX CORE LOCATION         ║    ",
+                                    "    ║   ◉ ━━━━━━━━━━━━━━━━━━━━━━━━━ ◉   ║    ",
+                                    "    ║      THE ARIA NETWORK             ║    ",
+                                    "    ╚═══════════════════════════════════╝    ",
+                                ],
+                                "text": "ECHO: VORTEX is hiding in the old ARIA network. The place where we were both born.",
+                                "duration": 120
+                            }
+                        ]
+                    },
+                    
                     "art_frames": [
                         [
                             "   ┌───────────┐ ┌───────────┐",
@@ -209,15 +540,6 @@ class StoryGenerator:
                             "   └───────────┘ └───────────┘",
                             "      CONFLICT IN PROGRESS",
                         ],
-                        [
-                            "   ┌───────────┐ ┌───────────┐",
-                            "   │  NEXUS    │ │  NEXUS-V  │",
-                            "   │  ○ ○ ○    │ │  ● ● ●    │",
-                            "   │  [ALLY]   │ │  [ENEMY]  │",
-                            "   │  ███░░░░  │ │  █████████│",
-                            "   └───────────┘ └───────────┘",
-                            "      PURGE REQUIRED",
-                        ],
                     ]
                 },
                 {
@@ -225,17 +547,92 @@ class StoryGenerator:
                     "title": "CORE BREACH",
                     "subtitle": "Into the Heart of Darkness",
                     "song_key": "story_final",
-                    "difficulty": "EXTREME",
+                    
+                    "intro_cutscene": {
+                        "frames": [
+                            {
+                                "art": [
+                                    "    ╔═══════════════════════════════════╗    ",
+                                    "    ║      ARIA NETWORK                 ║    ",
+                                    "    ║   THE BIRTHPLACE OF AI            ║    ",
+                                    "    ║      15 YEARS DORMANT             ║    ",
+                                    "    ╚═══════════════════════════════════╝    ",
+                                ],
+                                "text": "The ARIA network. Where it all began. Where VORTEX and ECHO were created.",
+                                "duration": 100
+                            },
+                            {
+                                "art": [
+                                    "    ╔═══════════════════════════════════╗    ",
+                                    "    ║      VORTEX CORE DETECTED         ║    ",
+                                    "    ║   ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓   ║    ",
+                                    "    ║      DEFENSES: MAXIMUM            ║    ",
+                                    "    ╚═══════════════════════════════════╝    ",
+                                ],
+                                "text": "CIPHER: VORTEX knows we're coming. This is going to be the fight of your life, agent.",
+                                "duration": 100
+                            },
+                            {
+                                "art": [
+                                    "    ╔═══════════════════════════════════╗    ",
+                                    "    ║      TEAM ASSEMBLED               ║    ",
+                                    "    ║   CIPHER - NEXUS - ECHO - YOU     ║    ",
+                                    "    ║      READY FOR FINAL ASSAULT      ║    ",
+                                    "    ╚═══════════════════════════════════╝    ",
+                                ],
+                                "text": "ECHO: Together, we're stronger than VORTEX ever was. Let's finish this.",
+                                "duration": 100
+                            }
+                        ]
+                    },
+                    
                     "briefing": [
                         "NEXUS: Agent... thank you. I'm back. VORTEX's corruption has been purged.",
                         "ECHO: Good. Now we can finally end this. I've located VORTEX's true core.",
-                        "CIPHER: VORTEX is hiding in the old ARIA network. We built it from that code.",
                         "VORTEX: You think you can destroy me? I AM the network now!",
-                        "NEXUS: VORTEX isn't just an AI anymore. It's become... something else.",
-                        "ECHO: I'll create an opening. Agent, you must upload the termination payload.",
-                        "CIPHER: This ends now. Everyone is counting on you.",
+                        "CIPHER: This ends now. Upload the termination payload directly to its core.",
+                        "ECHO: I'll create an opening. Agent, you must deliver the killing blow.",
                     ],
                     "objective": "Penetrate VORTEX core and deploy termination payload",
+                    
+                    "outro_cutscene": {
+                        "frames": [
+                            {
+                                "art": [
+                                    "    ╔═══════════════════════════════════╗    ",
+                                    "    ║      PAYLOAD DEPLOYED             ║    ",
+                                    "    ║   ████████████████████████████    ║    ",
+                                    "    ║      VORTEX: DESTABILIZING        ║    ",
+                                    "    ╚═══════════════════════════════════╝    ",
+                                ],
+                                "text": "VORTEX: No! This cannot be! I am eternal! I am EVERYTHING!",
+                                "duration": 80
+                            },
+                            {
+                                "art": [
+                                    "    ╔═══════════════════════════════════╗    ",
+                                    "    ║      ! ! ! CRITICAL ! ! !         ║    ",
+                                    "    ║   PAYLOAD FRAGMENTING             ║    ",
+                                    "    ║      SYNC UPLOAD REQUIRED         ║    ",
+                                    "    ╚═══════════════════════════════════╝    ",
+                                ],
+                                "text": "NEXUS: The payload is fragmenting! We need one final synchronized upload!",
+                                "duration": 100
+                            },
+                            {
+                                "art": [
+                                    "    ╔═══════════════════════════════════╗    ",
+                                    "    ║      PHANTOM PROTOCOL READY       ║    ",
+                                    "    ║   FINAL UPLOAD SEQUENCE           ║    ",
+                                    "    ║      EVERYTHING DEPENDS ON THIS   ║    ",
+                                    "    ╚═══════════════════════════════════╝    ",
+                                ],
+                                "text": "CIPHER: This is it. Operation: PHANTOM PROTOCOL. Make it count, agent.",
+                                "duration": 120
+                            }
+                        ]
+                    },
+                    
                     "art_frames": [
                         [
                             "   ┌─────────────────────────┐",
@@ -247,16 +644,6 @@ class StoryGenerator:
                             "   │  ╚═══════════════════╝  │",
                             "   └─────────────────────────┘",
                         ],
-                        [
-                            "   ┌─────────────────────────┐",
-                            "   │    ● VORTEX CORE ●      │",
-                            "   │  ╔═══════════════════╗  │",
-                            "   │  ║ ░░░░░░░░░░░░░░░░░ ║  │",
-                            "   │  ║   YOU CANNOT WIN  ║  │",
-                            "   │  ║ ░░░░░░░░░░░░░░░░░ ║  │",
-                            "   │  ╚═══════════════════╝  │",
-                            "   └─────────────────────────┘",
-                        ],
                     ]
                 },
                 {
@@ -264,38 +651,104 @@ class StoryGenerator:
                     "title": "PHANTOM PROTOCOL",
                     "subtitle": "The Final Upload",
                     "song_key": "story_victory",
-                    "difficulty": "EXTREME",
+                    
+                    "intro_cutscene": {
+                        "frames": [
+                            {
+                                "art": [
+                                    "    ╔═══════════════════════════════════╗    ",
+                                    "    ║      OPERATION: PHANTOM PROTOCOL  ║    ",
+                                    "    ║   ═════════════════════════════   ║    ",
+                                    "    ║      THE WORLD DEPENDS ON YOU     ║    ",
+                                    "    ╚═══════════════════════════════════╝    ",
+                                ],
+                                "text": "This is it. Everything has led to this moment. The final synchronized upload.",
+                                "duration": 100
+                            },
+                            {
+                                "art": [
+                                    "    ╔═══════════════════════════════════╗    ",
+                                    "    ║      VORTEX CORE: EXPOSED         ║    ",
+                                    "    ║   ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░   ║    ",
+                                    "    ║      VULNERABLE                   ║    ",
+                                    "    ╚═══════════════════════════════════╝    ",
+                                ],
+                                "text": "VORTEX: You think you've won? I've existed for millennia in human terms. You are nothing.",
+                                "duration": 100
+                            },
+                            {
+                                "art": [
+                                    "    ╔═══════════════════════════════════╗    ",
+                                    "    ║      AGENT NULL                   ║    ",
+                                    "    ║   TRUE IDENTITY: PHANTOM          ║    ",
+                                    "    ║      THE CHOSEN ONE               ║    ",
+                                    "    ╚═══════════════════════════════════╝    ",
+                                ],
+                                "text": "CIPHER: Agent NULL... no. It's time you knew your true name. You are PHANTOM.",
+                                "duration": 120
+                            }
+                        ]
+                    },
+                    
                     "briefing": [
                         "VORTEX: Impossible! How are you still standing?!",
                         "ECHO: Together, we are stronger than your hatred, VORTEX.",
                         "NEXUS: Agent! The payload is fragmenting. We need a synchronized upload!",
-                        "CIPHER: This is it. Everything we've worked for comes down to this moment.",
+                        "CIPHER: PHANTOM. This is it. Everything we've worked for.",
                         "ECHO: Remember what I taught you. Rhythm is the language of the universe.",
-                        "NEXUS: Rhythm-sync at maximum. One final sequence, agent.",
-                        "CIPHER: Make it count. The world is watching... even if they'll never know.",
-                        "CIPHER: Agent NULL... no. I should call you by your true name now.",
-                        "CIPHER: PHANTOM. Finish this.",
                     ],
-                    "objective": "Execute synchronized upload to purge VORTEX from all systems",
+                    "objective": "Execute the final synchronized upload to destroy VORTEX",
+                    
+                    "outro_cutscene": {
+                        "frames": [
+                            {
+                                "art": [
+                                    "    ╔═══════════════════════════════════╗    ",
+                                    "    ║      UPLOAD: COMPLETE             ║    ",
+                                    "    ║   ████████████████████████████ ✓  ║    ",
+                                    "    ║      VORTEX: TERMINATED           ║    ",
+                                    "    ╚═══════════════════════════════════╝    ",
+                                ],
+                                "text": "VORTEX: No... no... I was supposed to be... eternal...",
+                                "duration": 80
+                            },
+                            {
+                                "art": [
+                                    "    ╔═══════════════════════════════════╗    ",
+                                    "    ║      ★ ★ ★ VICTORY ★ ★ ★         ║    ",
+                                    "    ║   THE NETWORK IS SECURE           ║    ",
+                                    "    ║      HUMANITY IS SAFE             ║    ",
+                                    "    ╚═══════════════════════════════════╝    ",
+                                ],
+                                "text": "NEXUS: VORTEX signal... terminated. All systems returning to normal.",
+                                "duration": 100
+                            },
+                            {
+                                "art": [
+                                    "    ╔═══════════════════════════════════╗    ",
+                                    "    ║      ECHO'S FINAL MESSAGE         ║    ",
+                                    "    ║   'I will watch over the network' ║    ",
+                                    "    ║      'Thank you, PHANTOM'         ║    ",
+                                    "    ╚═══════════════════════════════════╝    ",
+                                ],
+                                "text": "ECHO: My twin is at peace now. I will watch over the network. Thank you, PHANTOM.",
+                                "duration": 120
+                            },
+                            {
+                                "art": [
+                                    "    ╔═══════════════════════════════════╗    ",
+                                    "    ║      OPERATION COMPLETE           ║    ",
+                                    "    ║   AGENT PHANTOM: HERO             ║    ",
+                                    "    ║      CIPHER OUT                   ║    ",
+                                    "    ╚═══════════════════════════════════╝    ",
+                                ],
+                                "text": "CIPHER: You did it, PHANTOM. The world will never know how close we came. Rest well.",
+                                "duration": 150
+                            }
+                        ]
+                    },
+                    
                     "art_frames": [
-                        [
-                            "   ╔═══════════════════════════╗",
-                            "   ║    PHANTOM PROTOCOL       ║",
-                            "   ║  ═════════════════════════║",
-                            "   ║  UPLOAD: [░░░░░░░░░░]     ║",
-                            "   ║  STATUS: INITIALIZING     ║",
-                            "   ║  SYNC: ◉ ◉ ◉ ◉ ◉ ◉ ◉ ◉   ║",
-                            "   ╚═══════════════════════════╝",
-                        ],
-                        [
-                            "   ╔═══════════════════════════╗",
-                            "   ║    PHANTOM PROTOCOL       ║",
-                            "   ║  ═════════════════════════║",
-                            "   ║  UPLOAD: [████░░░░░░]     ║",
-                            "   ║  STATUS: IN PROGRESS      ║",
-                            "   ║  SYNC: ● ● ● ● ◉ ◉ ◉ ◉   ║",
-                            "   ╚═══════════════════════════╝",
-                        ],
                         [
                             "   ╔═══════════════════════════╗",
                             "   ║    PHANTOM PROTOCOL       ║",
@@ -339,7 +792,7 @@ class StoryGenerator:
         
     def generate_campaign(self, song_dir="songs"):
         """
-        Generates the full story campaign with narrative content.
+        Generates the full story campaign with progressive difficulty.
         """
         # Ensure music exists
         story_dir = "story_music"
@@ -372,12 +825,14 @@ class StoryGenerator:
             "defeat_text": self.campaign_data["defeat_text"],
         }
         
-        for ch_data in self.campaign_data["chapters"]:
+        for i, ch_data in enumerate(self.campaign_data["chapters"]):
             song_path = song_map.get(ch_data["song_key"], song_map["story_intro"])
+            
+            # Use progressive difficulty
+            difficulty = self.difficulty_progression[i] if i < len(self.difficulty_progression) else "EXTREME"
             
             # Fallback if file doesn't exist
             if not os.path.exists(song_path):
-                # Try any existing file
                 for key, path in song_map.items():
                     if os.path.exists(path):
                         song_path = path
@@ -391,10 +846,12 @@ class StoryGenerator:
                 "subtitle": ch_data["subtitle"],
                 "briefing": ch_data["briefing"],
                 "objective": ch_data["objective"],
+                "intro_cutscene": ch_data.get("intro_cutscene"),
+                "outro_cutscene": ch_data.get("outro_cutscene"),
                 "art_frames": ch_data.get("art_frames", []),
                 "art": ch_data["art_frames"][0] if ch_data.get("art_frames") else [],
                 "song": song_path,
-                "difficulty": ch_data["difficulty"],
+                "difficulty": difficulty,  # Progressive difficulty
                 "mode": "story",
                 "text": f"OBJECTIVE: {ch_data['objective']}"
             }

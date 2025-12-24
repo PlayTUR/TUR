@@ -138,11 +138,11 @@ GLOW_GREEN = (0, 255, 100, 50)
 # Difficulty Settings
 DIFFICULTIES = ["EASY", "MEDIUM", "HARD", "EXTREME", "FUCK YOU"]
 DIFF_SETTINGS = {
-    "EASY": {"density": 0.35, "speed": 400},
-    "MEDIUM": {"density": 0.6, "speed": 600},
-    "HARD": {"density": 0.85, "speed": 850},
-    "EXTREME": {"density": 1.0, "speed": 1100},
-    "FUCK YOU": {"density": 1.0, "speed": 1500}
+    "EASY": {"density": 0.5, "speed": 400},
+    "MEDIUM": {"density": 0.75, "speed": 600},
+    "HARD": {"density": 1.0, "speed": 850},
+    "EXTREME": {"density": 1.2, "speed": 1100},
+    "FUCK YOU": {"density": 1.5, "speed": 1500}
 }
 
 # Editor / Map Events
