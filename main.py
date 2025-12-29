@@ -272,8 +272,26 @@ class Game:
             
             pygame.display.flip()
             
+        # Cleanup on exit
+        self._cleanup()
         pygame.quit()
         sys.exit()
+    
+    def _cleanup(self):
+        """Cleanup resources on exit"""
+        # Stop playit tunnel if running
+        if hasattr(self, 'playit_manager') and self.playit_manager:
+            try:
+                self.playit_manager.stop()
+            except:
+                pass
+        
+        # Close network
+        if hasattr(self, 'network') and self.network:
+            try:
+                self.network.close()
+            except:
+                pass
 
     def trigger_reboot(self):
         # Starts exit sequence

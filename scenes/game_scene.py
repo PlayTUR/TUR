@@ -230,16 +230,44 @@ class GameScene(Scene):
 
     def handle_input(self, event):
         if event.type == pygame.KEYDOWN:
+            # Handle pause menu input when paused
+            if self.paused:
+                if event.key == pygame.K_UP:
+                    self.pause_selection = (self.pause_selection - 1) % len(self.pause_menu)
+                elif event.key == pygame.K_DOWN:
+                    self.pause_selection = (self.pause_selection + 1) % len(self.pause_menu)
+                elif event.key == pygame.K_RETURN or event.key == pygame.K_SPACE:
+                    selected = self.pause_menu[self.pause_selection]
+                    if selected == "RESUME":
+                        self.toggle_pause()
+                    elif selected == "RESTART":
+                        params = {
+                            'song': self.song_name,
+                            'difficulty': self.difficulty,
+                            'mode': self.mode
+                        }
+                        self.game.audio.stop()
+                        from scenes.game_scene import GameScene
+                        self.game.scene_manager.switch_to(GameScene, params)
+                        return
+                    elif selected == "QUIT TO MENU":
+                        from scenes.menu_scenes import SongSelectScene
+                        self.game.scene_manager.switch_to(SongSelectScene)
+                        return
+                elif event.key == pygame.K_ESCAPE:
+                    # ESC while paused also quits
+                    from scenes.menu_scenes import SongSelectScene
+                    self.game.scene_manager.switch_to(SongSelectScene)
+                    return
+                return  # Don't process other input while paused
+            
+            # Normal gameplay input
             if event.key == pygame.K_ESCAPE:
                 if self.audio_missing:
                     from scenes.menu_scenes import SongSelectScene
                     self.game.scene_manager.switch_to(SongSelectScene)
                     return
-                if self.paused:
-                    from scenes.menu_scenes import SongSelectScene
-                    self.game.scene_manager.switch_to(SongSelectScene)
-                else:
-                    self.toggle_pause()
+                self.toggle_pause()
             elif event.key == pygame.K_SPACE or event.key == pygame.K_p:
                 self.toggle_pause()
             elif event.key == pygame.K_r:
@@ -258,7 +286,7 @@ class GameScene(Scene):
                 self.change_volume(-0.1)
             else:
                 # Block note hits for spectators
-                if not self.paused and not getattr(self, 'is_spectator', False):
+                if not getattr(self, 'is_spectator', False):
                     self.handle_hit(event.key)
         elif event.type == pygame.KEYUP:
             if not self.paused and not getattr(self, 'is_spectator', False):
@@ -268,6 +296,8 @@ class GameScene(Scene):
         self.paused = not self.paused
         if self.paused:
             self.game.audio.pause()
+            self.pause_selection = 0  # Reset selection
+            self.pause_menu = ["RESUME", "RESTART", "QUIT TO MENU"]
         else:
             self.game.audio.unpause()
 
@@ -459,9 +489,34 @@ class GameScene(Scene):
             return
              
         if self.paused:
-            self.game.renderer.draw_text(surface, "PAUSED", 450, 300, TERM_RED)
-            self.game.renderer.draw_text(surface, "PRESS SPACE TO RESUME", 380, 350, TERM_WHITE)
-            self.game.renderer.draw_text(surface, "PRESS ESC TO QUIT", 400, 400, TERM_WHITE)
+            # Dim background
+            overlay = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT))
+            overlay.fill((0, 0, 0))
+            overlay.set_alpha(180)
+            surface.blit(overlay, (0, 0))
+            
+            # Draw pause menu panel
+            r = self.game.renderer
+            theme = r.get_theme()
+            center_x = SCREEN_WIDTH // 2
+            panel_w = 300
+            panel_h = 220
+            panel_x = center_x - panel_w // 2
+            panel_y = 250
+            
+            r.draw_panel(surface, panel_x, panel_y, panel_w, panel_h, "PAUSED")
+            
+            # Menu items
+            y = panel_y + 60
+            for i, item in enumerate(self.pause_menu):
+                selected = (i == self.pause_selection)
+                color = theme["primary"] if selected else (100, 100, 100)
+                prefix = "▶ " if selected else "  "
+                r.draw_text(surface, f"{prefix}{item}", panel_x + 50, y, color)
+                y += 45
+            
+            # Help text
+            r.draw_text(surface, "[↑/↓] Navigate  [ENTER] Select", center_x - 130, panel_y + panel_h + 20, (80, 80, 80))
             return
 
         if self.failed:

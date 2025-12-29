@@ -1,9 +1,8 @@
 """
 Network Manager for TUR Multiplayer
-Room codes, UDP hole punching, song transfer.
+Room codes, song transfer, LAN discovery.
 Features:
 - Room code system (encoded IP:port)
-- UDP hole punching for NAT traversal
 - Song file transfer
 - Synchronized game start
 """
@@ -16,7 +15,18 @@ import hashlib
 import base64
 import os
 import struct
-from core.stun_client import discover_external_address, get_local_ip
+
+
+def get_local_ip():
+    """Get local IP address"""
+    try:
+        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        s.connect(("8.8.8.8", 80))
+        ip = s.getsockname()[0]
+        s.close()
+        return ip
+    except:
+        return "127.0.0.1"
 
 
 class NetworkManager:
@@ -141,32 +151,14 @@ class NetworkManager:
     
     def _host_thread(self):
         try:
-            # Step 1: Discover external address via STUN (with retry)
-            self.status_message = "Discovering external address..."
-            ip, port, sock = None, None, None
+            # Get local IP for room code
+            self.status_message = "Setting up server..."
+            self.external_ip = get_local_ip()
+            self.external_port = self.port
+            self.generate_room_code()
+            self.status_message = f"Room Code: {self.room_code}"
             
-            # Retry STUN up to 3 times
-            for attempt in range(3):
-                try:
-                    self.status_message = f"STUN attempt {attempt + 1}/3..."
-                    ip, port, sock = discover_external_address()
-                    if ip:
-                        break
-                except Exception as e:
-                    print(f"STUN attempt {attempt + 1} failed: {e}")
-                    time.sleep(0.5)
-            
-            if ip:
-                self.external_ip = ip
-                self.external_port = port
-                self.udp_socket = sock
-                self.generate_room_code()
-                self.status_message = f"Room Code: {self.room_code}"
-            else:
-                self.status_message = "STUN failed - LAN only mode"
-                self.room_code = "LAN-ONLY"
-            
-            # Step 2: Set up TCP listener
+            # Set up TCP listener
             self.tcp_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             self.tcp_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
             self.tcp_socket.settimeout(1.0)

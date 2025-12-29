@@ -14,16 +14,15 @@ class LobbyScene(Scene):
         super().__init__(game)
         self.state = "MENU"
         
-        # Navigation
+        # Navigation - main menu items
         self.menu_index = 0
-        self.menu_items = ["HOST (LAN)", "JOIN (LAN)", "HOST (NGROK)", "JOIN (NGROK)", "SPECTATE", "BACK"]
+        self.menu_items = ["LAN", "DIRECT CONNECT", "ONLINE", "BACK"]
         
-        # Input
+        # Input buffers
         self.code_buffer = ""
         self.ip_buffer = ""
         self.password_buffer = ""
         self.room_name_buffer = "TUR ROOM"
-        self.ngrok_token_buffer = ""
         self.input_focus = 0
         
         # Server browser
@@ -44,20 +43,13 @@ class LobbyScene(Scene):
             self.has_clipboard = True
         except:
             self.has_clipboard = False
-
-        # Navigation
-        self.menu_index = 0
-        self.menu_items = ["LAN", "DIRECT CONNECT", "ONLINE", "BACK"]
         
         # Mode Selection Overlay
-        self.selected_mode = None # "LAN" or "NGROK"
+        self.selected_mode = None  # "LAN", "DIRECT", "ONLINE"
         self.mode_menu_index = 0
         self.mode_menu_items = []
         
-        # Input
-        self.code_buffer = ""
-        self.ip_buffer = ""
-        self.spectate_mode = False
+        # Reset network state
         self.game.network.reset()
         
     def update(self):
@@ -89,20 +81,20 @@ class LobbyScene(Scene):
         if self.state == "MENU":
             self._draw_menu(surface, r, theme)
         elif self.state == "MODE_SELECT":
-            self._draw_menu(surface, r, theme) # Draw background menu
-            self._draw_mode_select(surface, r, theme) # Draw overlay
+            self._draw_menu(surface, r, theme)  # Draw background menu
+            self._draw_mode_select(surface, r, theme)  # Draw overlay
         elif self.state == "HOST_SETUP":
             self._draw_host_setup(surface, r, theme)
         elif self.state == "HOSTING":
             self._draw_hosting(surface, r, theme)
         elif self.state == "LAN_JOIN":
             self._draw_lan_join(surface, r, theme)
-        elif self.state == "TOKEN_OVERLAY":
-            self._draw_token_overlay(surface, r, theme)
-        elif self.state == "NGROK_JOIN":
-            self._draw_ngrok_join(surface, r, theme)
         elif self.state == "DIRECT_JOIN":
             self._draw_direct_join(surface, r, theme)
+        elif self.state == "PLAYIT_HOSTING":
+            self._draw_playit_hosting(surface, r, theme)
+        elif self.state == "PLAYIT_JOIN":
+            self._draw_playit_join(surface, r, theme)
         elif self.state == "JOINING":
             self._draw_joining(surface, r, theme)
         elif self.state == "CLIENT_LOBBY":
@@ -154,26 +146,13 @@ class LobbyScene(Scene):
         r.draw_text(surface, "[↑/↓] Navigate  [ENTER] Select  [ESC] Back", 100, 550, (80, 80, 80))
     
     def _check_nat_type(self):
-        """Check NAT type in background"""
-        if hasattr(self, '_nat_checking'):
-            return
-        self._nat_checking = True
-        
-        import threading
-        def check():
-            try:
-                from core.stun_client import get_nat_status_display
-                self.nat_status = get_nat_status_display()
-            except Exception as e:
-                self.nat_status = (f"NAT check failed: {e}", (255, 100, 100))
-            self._nat_checking = False
-        
-        threading.Thread(target=check, daemon=True).start()
+        """NAT check - no longer uses STUN"""
+        # STUN was removed - this is now a no-op
+        self.nat_status = ("Local network", (150, 150, 150))
 
     def _draw_host_setup(self, surface, r, theme):
         """Host setup screen"""
-        title = "ONLINE_SETUP" if getattr(self, 'use_ngrok', False) else "HOST_SETUP"
-        r.draw_panel(surface, 150, 150, 700, 250, title)
+        r.draw_panel(surface, 150, 150, 700, 250, "HOST_SETUP")
         
         y = 180
         r.draw_input_field(surface, "ROOM NAME:", self.room_name_buffer, 180, y, 500, self.input_focus == 0)
@@ -254,51 +233,6 @@ class LobbyScene(Scene):
                 y += 40
         
         r.draw_text(surface, "[↑/↓] Select  [ENTER] Join  [R] Refresh  [ESC] Back", 200, 560, (80, 80, 80))
-
-    def _draw_token_overlay(self, surface, r, theme):
-        """Overlay for first-time token setup"""
-        # Draw background context (Menu + Mode Select)
-        self._draw_menu(surface, r, theme)
-        self._draw_mode_select(surface, r, theme)
-        
-        # Dimming
-        dim = pygame.Surface(surface.get_size(), pygame.SRCALPHA)
-        dim.fill((0, 0, 0, 220))
-        surface.blit(dim, (0, 0))
-        
-        r.draw_panel(surface, 200, 220, 600, 250, "ONLINE_SETUP")
-        
-        r.draw_text(surface, "To host online, you need a free ngrok Authtoken.", 250, 260, theme["secondary"])
-        r.draw_text(surface, "Only needed once! Get it at dashboard.ngrok.com", 260, 285, (150, 150, 150))
-        
-        r.draw_input_field(surface, "AUTHTOKEN:", self.ngrok_token_buffer, 250, 330, 500, True)
-        
-        r.draw_button(surface, "SAVE & CONTINUE", 350, 410, True, 250)
-        r.draw_text(surface, "[CTRL+V] Paste  [ENTER] Save  [ESC] Cancel", 280, 550, (100, 100, 100))
-
-    def _draw_ngrok_join(self, surface, r, theme):
-        """Join NGROK room by code"""
-        title = "SPECTATE" if getattr(self, 'spectate_mode', False) else "JOIN_NGROK_ROOM"
-        r.draw_panel(surface, 200, 180, 600, 280, title)
-        
-        if getattr(self, 'spectate_mode', False):
-            r.draw_text(surface, "Enter room code to spectate:", 270, 220, theme["secondary"])
-        else:
-            r.draw_text(surface, "Enter the NGROK room code:", 260, 220, theme["text"])
-        
-        # Room code input
-        display = self.code_buffer.upper() + ("_" if self.blink_timer < 30 else " ")
-        pygame.draw.rect(surface, (20, 20, 20), (280, 260, 400, 60))
-        pygame.draw.rect(surface, theme["primary"], (280, 260, 400, 60), 2)
-        r.draw_text(surface, display, 300, 280, theme["primary"], r.big_font)
-        
-        r.draw_text(surface, "Format: 812345 or REGION-CODE", 340, 340, (100, 100, 100))
-        
-        btn_text = "SPECTATE" if getattr(self, 'spectate_mode', False) else "JOIN"
-        r.draw_button(surface, btn_text, 370, 380, True, 200)
-        r.draw_text(surface, "[ENTER] Connect  [ESC] Back", 330, 480, (80, 80, 80))
-
-
 
     def _draw_joining(self, surface, r, theme):
         """Connecting animation"""
@@ -408,10 +342,10 @@ class LobbyScene(Scene):
             self._handle_lan_join(key, event)
         elif self.state == "DIRECT_JOIN":
             self._handle_direct_join(key, event)
-        elif self.state == "TOKEN_OVERLAY":
-            self._handle_token_overlay(key, event)
-        elif self.state == "NGROK_JOIN":
-            self._handle_ngrok_join(key, event)
+        elif self.state == "PLAYIT_HOSTING":
+            self._handle_playit_hosting(key)
+        elif self.state == "PLAYIT_JOIN":
+            self._handle_playit_join(key, event)
         elif self.state == "JOINING":
             pass
         elif self.state == "CLIENT_LOBBY":
@@ -496,7 +430,7 @@ class LobbyScene(Scene):
                 self.mode_menu_index = 0
                 self.state = "MODE_SELECT"
             elif item == "ONLINE":
-                self.selected_mode = "NGROK"
+                self.selected_mode = "ONLINE"
                 self.mode_menu_items = ["HOST GAME", "JOIN GAME", "SPECTATE", "BACK"]
                 self.mode_menu_index = 0
                 self.state = "MODE_SELECT"
@@ -522,7 +456,6 @@ class LobbyScene(Scene):
 
             # Dispatch based on Mode + Item
             if self.selected_mode == "LAN":
-                self.use_ngrok = False
                 if item == "HOST GAME":
                     self.state = "HOST_SETUP"
                     self.input_focus = 0
@@ -531,7 +464,6 @@ class LobbyScene(Scene):
                     self._refresh_servers()
             
             elif self.selected_mode == "DIRECT":
-                self.use_ngrok = False
                 if item == "HOST GAME":
                     self.state = "HOST_SETUP"
                     self.input_focus = 0
@@ -539,37 +471,32 @@ class LobbyScene(Scene):
                     self.state = "DIRECT_JOIN"
                     self.input_focus = 0
             
-            elif self.selected_mode == "NGROK":
-                self.use_ngrok = True
+            elif self.selected_mode == "ONLINE":
+                # Use Playit for online hosting
                 if item == "HOST GAME":
-                    # Check token logic
-                    has_token = False
-                    try:
-                        from core.room_connect import RoomConnect
-                        if not hasattr(self.game, 'room_connect'):
-                            self.game.room_connect = RoomConnect()
-                        if self.game.room_connect.ngrok_token:
-                            has_token = True
-                    except: pass
+                    # Initialize playit manager if needed
+                    if not hasattr(self.game, 'playit_manager'):
+                        from core.playit_manager import PlayitManager
+                        self.game.playit_manager = PlayitManager()
                     
-                    if has_token:
-                        self.state = "HOST_SETUP"
-                        self.input_focus = 0
-                    else:
-                        self.state = "TOKEN_OVERLAY"
-                        self.ngrok_token_buffer = ""
-                        self.input_focus = 0
-                
+                    # Start LAN server in background for the tunnel to connect to
+                    room_name = self.room_name_buffer or "TUR Room"
+                    self.game.network.host_game(room_name, "")
+                    
+                    # Start playit tunnel
+                    self.game.playit_manager.start_tunnel(self.game.network.port)
+                    self.state = "PLAYIT_HOSTING"
+                    
                 elif item == "JOIN GAME":
-                     self.state = "NGROK_JOIN"
-                     self.input_focus = 0
-                     self.spectate_mode = False
-                
+                    self.code_buffer = ""
+                    self.state = "PLAYIT_JOIN"
+                    self.input_focus = 0
+                    
                 elif item == "SPECTATE":
-                     self.state = "NGROK_JOIN"
-                     self.input_focus = 0
-                     self.spectate_mode = True 
-                     # Note: _draw_ngrok_join handles spectate label if sethandle_back()
+                    self.spectate_mode = True
+                    self.code_buffer = ""
+                    self.state = "PLAYIT_JOIN"
+                    self.input_focus = 0
 
     def _handle_host_setup(self, key, event):
         ctrl = (pygame.key.get_mods() & pygame.KMOD_CTRL)
@@ -591,31 +518,9 @@ class LobbyScene(Scene):
             room_name = self.room_name_buffer or "TUR Room"
             password = self.password_buffer
             
-            # Branch: NGROK vs LAN
-            if getattr(self, 'use_ngrok', False):
-                try:
-                    if not hasattr(self.game, 'room_connect'):
-                        from core.room_connect import RoomConnect
-                        self.game.room_connect = RoomConnect()
-                    
-                    # Ensure token is loaded
-                    if not self.game.room_connect.ngrok_token:
-                         self.game.room_connect._load_token()
-                         
-                    room_code = self.game.room_connect.host_game(room_name) # NGROK
-                    if room_code:
-                        self.game.network.room_code = room_code
-                        self.game.network.is_host = True
-                        self.game.network.use_room_connect(self.game.room_connect)
-                        self.state = "HOSTING"
-                    else:
-                        self.game.network.error_message = "Online host failed. Check token."
-                except Exception as e:
-                     self.game.network.error_message = str(e)
-            else:
-                # LAN / DIRECT
-                self.game.network.host_game(room_name, password)
-                self.state = "HOSTING"
+            # LAN / DIRECT hosting
+            self.game.network.host_game(room_name, password)
+            self.state = "HOSTING"
                 
         elif key == pygame.K_BACKSPACE:
             if self.input_focus == 0:
@@ -705,61 +610,147 @@ class LobbyScene(Scene):
                     
         return ""
 
-    def _handle_token_overlay(self, key, event):
+    def _draw_playit_hosting(self, surface, r, theme):
+        """Draw playit hosting UI"""
+        center_x = 512  # SCREEN_WIDTH // 2
+        
+        playit = getattr(self.game, 'playit_manager', None)
+        claim_code = playit.claim_code if playit else None
+        tunnel_addr = playit.get_tunnel_address() if playit else None
+        
+        # Downloading state
+        if playit and playit.status_message and "Download" in playit.status_message:
+            r.draw_panel(surface, center_x - 200, 280, 400, 100, "SETTING_UP")
+            r.draw_text(surface, playit.status_message, center_x - 80, 320, theme["primary"])
+            return
+            
+        # Starting / connecting state
+        if not claim_code and not tunnel_addr:
+            r.draw_panel(surface, center_x - 200, 280, 400, 100, "CONNECTING")
+            dots = "." * ((self.blink_timer // 10) % 4)
+            r.draw_text(surface, f"Starting tunnel{dots}", center_x - 80, 320, theme["primary"])
+            if playit and playit.status_message:
+                r.draw_text(surface, playit.status_message[:50], center_x - 100, 350, (150, 150, 150))
+            return
+            
+        # First-time setup - show claim code
+        if claim_code and not tunnel_addr:
+            big_panel_x = center_x - 350
+            r.draw_panel(surface, big_panel_x, 120, 700, 350, "FIRST_TIME_SETUP")
+            
+            # Store claim URL for copying
+            self._claim_url = f"https://playit.gg/claim/{claim_code}"
+            
+            r.draw_text(surface, "One-time setup required", center_x - 140, 150, theme["primary"], r.big_font)
+            
+            r.draw_text(surface, "1. Go to this link:", big_panel_x + 50, 200, theme["text"])
+            url_text = f"playit.gg/claim/{claim_code}"
+            pygame.draw.rect(surface, (20, 30, 20), (big_panel_x + 50, 230, 600, 45))
+            pygame.draw.rect(surface, (100, 255, 100), (big_panel_x + 50, 230, 600, 45), 2)
+            r.draw_text(surface, url_text, big_panel_x + 70, 242, (100, 255, 100), r.big_font)
+            
+            r.draw_text(surface, "2. Create a FREE account (no credit card needed)", big_panel_x + 50, 295, theme["text"])
+            r.draw_text(surface, "3. Done! Connection starts automatically", big_panel_x + 50, 330, theme["text"])
+            
+            blink = "●" if self.blink_timer < 30 else "○"
+            r.draw_text(surface, f"Waiting for setup... {blink}", center_x - 100, 380, (150, 150, 150))
+            r.draw_text(surface, "[O] Open in Browser", center_x - 80, 420, (80, 180, 80))
+            return
+            
+        # Tunnel is ready - show room code
+        if tunnel_addr:
+            short_code = self._get_short_code(tunnel_addr)
+            
+            r.draw_panel(surface, center_x - 250, 150, 500, 200, "YOUR_ROOM_CODE")
+            r.draw_text(surface, short_code, center_x - len(short_code) * 12, 200, theme["primary"], r.big_font)
+            r.draw_text(surface, "Share this code with friends!", center_x - 110, 260, (150, 150, 150))
+            r.draw_text(surface, f"Full address: {tunnel_addr}", center_x - 150, 300, (80, 80, 80))
+            
+            if self.game.network.connected:
+                r.draw_text(surface, "● Player Connected!", center_x - 80, 380, (100, 255, 100))
+                r.draw_text(surface, "[ENTER] Start Game", center_x - 80, 420, theme["primary"])
+            else:
+                blink = "●" if self.blink_timer < 30 else "○"
+                r.draw_text(surface, f"Waiting for player... {blink}", center_x - 100, 380, (150, 150, 150))
+
+    def _get_short_code(self, tunnel_addr):
+        """Extract short code from tunnel address"""
+        # tunnel_addr format: abc123.at.playit.gg:12345
+        if ".at.playit.gg:" in tunnel_addr:
+            parts = tunnel_addr.split(".at.playit.gg:")
+            short = parts[0].upper()
+            port = parts[1]
+            return f"{short}:{port}"
+        return tunnel_addr
+
+    def _draw_playit_join(self, surface, r, theme):
+        """Draw playit join UI"""
+        center_x = 512
+        title = "SPECTATE" if getattr(self, 'spectate_mode', False) else "JOIN_ONLINE"
+        r.draw_panel(surface, center_x - 300, 180, 600, 280, title)
+        
+        r.draw_text(surface, "Enter room code:", center_x - 70, 220, theme["text"])
+        
+        display = self.code_buffer.upper() + ("_" if self.blink_timer < 30 else " ")
+        pygame.draw.rect(surface, (20, 20, 20), (center_x - 200, 260, 400, 60))
+        pygame.draw.rect(surface, theme["primary"], (center_x - 200, 260, 400, 60), 2)
+        r.draw_text(surface, display, center_x - 180, 280, theme["primary"], r.big_font)
+        
+        r.draw_text(surface, "Format: ABC123:12345", center_x - 80, 340, (100, 100, 100))
+        
+        btn_text = "SPECTATE" if getattr(self, 'spectate_mode', False) else "JOIN"
+        r.draw_button(surface, btn_text, center_x - 75, 380, True, 150)
+        r.draw_text(surface, "[ENTER] Connect  [CTRL+V] Paste  [ESC] Back", center_x - 170, 450, (80, 80, 80))
+
+    def _handle_playit_hosting(self, key):
+        """Handle input while hosting via playit"""
+        if key == pygame.K_RETURN and self.game.network.connected:
+            self.play_sfx("accept")
+            from scenes.menu_scenes import SongSelectScene
+            self.game.scene_manager.switch_to(SongSelectScene, {'mode': 'multiplayer'})
+        
+        elif key == pygame.K_o:
+            if hasattr(self, '_claim_url'):
+                import webbrowser
+                webbrowser.open(self._claim_url)
+                self.play_sfx("blip")
+
+    def _handle_playit_join(self, key, event):
+        """Handle playit join input"""
         ctrl = (pygame.key.get_mods() & pygame.KMOD_CTRL)
         
         if key == pygame.K_v and ctrl:
             text = self._get_clipboard()
             if text:
-                self.ngrok_token_buffer += text
-                
+                self.code_buffer += text.strip()
         elif key == pygame.K_RETURN:
-            if self.ngrok_token_buffer:
-                self.play_sfx("accept")
-                try:
-                    from core.room_connect import RoomConnect
-                    if not hasattr(self.game, 'room_connect'):
-                         self.game.room_connect = RoomConnect()
-                    self.game.room_connect.set_token(self.ngrok_token_buffer)
-                    # Proceed to Host Setup
-                    self.state = "HOST_SETUP"
-                    self.input_focus = 0
-                except:
-                    pass
-
-        elif key == pygame.K_BACKSPACE:
-            self.ngrok_token_buffer = self.ngrok_token_buffer[:-1]
-            
-        elif event.unicode.isprintable() and not ctrl and len(self.ngrok_token_buffer) < 100:
-             self.ngrok_token_buffer += event.unicode
-        
-        elif key == pygame.K_ESCAPE:
-            self.state = "MODE_SELECT"
-
-    def _handle_ngrok_join(self, key, event):
-        """Handle NGROK room code input"""
-        if key == pygame.K_RETURN:
             if self.code_buffer:
                 self.play_sfx("accept")
-                try:
-                    from core.room_connect import RoomConnect
-                    if not hasattr(self.game, 'room_connect'):
-                        self.game.room_connect = RoomConnect()
-                    
-                    if self.game.room_connect.join_game(self.code_buffer):
-                        self.game.network.connected = True
-                        self.game.network.use_room_connect(self.game.room_connect)
+                code = self.code_buffer.strip()
+                
+                # Expand short code to full address if needed
+                # Short format: ABC123:12345 -> abc123.at.playit.gg:12345
+                if ":" in code and "playit" not in code.lower():
+                    parts = code.rsplit(":", 1)
+                    short = parts[0].lower()
+                    port = parts[1]
+                    code = f"{short}.at.playit.gg:{port}"
+                
+                # Parse host:port format
+                if ":" in code:
+                    host, port_str = code.rsplit(":", 1)
+                    try:
+                        port = int(port_str)
+                        self.game.network.join_game(host, port)
                         self.game.network.is_spectator = getattr(self, 'spectate_mode', False)
-                        self.state = "CLIENT_LOBBY"
-                    else:
-                        self.game.network.error_message = self.game.room_connect.error_message or "Failed to join"
-                except ImportError:
-                    self.game.network.error_message = "RoomConnect not available"
-                except Exception as e:
-                    self.game.network.error_message = str(e)
+                        self.state = "JOINING"
+                    except ValueError:
+                        self.game.network.error_message = "Invalid port number"
+                else:
+                    self.game.network.error_message = "Format: CODE:PORT"
         elif key == pygame.K_BACKSPACE:
             self.code_buffer = self.code_buffer[:-1]
-        elif (event.unicode.isprintable()) and len(self.code_buffer) < 60:
+        elif event.unicode.isprintable() and len(self.code_buffer) < 40:
             self.code_buffer += event.unicode
 
     def _handle_client_lobby(self, key):

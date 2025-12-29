@@ -21,16 +21,16 @@
     "audio_offset": 0,
     "note_shape": "BAR",
     "note_col_1": [
-        255,
-        150,
+        100,
+        200,
         50
     ],
     "note_col_2": [
-        255,
-        80,
-        100
+        200,
+        150,
+        50
     ],
-    "theme": "SUNSET",
+    "theme": "FOREST",
     "setup_complete": true,
     "joy_binds": [
         0,
