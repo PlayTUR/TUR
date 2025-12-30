@@ -1,12 +1,15 @@
 import time
+
 try:
     from pypresence import Presence
     PYPRESENCE_AVAILABLE = True
 except ImportError:
     PYPRESENCE_AVAILABLE = False
 
-# Placeholder Client ID - User should replace this with their own app ID from Discord Developer Portal
-CLIENT_ID = "1453128602110529678" 
+# TUR Discord Application Client ID
+# This is the registered Discord application that shows "Playing TUR" for all players
+DEFAULT_CLIENT_ID = "1453128602110529678"
+
 
 class DiscordRPCManager:
     def __init__(self, game):
@@ -16,11 +19,8 @@ class DiscordRPCManager:
         self.start_time = int(time.time())
         self.last_update = 0
         
-        # Get ID from settings or use placeholder
-        client_id = self.game.settings.get("discord_client_id")
-        # If settings has the default placeholder, use our internal app ID
-        if client_id == "123456789012345678":
-            client_id = CLIENT_ID
+        # Get ID from settings (settings_manager ensures this is always valid)
+        client_id = self.game.settings.get("discord_client_id") or DEFAULT_CLIENT_ID
         
         if PYPRESENCE_AVAILABLE:
             import threading
@@ -42,8 +42,7 @@ class DiscordRPCManager:
         if not self.connected:
             return
             
-        # Rate limit updates (15 sec rule is strict in pypresence/discord docs, 
-        # but pypresence handles some of it. We'll limit to once per 15s to be safe if spamming)
+        # Rate limit updates (Discord requires 15 second minimum between updates)
         if time.time() - self.last_update < 15:
             return
 
@@ -58,7 +57,7 @@ class DiscordRPCManager:
             self.last_update = time.time()
         except Exception as e:
             print(f"RPC Update Failed: {e}")
-            self.connected = False # Disable on error to prevent spamming logs
+            self.connected = False
             
     def close(self):
         if self.connected and self.rpc:

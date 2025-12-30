@@ -38,6 +38,10 @@ class TitleScene(Scene):
         self.show_exit_confirm = False
         self.show_donate_confirm = False
         
+        # Update notification
+        self.update_available = False
+        self.update_checked = False
+        
         # Auto-convert counter
         self.converting = False
         self.convert_count = 0
@@ -54,6 +58,11 @@ class TitleScene(Scene):
 
         if not pygame.mixer.music.get_busy():
             self.game.play_menu_bgm()
+        
+        # Check for updates in background (once per session)
+        if not self.update_checked:
+            self.update_checked = True
+            self._check_for_updates()
         
         # Auto-convert MP3s to TUR on title screen entry
         self._start_auto_convert()
@@ -82,6 +91,22 @@ class TitleScene(Scene):
                 except: pass
         
         threading.Thread(target=convert_thread, daemon=True).start()
+
+    def _check_for_updates(self):
+        """Check for game updates in background"""
+        def update_callback(available):
+            self.update_available = available
+            if available:
+                print("[Updater] New version available!")
+        
+        try:
+            from core.updater import get_updater
+            # Get update source from settings (default to github)
+            source = self.game.settings.get("update_source") or "github"
+            updater = get_updater(source)
+            updater.check_for_updates_async(callback=update_callback)
+        except Exception as e:
+            print(f"Update check error: {e}")
 
     def draw(self, surface):
         theme = self.game.renderer.get_theme()
@@ -187,11 +212,25 @@ class TitleScene(Scene):
             # Special color for Support
             if item == "SUPPORT":
                 color = (255, 200, 0) if i == self.selected_index else (200, 150, 0)
+            
+            # Flashing effect for SYSTEM UPDATE when update available
+            if item == "SYSTEM UPDATE" and self.update_available:
+                # Pulse between bright green and normal
+                pulse = (pygame.time.get_ticks() // 300) % 2
+                if pulse == 0:
+                    color = (50, 255, 50)  # Bright green flash
+                else:
+                    color = (0, 200, 100) if i == self.selected_index else (0, 150, 80)
                 
             prefix = " > " if i == self.selected_index else "   "
             
             # Translate item
             display_item = get_text(self.game, item)
+            
+            # Add NEW badge for update available
+            if item == "SYSTEM UPDATE" and self.update_available:
+                display_item += " [NEW!]"
+            
             txt = f"{prefix}{display_item}"
             x = menu_x + 40
             # Use normal font instead of big_font for smaller look
@@ -764,7 +803,7 @@ class SettingsScene(Scene):
         self.all_items = {
             "AUDIO": ["VOLUME", "MUSIC_VOLUME", "SFX_VOLUME", "OFFSET", "HIT SOUNDS"],
             "VIDEO": ["RESOLUTION", "FULLSCREEN", "V-SYNC", "CRT FILTER", "THEME", "VISUAL FX", "POST EFFECTS", "SHOW FPS", "BG DIM"],
-            "GAMEPLAY": ["SPEED", "UPSCROLL", "SCREEN SHAKE", "RE-GEN MAPS", "LANGUAGE", "VIM BINDINGS"],
+            "GAMEPLAY": ["SPEED", "UPSCROLL", "SCREEN SHAKE", "RE-GEN MAPS", "LANGUAGE", "VIM BINDINGS", "UPDATE SOURCE"],
             "INPUT": ["KEYBINDS", "DEADZONE"],
             "THEMES": [
                 "-- PRIMARY --", "PRIMARY R", "PRIMARY G", "PRIMARY B",
@@ -908,6 +947,7 @@ class SettingsScene(Scene):
             "RE-GEN MAPS": f"[{get_text(self.game, 'ACTIVE') if s.get('auto_recreate_beatmaps') else get_text(self.game, 'PRESS ENTER')}]",
             "LANGUAGE": f"< {s.get('language')} >",
             "VIM BINDINGS": f"< {'ON' if s.get('vim_mode') else 'OFF'} >",
+            "UPDATE SOURCE": f"< {self._get_update_source_display(s.get('update_source'))} >",
             "CONTROLLER CONFIG": ">",
             # Theme color sections (headers)
             "-- PRIMARY --": "",
@@ -1454,6 +1494,16 @@ class SettingsScene(Scene):
             cur = s.get("bg_dim")
             cur += direction * 0.1
             s.set("bg_dim", max(0.0, min(1.0, cur)))
+        elif item == "UPDATE SOURCE":
+            from core.updater import UPDATE_SOURCE_GITHUB, UPDATE_SOURCE_ITCHIO, UPDATE_SOURCE_DISABLED
+            sources = [UPDATE_SOURCE_GITHUB, UPDATE_SOURCE_ITCHIO, UPDATE_SOURCE_DISABLED]
+            cur = s.get("update_source") or UPDATE_SOURCE_GITHUB
+            try:
+                idx = sources.index(cur)
+            except:
+                idx = 0
+            new_idx = (idx + direction) % len(sources)
+            s.set("update_source", sources[new_idx])
         
         # RGB component handlers - adjust values by 5 (or 10 with shift)
         # Primary color RGB
@@ -1596,6 +1646,16 @@ class SettingsScene(Scene):
 
         s.save()
         return True
+    
+    def _get_update_source_display(self, source):
+        """Get display name for update source"""
+        from core.updater import UPDATE_SOURCE_GITHUB, UPDATE_SOURCE_ITCHIO, UPDATE_SOURCE_DISABLED
+        if source == UPDATE_SOURCE_ITCHIO:
+            return "ITCH.IO"
+        elif source == UPDATE_SOURCE_DISABLED:
+            return "DISABLED"
+        else:
+            return "GITHUB"
     
     def _apply_custom_theme(self):
         """Apply custom colors to the active theme"""

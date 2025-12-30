@@ -302,9 +302,17 @@ class Game:
         self.scene_manager.handle_input(event)
 
     def play_menu_bgm(self):
-        # 1. Gather files
-        mm_dir = "mainmenu_music"
-        s_dir = "songs"
+        from core.utils import resource_path
+        
+        # 1. Gather files - check both bundled and local paths
+        mm_dir_local = "mainmenu_music"
+        mm_dir_bundled = resource_path("mainmenu_music")
+        s_dir_local = "songs"
+        s_dir_bundled = resource_path("songs")
+        
+        # Determine which directories exist
+        mm_dir = mm_dir_bundled if os.path.exists(mm_dir_bundled) else mm_dir_local
+        s_dir = s_dir_bundled if os.path.exists(s_dir_bundled) else s_dir_local
         
         # Explicit priority themes
         themes = []
@@ -340,7 +348,6 @@ class Game:
         self.playlist_index = 0
         
         if self.menu_playlist:
-            # If we are already playing something from the list, don't restart
             # If we are already playing something from the list, don't restart
             if pygame.mixer.music.get_busy():
                  return

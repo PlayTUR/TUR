@@ -13,19 +13,31 @@ datas = [
     ('story_music', 'story_music'),
     ('assets', 'assets'),
     ('mainmenu_music', 'mainmenu_music'),
+    ('core', 'core'),
+    ('scenes', 'scenes'),
 ]
 
-# Add optional directories if they exist
-for folder in ['themes', 'tools']:
+# Add optional directories if they exist (EXCLUDE beatmap_cache and song_creation)
+optional_dirs = ['themes', 'tools']
+for folder in optional_dirs:
     if os.path.exists(folder):
         datas.append((folder, folder))
+
+# Add build version file if it exists (for auto-updater)
+if os.path.exists('.build_version'):
+    datas.append(('.build_version', '.'))
+
+# Add default settings file with Discord RPC ID
+# This provides the default Discord client ID for all users
+if os.path.exists('default_settings.json'):
+    datas.append(('default_settings.json', '.'))
 
 a = Analysis(
     ['main.py'],
     pathex=[],
     binaries=[],
     datas=datas,
-    hiddenimports=['pygame', 'json', 'wave', 'struct'],
+    hiddenimports=['pygame', 'json', 'wave', 'struct', 'pypresence'],
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],

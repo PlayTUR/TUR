@@ -28,6 +28,19 @@ jobs:
         pip install -r requirements.txt
         pip install pyinstaller
     
+    - name: Write build version
+      run: |
+        $timestamp = Get-Date -Format "o"
+        $commit = "${{ github.sha }}".Substring(0,7)
+        @"
+        {
+          "build_time": "$timestamp",
+          "commit": "$commit",
+          "run_id": "${{ github.run_id }}"
+        }
+        "@ | Out-File -FilePath .build_version -Encoding utf8
+      shell: pwsh
+    
     - name: Build executable
       run: pyinstaller TUR.spec
     
@@ -61,6 +74,10 @@ jobs:
         python -m pip install --upgrade pip
         pip install -r requirements.txt
         pip install pyinstaller
+    
+    - name: Write build version
+      run: |
+        echo "{\"build_time\": \"$(date -u +%Y-%m-%dT%H:%M:%SZ)\", \"commit\": \"${GITHUB_SHA:0:7}\", \"run_id\": \"${{ github.run_id }}\"}" > .build_version
     
     - name: Build executable
       run: pyinstaller TUR.spec

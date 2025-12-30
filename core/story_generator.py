@@ -794,8 +794,13 @@ class StoryGenerator:
         """
         Generates the full story campaign with progressive difficulty.
         """
-        # Ensure music exists
-        story_dir = "story_music"
+        from core.utils import resource_path
+        
+        # Check for bundled story_music first, then local
+        story_dir_bundled = resource_path("story_music")
+        story_dir_local = "story_music"
+        story_dir = story_dir_bundled if os.path.exists(story_dir_bundled) else story_dir_local
+        
         if not os.path.exists(story_dir):
             os.makedirs(story_dir)
         

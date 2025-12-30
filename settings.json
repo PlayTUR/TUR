@@ -1,7 +1,7 @@
 {
     "name": "wyind",
-    "volume": 0.10000000000000014,
-    "music_volume": 0.7,
+    "volume": 0.30000000000000016,
+    "music_volume": 0.8,
     "sfx_volume": 1.0,
     "speed": 1100,
     "keybinds": [
@@ -22,15 +22,15 @@
     "note_shape": "BAR",
     "note_col_1": [
         100,
-        200,
-        50
+        150,
+        255
     ],
     "note_col_2": [
-        200,
-        150,
-        50
+        50,
+        255,
+        255
     ],
-    "theme": "FOREST",
+    "theme": "RETRO_BLUE",
     "setup_complete": true,
     "joy_binds": [
         0,

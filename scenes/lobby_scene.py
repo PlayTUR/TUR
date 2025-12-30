@@ -99,6 +99,9 @@ class LobbyScene(Scene):
             self._draw_joining(surface, r, theme)
         elif self.state == "CLIENT_LOBBY":
             self._draw_client_lobby(surface, r, theme)
+        elif self.state == "ONLINE_DEV_POPUP":
+            self._draw_menu(surface, r, theme)
+            self._draw_online_dev_popup(surface, r, theme)
 
     def _draw_mode_select(self, surface, r, theme):
         """Draw mode selection overlay"""
@@ -350,6 +353,8 @@ class LobbyScene(Scene):
             pass
         elif self.state == "CLIENT_LOBBY":
             self._handle_client_lobby(key)
+        elif self.state == "ONLINE_DEV_POPUP":
+            self._handle_online_dev_popup(key)
 
     def _handle_back(self):
         self.play_sfx("back")
@@ -430,10 +435,8 @@ class LobbyScene(Scene):
                 self.mode_menu_index = 0
                 self.state = "MODE_SELECT"
             elif item == "ONLINE":
-                self.selected_mode = "ONLINE"
-                self.mode_menu_items = ["HOST GAME", "JOIN GAME", "SPECTATE", "BACK"]
-                self.mode_menu_index = 0
-                self.state = "MODE_SELECT"
+                # Online multiplayer is in development
+                self.state = "ONLINE_DEV_POPUP"
             elif item == "BACK":
                 self.game.scene_manager.pop_scene()
 
@@ -755,3 +758,25 @@ class LobbyScene(Scene):
 
     def _handle_client_lobby(self, key):
         pass
+
+    def _draw_online_dev_popup(self, surface, r, theme):
+        """Draw 'Online is in development' popup"""
+        # Dim background
+        dim = pygame.Surface(surface.get_size(), pygame.SRCALPHA)
+        dim.fill((0, 0, 0, 180))
+        surface.blit(dim, (0, 0))
+        
+        # Draw popup panel
+        r.draw_panel(surface, 200, 230, 600, 200, "ONLINE_MULTIPLAYER")
+        
+        r.draw_text(surface, "⚠ IN DEVELOPMENT ⚠", 360, 280, theme["primary"], r.big_font)
+        r.draw_text(surface, "Online multiplayer is coming soon!", 300, 340, theme["text"])
+        r.draw_text(surface, "Use LAN or Direct Connect for now.", 290, 375, (150, 150, 150))
+        
+        r.draw_text(surface, "[ENTER / ESC] Back", 410, 420, (80, 80, 80))
+
+    def _handle_online_dev_popup(self, key):
+        """Handle input for the online dev popup"""
+        if key in (pygame.K_RETURN, pygame.K_ESCAPE):
+            self.play_sfx("back")
+            self.state = "MENU"
