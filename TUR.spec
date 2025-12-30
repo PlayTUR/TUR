@@ -12,10 +12,11 @@ datas = [
     ('songs', 'songs'),
     ('story_music', 'story_music'),
     ('assets', 'assets'),
+    ('mainmenu_music', 'mainmenu_music'),
 ]
 
 # Add optional directories if they exist
-for folder in ['themes']:
+for folder in ['themes', 'tools']:
     if os.path.exists(folder):
         datas.append((folder, folder))
 
