@@ -6,31 +6,39 @@ import os
 
 block_cipher = None
 
-# Collect all data files
+# Include ALL directories and files, excluding only:
+# - beatmap_cache (generated at runtime)
+# - song_creation (development only)
+# - .git, .github (version control)
+# - build.bat, build.sh (build scripts)
+# - *.spec, *.py at root (source files - main.py is the entry point)
+
 datas = [
+    # Core game directories
+    ('assets', 'assets'),
+    ('core', 'core'),
+    ('scenes', 'scenes'),
     ('sfx', 'sfx'),
     ('songs', 'songs'),
     ('story_music', 'story_music'),
-    ('assets', 'assets'),
     ('mainmenu_music', 'mainmenu_music'),
-    ('core', 'core'),
-    ('scenes', 'scenes'),
+    ('tools', 'tools'),
+    
+    # Config files
+    ('default_settings.json', '.'),
+    ('bans.json', '.'),
 ]
 
-# Add optional directories if they exist (EXCLUDE beatmap_cache and song_creation)
-optional_dirs = ['themes', 'tools']
-for folder in optional_dirs:
-    if os.path.exists(folder):
-        datas.append((folder, folder))
+# Add optional files/folders if they exist
+optional_items = [
+    ('themes', 'themes'),
+    ('.build_version', '.'),
+    ('yt-dlp', '.'),  # YouTube downloader binary
+]
 
-# Add build version file if it exists (for auto-updater)
-if os.path.exists('.build_version'):
-    datas.append(('.build_version', '.'))
-
-# Add default settings file with Discord RPC ID
-# This provides the default Discord client ID for all users
-if os.path.exists('default_settings.json'):
-    datas.append(('default_settings.json', '.'))
+for src, dst in optional_items:
+    if os.path.exists(src):
+        datas.append((src, dst))
 
 a = Analysis(
     ['main.py'],
