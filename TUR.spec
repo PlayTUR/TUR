@@ -19,7 +19,6 @@ datas = [
     ('core', 'core'),
     ('scenes', 'scenes'),
     ('sfx', 'sfx'),
-    ('songs', 'songs'),
     ('story_music', 'story_music'),
     ('mainmenu_music', 'mainmenu_music'),
     ('tools', 'tools'),
@@ -32,6 +31,7 @@ datas = [
 # Add optional files/folders if they exist
 optional_items = [
     ('themes', 'themes'),
+    ('songs', 'songs'),
     ('.build_version', '.'),
     ('yt-dlp', '.'),  # YouTube downloader binary
 ]
