@@ -170,6 +170,9 @@ class ResultScene(Scene):
         if self.mode == 'story':
             from scenes.menu_scenes import TitleScene
             self.game.scene_manager.switch_to(TitleScene)
+        elif self.mode == 'multiplayer':
+             from scenes.lobby_scene import LobbyScene
+             self.game.scene_manager.switch_to(LobbyScene)
         else:
             from scenes.menu_scenes import SongSelectScene
             self.game.scene_manager.switch_to(SongSelectScene)

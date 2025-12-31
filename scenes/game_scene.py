@@ -101,7 +101,16 @@ class GameScene(Scene):
         # Health System
         self.health = 100.0
         self.max_health = 100.0
+        self.display_health = 100.0  # For smooth animation
+        self.damage_health = 100.0   # For damage trail effect
         self.fail_anim = 0.0
+        
+        # HUD Visuals
+        self.display_score = 0.0
+        self.combo_scale = 1.0
+        self.combo_color_timer = 0
+        self.pause_selection = 0
+        self.pause_menu = ["RESUME", "RESTART", "QUIT TO MENU"]
         
         # Hold note tracking: {lane: {'note': note_obj, 'end_time': float}}
         self.active_holds = {}
@@ -144,6 +153,8 @@ class GameScene(Scene):
     def on_exit(self):
         self.game.audio.stop()
         self.game.play_menu_bgm()
+        if self.mode == 'multiplayer':
+             self.game.network.start_timestamp = 0
 
     def update(self):
         # Sync Start Logic
@@ -200,6 +211,37 @@ class GameScene(Scene):
                 details=self.display_title,
                 state=f"{self.display_artist} | {self.difficulty} | Score: {int(self.score)}"
              )
+            
+        # Multiplayer Score Sync
+        if self.mode == 'multiplayer' and self.rpc_timer % 10 == 0:
+            self.game.network.send_score(int(self.score))
+            
+        # --- Visual Polish Updates ---
+        # 1. Rolling Score
+        diff = self.score - self.display_score
+        if abs(diff) > 0.1:
+            self.display_score += diff * 0.2
+        else:
+            self.display_score = self.score
+            
+        # 2. Smooth Health & Damage Trail
+        # Display health moves fast to target
+        h_diff = self.health - self.display_health
+        if abs(h_diff) > 0.1:
+            self.display_health += h_diff * 0.2
+        else:
+            self.display_health = self.health
+            
+        # Damage health moves slower (trail effect)
+        if self.damage_health > self.display_health:
+            self.damage_health -= 0.5  # Linear decay
+        elif self.damage_health < self.display_health:
+            self.damage_health = self.display_health # Snap up immediately on heal
+            
+        # 3. Combo Pulse Decay
+        if self.combo_scale > 1.0:
+            self.combo_scale -= 0.05
+        # -----------------------------
             
         offset_ms = self.game.settings.get("audio_offset")
         current_time = self.game.audio.get_position() - (offset_ms / 1000.0)
@@ -263,8 +305,10 @@ class GameScene(Scene):
             
             # Normal gameplay input
             if event.key == pygame.K_ESCAPE:
-                if self.audio_missing:
+                if self.audio_missing or (self.mode == 'multiplayer' and not self.game.network.connected):
                     from scenes.menu_scenes import SongSelectScene
+                    # If disconnected, probably best to go to Title or Lobby? 
+                    # Going to SongSelectScene resets flow, which is fine.
                     self.game.scene_manager.switch_to(SongSelectScene)
                     return
                 self.toggle_pause()
@@ -369,6 +413,7 @@ class GameScene(Scene):
                 self.health = min(self.max_health, self.health + 5.0)
                 self.game.renderer.add_hit_effect("PERFECT", lane, upscroll, hit_color)
                 self.combo += 1
+                self.combo_scale = 1.3  # Pulse
                 if hit_sounds_enabled and self.sfx_perfect:
                     self.sfx_perfect.play()
             elif min_diff < 0.1:
@@ -377,6 +422,7 @@ class GameScene(Scene):
                 self.health = min(self.max_health, self.health + 2.0)
                 self.game.renderer.add_hit_effect("GREAT", lane, upscroll, hit_color)
                 self.combo += 1
+                self.combo_scale = 1.2  # Pulse
                 if hit_sounds_enabled and self.sfx_hit:
                     self.sfx_hit.play()
             else:
@@ -491,33 +537,54 @@ class GameScene(Scene):
         if self.paused:
             # Dim background
             overlay = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT))
-            overlay.fill((0, 0, 0))
-            overlay.set_alpha(180)
+            overlay.fill((10, 10, 20))
+            overlay.set_alpha(200)
             surface.blit(overlay, (0, 0))
             
-            # Draw pause menu panel
-            r = self.game.renderer
-            theme = r.get_theme()
-            center_x = SCREEN_WIDTH // 2
-            panel_w = 300
-            panel_h = 220
-            panel_x = center_x - panel_w // 2
-            panel_y = 250
+            # Draw stylized pause menu
+            panel_x = 100
+            panel_y = SCREEN_HEIGHT // 2 - 100
             
-            r.draw_panel(surface, panel_x, panel_y, panel_w, panel_h, "PAUSED")
+            # Vertical Accent Bar
+            pygame.draw.rect(surface, theme["primary"], (panel_x - 20, panel_y - 20, 5, 200))
             
-            # Menu items
-            y = panel_y + 60
+            # Title
+            r.draw_text(surface, "PAUSED", panel_x, panel_y - 60, theme["primary"], r.big_font)
+            
+            # Menu Items
+            y = panel_y
             for i, item in enumerate(self.pause_menu):
                 selected = (i == self.pause_selection)
-                color = theme["primary"] if selected else (100, 100, 100)
-                prefix = "▶ " if selected else "  "
-                r.draw_text(surface, f"{prefix}{item}", panel_x + 50, y, color)
-                y += 45
-            
-            # Help text
-            r.draw_text(surface, "[↑/↓] Navigate  [ENTER] Select", center_x - 130, panel_y + panel_h + 20, (80, 80, 80))
+                
+                if selected:
+                    # Highlight background
+                    rect_surf = pygame.Surface((300, 40))
+                    rect_surf.set_alpha(50)
+                    rect_surf.fill(theme["primary"])
+                    surface.blit(rect_surf, (panel_x - 10, y - 5))
+                    
+                    # Highlight Text
+                    r.draw_text(surface, f"▶ {item}", panel_x, y, theme["primary"], r.font)
+                else:
+                    r.draw_text(surface, item, panel_x, y, (150, 150, 150), r.font)
+                    
+                y += 50
+                
+            # Info/Help
+            r.draw_text(surface, f"Song: {self.display_title}", panel_x, y + 30, (100, 100, 100))
             return
+
+        if self.mode == 'multiplayer' and not self.game.network.connected:
+             # Disconnect overlay
+             overlay = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT))
+             overlay.fill((0, 0, 0))
+             overlay.set_alpha(200)
+             surface.blit(overlay, (0, 0))
+             
+             self.game.renderer.draw_panel(surface, 300, 300, 424, 150, "DISCONNECTED")
+             self.game.renderer.draw_text(surface, "Connection to peer lost.", 340, 350, (255, 50, 50))
+             self.game.renderer.draw_text(surface, "[ESC] Return to Menu", 360, 390, (150, 150, 150))
+             return
 
         if self.failed:
             if (pygame.time.get_ticks() // 100) % 2 == 0:
@@ -543,23 +610,53 @@ class GameScene(Scene):
         # Progress Bar
         self.game.renderer.draw_progress(surface, self.game.audio.get_position(), self.duration)
         
-        # HUD
-        self.game.renderer.draw_text(surface, f"SCORE: {self.score}", 20, 20, TERM_WHITE)
-        self.game.renderer.draw_text(surface, f"COMBO: {self.combo}", 20, 50, TERM_AMBER)
+        # HUD: Score & Combo
+        # Rolling Score
+        formatted_score = f"{int(self.display_score):,}"
+        r.draw_text(surface, f"{formatted_score}", 20, 20, TERM_WHITE)
+        r.draw_text(surface, "SCORE", 20, 45, (100, 100, 100), r.small_font)
+        
+        # Bouncy Combo
+        if self.combo > 0:
+            # Calculate bounce offset
+            bounce_y = 0
+            if self.combo_scale > 1.0:
+                 bounce_y = (self.combo_scale - 1.0) * -10
+            
+            combo_col = TERM_AMBER
+            if self.combo >= 50: combo_col = (255, 200, 50)
+            if self.combo >= 100: combo_col = (50, 255, 255)
+            
+            r.draw_text(surface, f"{self.combo}x", 20, 80 + bounce_y, combo_col, r.big_font)
+            r.draw_text(surface, "COMBO", 20, 115 + bounce_y, (100, 100, 100), r.small_font)
         
         # Spectator indicator
         if getattr(self, 'is_spectator', False):
             self.game.renderer.draw_text(surface, "◉ SPECTATING ◉", SCREEN_WIDTH - 200, 20, (255, 200, 50), self.game.renderer.font)
         
-        # Health Bar
+        # Smooth Health Bar
         bar_w = 400
         bar_h = 10
         bar_x = (SCREEN_WIDTH - bar_w) // 2
-        bar_y = 70
-        pygame.draw.rect(surface, (50, 50, 50), (bar_x, bar_y, bar_w, bar_h))
-        hp_color = (0, 255, 100) if self.health > 30 else (255, 180, 0) if self.health > 15 else (255, 50, 50)
-        pygame.draw.rect(surface, hp_color, (bar_x, bar_y, int(bar_w * (self.health / 100.0)), bar_h))
-        pygame.draw.rect(surface, (200, 200, 200), (bar_x, bar_y, bar_w, bar_h), 1)
+        bar_y = 30 # Moved up slightly
+        
+        # Background
+        pygame.draw.rect(surface, (30, 30, 30), (bar_x, bar_y, bar_w, bar_h))
+        
+        # Damage Trail (Red)
+        damage_w = int(bar_w * (self.damage_health / 100.0))
+        pygame.draw.rect(surface, (150, 50, 50), (bar_x, bar_y, damage_w, bar_h))
+        
+        # Main Health (Green -> Red)
+        main_w = int(bar_w * (self.display_health / 100.0))
+        hp_color = (0, 255, 100) 
+        if self.display_health < 30: hp_color = (255, 50, 50)
+        elif self.display_health < 60: hp_color = (255, 200, 0)
+        
+        pygame.draw.rect(surface, hp_color, (bar_x, bar_y, main_w, bar_h))
+        
+        # Glow/Border
+        pygame.draw.rect(surface, (100, 100, 100), (bar_x, bar_y, bar_w, bar_h), 1)
         
         # Update song time for event processing
         self.song_time = self.game.audio.get_position()

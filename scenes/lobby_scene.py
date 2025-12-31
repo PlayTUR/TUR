@@ -756,7 +756,8 @@ class LobbyScene(Scene):
             self.code_buffer += event.unicode
 
     def _handle_client_lobby(self, key):
-        pass
+        if key == pygame.K_ESCAPE:
+            self._handle_back()
 
     def _draw_online_dev_popup(self, surface, r, theme):
         """Draw 'Online is in development' popup"""

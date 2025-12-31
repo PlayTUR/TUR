@@ -571,13 +571,34 @@ class BeatmapGenerator:
             
             # Generate additional notes at beat subdivisions
             additional_notes = []
+            # Helper to check if lane is free (including hold notes)
+            def is_lane_free(check_t, check_lane):
+                # Check occupancy by existing notes
+                for n in notes:
+                    if n['lane'] != check_lane: continue
+                    
+                    # Gap check
+                    if abs(n['time'] - check_t) < 0.03: 
+                        return False
+                        
+                    # Hold note check: is check_t inside a hold?
+                    if n.get('length', 0) > 0:
+                        start = n['time']
+                        end = start + n['length']
+                        if start <= check_t <= end:
+                            return False
+                    
+                    # Reverse check: if we are placing a hold, does it overlap a future note?
+                    # (Not applicable here as we're adding simple notes, but good to keep in mind)
+                    
+                return True
+
             for i, beat_t in enumerate(beat_times):
                 if beat_t < 0.5 or beat_t > duration - 1.0:
                     continue
                     
                 # Add note on the beat itself if no note nearby
-                has_nearby = any(abs(n['time'] - beat_t) < 0.04 for n in notes)
-                if not has_nearby:
+                if is_lane_free(beat_t, get_lane(beat_t)):
                     additional_notes.append({
                         'time': beat_t,
                         'lane': get_lane(beat_t),
@@ -593,38 +614,29 @@ class BeatmapGenerator:
                     
                     for s in range(1, subs_per_beat):
                         sub_t = beat_t + s * sub_interval
-                        has_nearby = any(abs(n['time'] - sub_t) < 0.04 for n in notes)
-                        has_nearby = has_nearby or any(abs(n['time'] - sub_t) < 0.04 for n in additional_notes)
                         
-                        if not has_nearby:
-                            # For extreme difficulties, add some chords
-                            if difficulty in ["EXTREME", "FUCK YOU"] and s % 2 == 0:
-                                lane1 = get_lane(sub_t)
-                                lane2 = get_lane(sub_t, offset=50)
-                                if lane1 != lane2:
-                                    additional_notes.append({
-                                        'time': sub_t,
-                                        'lane': lane1,
-                                        'length': 0,
-                                        'hit': False
-                                    })
-                                    additional_notes.append({
-                                        'time': sub_t,
-                                        'lane': lane2,
-                                        'length': 0,
-                                        'hit': False
-                                    })
-                                else:
-                                    additional_notes.append({
-                                        'time': sub_t,
-                                        'lane': lane1,
-                                        'length': 0,
-                                        'hit': False
-                                    })
-                            else:
+                        # Use is_lane_free
+                        
+                        # For extreme difficulties, add some chords
+                        if difficulty in ["EXTREME", "FUCK YOU"] and s % 2 == 0:
+                            lane1 = get_lane(sub_t)
+                            lane2 = get_lane(sub_t, offset=50)
+                            
+                            valid1 = is_lane_free(sub_t, lane1)
+                            valid2 = is_lane_free(sub_t, lane2)
+                            
+                            if valid1 and valid2 and lane1 != lane2:
+                                additional_notes.append({'time': sub_t, 'lane': lane1, 'length': 0, 'hit': False})
+                                additional_notes.append({'time': sub_t, 'lane': lane2, 'length': 0, 'hit': False})
+                            elif valid1:
+                                additional_notes.append({'time': sub_t, 'lane': lane1, 'length': 0, 'hit': False})
+                        
+                        else:
+                            lane = get_lane(sub_t)
+                            if is_lane_free(sub_t, lane):
                                 additional_notes.append({
                                     'time': sub_t,
-                                    'lane': get_lane(sub_t),
+                                    'lane': lane,
                                     'length': 0,
                                     'hit': False
                                 })

@@ -458,6 +458,7 @@ class SongSelectScene(Scene):
                  self._start_multiplayer_match()
                  
     def _start_multiplayer_match(self):
+         self.waiting_for_peer = False
          song = self.songs[self.selected_index]
          diff = self.difficulties[self.diff_index]
          self.game.network.start_game_request()
@@ -803,7 +804,7 @@ class SettingsScene(Scene):
         self.all_items = {
             "AUDIO": ["VOLUME", "MUSIC_VOLUME", "SFX_VOLUME", "OFFSET", "HIT SOUNDS"],
             "VIDEO": ["RESOLUTION", "FULLSCREEN", "V-SYNC", "CRT FILTER", "THEME", "VISUAL FX", "POST EFFECTS", "SHOW FPS", "BG DIM"],
-            "GAMEPLAY": ["SPEED", "UPSCROLL", "SCREEN SHAKE", "RE-GEN MAPS", "LANGUAGE", "VIM BINDINGS", "UPDATE SOURCE"],
+            "GAMEPLAY": ["SPEED", "UPSCROLL", "SCREEN SHAKE", "NOTE STYLE", "RE-GEN MAPS", "LANGUAGE", "VIM BINDINGS", "UPDATE SOURCE"],
             "INPUT": ["KEYBINDS", "DEADZONE"],
             "THEMES": [
                 "-- PRIMARY --", "PRIMARY R", "PRIMARY G", "PRIMARY B",
@@ -1433,6 +1434,14 @@ class SettingsScene(Scene):
                 pygame.display.set_mode(res, pygame.FULLSCREEN)
             else:
                 pygame.display.set_mode(res, pygame.RESIZABLE)
+        elif item == "NOTE STYLE":
+             styles = ["BAR", "ARROW", "CIRCLE"]
+             cur = s.get("note_shape") or "BAR"
+             try:
+                 idx = styles.index(cur)
+             except: idx = 0
+             idx = (idx + direction) % len(styles)
+             s.set("note_shape", styles[idx])
         elif item == "HIT SOUNDS":
             s.set("hit_sounds", not s.get("hit_sounds"))
         elif item == "VISUAL FX":

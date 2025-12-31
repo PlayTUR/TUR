@@ -451,17 +451,42 @@ class PygameRenderer:
         pygame.draw.line(surface, theme["primary"], (start_x, hit_y), (start_x + lane_w * 4, hit_y), thick)
         
         # Key receptors
-        # note_shape = self.game.settings.get("note_shape") or "BAR"
-        # Force BAR logic
+        note_shape = self.game.settings.get("note_shape") or "BAR"
+        
         for i in range(4):
             x = start_x + i * lane_w
             
-            h = 24
-            rect = pygame.Rect(x + 10, hit_y - h//2, lane_w - 20, h)
-            if self.key_states[i]:
-                pygame.draw.rect(surface, theme["primary"], rect)
+            if note_shape == "ARROW":
+                # Draw simple outline arrow
+                cx, cy = x + lane_w//2, hit_y
+                size = 28 # Slightly larger than note
+                outline_col = theme["primary"] if self.key_states[i] else grid_col
+                
+                points = []
+                if i == 0: points = [(-size, 0), (size, -size), (size, size)]
+                elif i == 1: points = [(0, size), (-size, -size), (size, -size)]
+                elif i == 2: points = [(0, -size), (-size, size), (size, size)]
+                elif i == 3: points = [(size, 0), (-size, -size), (-size, size)]
+                
+                poly = [(cx + px, cy + py) for px, py in points]
+                width = 0 if self.key_states[i] else 2
+                pygame.draw.polygon(surface, outline_col, poly, width)
+                
+            elif note_shape == "CIRCLE":
+                cx, cy = x + lane_w//2, hit_y
+                radius = 24
+                outline_col = theme["primary"] if self.key_states[i] else grid_col
+                width = 0 if self.key_states[i] else 2
+                pygame.draw.circle(surface, outline_col, (cx, cy), radius, width)
+                
             else:
-                pygame.draw.rect(surface, grid_col, rect, 2)
+                # BAR Default
+                h = 24
+                rect = pygame.Rect(x + 10, hit_y - h//2, lane_w - 20, h)
+                if self.key_states[i]:
+                    pygame.draw.rect(surface, theme["primary"], rect)
+                else:
+                    pygame.draw.rect(surface, grid_col, rect, 2)
 
     def draw_progress(self, surface, current, total):
         theme = self.get_theme()
@@ -592,7 +617,12 @@ class PygameRenderer:
                  show_head = False
             
             if show_head:
-                self._draw_bar_note(surface, x, int(head_y), lane_w, color, length > 0)
+                if note_shape == "ARROW":
+                    self._draw_arrow_note(surface, x, int(head_y), lane_w, color, lane, length > 0)
+                elif note_shape == "CIRCLE":
+                    self._draw_circle_note(surface, x, int(head_y), lane_w, color, length > 0)
+                else:
+                    self._draw_bar_note(surface, x, int(head_y), lane_w, color, length > 0)
     
     def _draw_bar_note(self, surface, x, y, lane_w, color, is_long=False):
         """Draw bar-style note (8-bit styled)"""
@@ -604,6 +634,39 @@ class PygameRenderer:
         if is_long:
             pygame.draw.rect(surface, (255, 255, 255), 
                 pygame.Rect(x + 30, y - 5, lane_w - 60, 10))
+                
+    def _draw_arrow_note(self, surface, x, y, lane_w, color, lane, is_long=False):
+        """Draw arrow note pointing in lane direction"""
+        cx = x + lane_w // 2
+        cy = y
+        size = 25
+        
+        # Directions: 0=Left, 1=Down, 2=Up, 3=Right
+        # Points relative to center (0,0)
+        points = []
+        if lane == 0: # Left
+            points = [(-size, 0), (size, -size), (size, size)]
+        elif lane == 1: # Down
+            points = [(0, size), (-size, -size), (size, -size)]
+        elif lane == 2: # Up
+            points = [(0, -size), (-size, size), (size, size)]
+        elif lane == 3: # Right
+            points = [(size, 0), (-size, -size), (-size, size)]
+            
+        # Transform to screen coords
+        poly = [(cx + px, cy + py) for px, py in points]
+        
+        pygame.draw.polygon(surface, color, poly)
+        pygame.draw.polygon(surface, (255, 255, 255), poly, 2)
+        
+    def _draw_circle_note(self, surface, x, y, lane_w, color, is_long=False):
+        """Draw circle style note"""
+        cx = x + lane_w // 2
+        radius = 20
+        pygame.draw.circle(surface, color, (cx, int(y)), radius)
+        pygame.draw.circle(surface, (255, 255, 255), (cx, int(y)), radius, 2)
+        if is_long:
+            pygame.draw.circle(surface, (255, 255, 255), (cx, int(y)), radius//2)
     
     def draw_effects(self, surface):
         # Effects have their own color embedded
