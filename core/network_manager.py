@@ -406,16 +406,25 @@ class NetworkManager:
                 self.selected_difficulty = msg.get('difficulty')
                 song_hash = msg.get('hash')
                 
-                # Check if we have this song
+                # Check if we have this song AND its audio
                 song_path = os.path.join('songs', self.selected_song)
+                has_song = False
+                
                 if os.path.exists(song_path):
                     local_hash = self._file_hash(song_path)
                     if local_hash == song_hash:
-                        self.send({'type': 'song_ready', 'have_it': True})
-                    else:
-                        self.send({'type': 'song_ready', 'have_it': False})
-                else:
-                    self.send({'type': 'song_ready', 'have_it': False})
+                        # Also check if we have the audio file
+                        base = os.path.splitext(self.selected_song)[0]
+                        has_audio = False
+                        for ext in ['.mp3', '.wav', '.ogg']:
+                            if os.path.exists(os.path.join('songs', base + ext)):
+                                has_audio = True
+                                break
+                        
+                        if has_audio:
+                            has_song = True
+                
+                self.send({'type': 'song_ready', 'have_it': has_song})
             
             elif msg_type == 'song_ready':
                 if msg.get('have_it'):
@@ -444,8 +453,13 @@ class NetworkManager:
                 with open(filepath, 'wb') as f:
                     f.write(self.pending_file_data)
                 self.pending_file_data = b''
-                self.status_message = "Song received!"
-                self.send({'type': 'song_ready', 'have_it': True})
+                
+                # Only signal ready if this was the chart (.tur) file
+                if filename.endswith('.tur'):
+                    self.status_message = "Song received!"
+                    self.send({'type': 'song_ready', 'have_it': True})
+                else:
+                    self.status_message = f"Received {filename}..."
             
             elif msg_type == 'start':
                 self.start_timestamp = msg.get('start_time', 0)
@@ -538,6 +552,31 @@ class NetworkManager:
     
     def _send_file_thread(self, filepath):
         try:
+            # 1. Look for associated audio file first
+            base_path = os.path.splitext(filepath)[0]
+            audio_path = None
+            for ext in ['.mp3', '.wav', '.ogg']:
+                check_path = base_path + ext
+                if os.path.exists(check_path):
+                    audio_path = check_path
+                    break
+            
+            # 2. Send Audio (if exists)
+            if audio_path:
+                self._send_single_file(audio_path)
+                time.sleep(0.5) # Buffer between files
+                
+            # 3. Send Chart (.tur)
+            self._send_single_file(filepath)
+            
+            self.status_message = "Song sent!"
+            
+        except Exception as e:
+            print(f"File transfer error: {e}")
+            self.error_message = "Transfer failed"
+
+    def _send_single_file(self, filepath):
+        try:
             filename = os.path.basename(filepath)
             filesize = os.path.getsize(filepath)
             
@@ -551,10 +590,10 @@ class NetworkManager:
                     time.sleep(0.01)
             
             self.send({'type': 'file_end', 'filename': filename})
-            self.status_message = "Song sent!"
             
         except Exception as e:
-            print(f"File transfer error: {e}")
+            print(f"Single file send error: {e}")
+            raise e
 
     # === Game Control ===
     
