@@ -15,7 +15,7 @@ import urllib.error
 from datetime import datetime
 
 # Configuration - Update these for your repository
-GITHUB_OWNER = "Wyind"  # Your GitHub username
+GITHUB_OWNER = "PlayTUR"  # Your GitHub username
 GITHUB_REPO = "TUR"     # Your repository name
 
 # Update source options
