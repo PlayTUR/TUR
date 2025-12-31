@@ -1,13 +1,13 @@
 # TUR (The Unnamed Rhythm Game)
 
-A community-driven, open-source rhythm game built with Python and Pygame.
+A community-driven, python based rhythm game built with Python and Pygame.
 **Repository:** [https://github.com/PlayTUR/TUR](https://github.com/PlayTUR/TUR)
 
 ## Features
-- 🎵 **4-Key Rhythm Gameplay**: Classic vertical scrolling rhythm action.
-- 🌐 **Multiplayer**: Play with friends via LAN or Online (Tailscale).
-- 🛠️ **Editor**: Built-in beatmap editor to create your own charts.
-- 🎨 **Theming**: Fully customizable visuals and UI.
+-  **4-Key Rhythm Gameplay**: Classic vertical scrolling rhythm action.
+-  **Multiplayer**: Play with friends via LAN or Online (Tailscale).
+-  **Editor**: Built-in beatmap editor to create your own charts.
+-  **Theming**: Fully customizable visuals and UI.
 
 ## Installation
 
