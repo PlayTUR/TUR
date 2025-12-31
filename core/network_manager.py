@@ -158,12 +158,40 @@ class NetworkManager:
             self.generate_room_code()
             self.status_message = f"Room Code: {self.room_code}"
             
+            # Close existing if any (ensure cleanup)
+            if self.tcp_socket:
+                try:
+                    self.tcp_socket.close()
+                except:
+                    pass
+                self.tcp_socket = None
+
             # Set up TCP listener
+            # Set up TCP listener with dynamic port selection
             self.tcp_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             self.tcp_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
             self.tcp_socket.settimeout(1.0)
-            self.tcp_socket.bind(('0.0.0.0', self.port))
-            self.tcp_socket.listen(2)
+            
+            # Try range of ports first, then random
+            ports_to_try = list(range(1337, 1348)) + [0]
+            bound = False
+            
+            for try_port in ports_to_try:
+                try:
+                    self.tcp_socket.bind(('0.0.0.0', try_port))
+                    self.tcp_socket.listen(2)
+                    # Update actual port if we bound to 0 or a different port
+                    self.port = self.tcp_socket.getsockname()[1]
+                    self.external_port = self.port
+                    bound = True
+                    break
+                except OSError:
+                    continue
+            
+            if not bound:
+                self.error_message = "Could not find any free port."
+                return
+
             self.connecting = False
             
             # Start LAN broadcast for P2P discovery
@@ -193,6 +221,8 @@ class NetworkManager:
                     
         except Exception as e:
             self.error_message = f"Host error: {e}"
+            if "Address already in use" in str(e) or (hasattr(e, 'errno') and e.errno == 98):
+                 self.error_message = "Port busy. Wait a moment or restart game."
         finally:
             self.connecting = False
     
@@ -227,24 +257,39 @@ class NetworkManager:
         self.join_with_code(code, password)
     
     def join_game(self, ip, password=""):
-        """Join game by IP"""
+        """Join game by IP (supports IP or IP:PORT)"""
         self.is_host = False
         self.room_password = password
         self.connected = False
         self.connecting = True
         self.error_message = ""
         
-        threading.Thread(target=self._join_thread, args=(ip,), daemon=True).start()
+        # Parse Port if provided
+        target_ip = ip
+        target_port = self.port
+        
+        if ':' in ip:
+            try:
+                parts = ip.split(':')
+                target_ip = parts[0]
+                target_port = int(parts[1])
+                # Temporary port override for this connection
+                self.port = target_port 
+            except:
+                pass
+        
+        threading.Thread(target=self._join_thread, args=(target_ip, target_port), daemon=True).start()
     
-    def _join_thread(self, ip):
+    def _join_thread(self, ip, port=None):
+        destination_port = port if port else self.port
         try:
-            self.status_message = f"Connecting to {ip}:{self.port}..."
+            self.status_message = f"Connecting to {ip}:{destination_port}..."
             
             # Try UDP hole punch first (send a few packets)
             if self.udp_socket:
                 for _ in range(3):
                     try:
-                        self.udp_socket.sendto(b'PUNCH', (ip, self.port))
+                        self.udp_socket.sendto(b'PUNCH', (ip, destination_port))
                     except:
                         pass
                     time.sleep(0.1)
@@ -257,7 +302,7 @@ class NetworkManager:
                     self.status_message = f"Connecting... (attempt {attempt + 1}/2)"
                     self.tcp_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
                     self.tcp_socket.settimeout(10.0)
-                    self.tcp_socket.connect((ip, self.port))
+                    self.tcp_socket.connect((ip, destination_port))
                     connected = True
                     break
                 except socket.timeout:

@@ -134,21 +134,37 @@ class TailscaleManager:
     
     def _update_peers(self):
         """Get list of peers on the tailnet"""
-        status = self.get_status()
-        if status and "Peer" in status:
+        try:
+            status = self.get_status()
+            if status is None:
+                self.peers = []
+                return
+            
+            peer_dict = status.get("Peer")
+            if peer_dict is None:
+                self.peers = []
+                return
+                
             self.peers = []
-            for peer_id, peer_info in status.get("Peer", {}).items():
-                if peer_info.get("Online"):
+            for peer_id, peer_info in peer_dict.items():
+                if peer_info and peer_info.get("Online"):
+                    ips = peer_info.get("TailscaleIPs") or [""]
                     self.peers.append({
                         "name": peer_info.get("HostName", "Unknown"),
-                        "ip": peer_info.get("TailscaleIPs", [""])[0],
+                        "ip": ips[0] if ips else "",
                         "os": peer_info.get("OS", ""),
                         "online": peer_info.get("Online", False)
                     })
+        except Exception as e:
+            print(f"Error updating peers: {e}")
+            self.peers = []
     
     def get_peers(self):
         """Get list of online peers"""
-        self._update_peers()
+        try:
+            self._update_peers()
+        except:
+            pass
         return self.peers
     
     def open_login(self):

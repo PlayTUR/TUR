@@ -16,29 +16,53 @@ class PygameRenderer:
                 return os.path.join(sys._MEIPASS, relative_path)
             return os.path.join(os.path.abspath("."), relative_path)
         
-        # Fonts
-        # Try finding a retro font, else monospace
+        # Cross-platform font fallback order
+        # Windows: Consolas, Courier New, Lucida Console
+        # Linux: monospace, DejaVu Sans Mono
+        # Mac: Monaco, Menlo
+        FONT_FALLBACKS = [
+            "consolas",      # Windows
+            "couriernew",    # Windows  
+            "lucidaconsole", # Windows
+            "monospace",     # Linux
+            "dejavusansmono",# Linux
+            "monaco",        # Mac
+            "menlo",         # Mac
+            None             # pygame default
+        ]
+        
+        def get_system_font(size, bold=True):
+            """Get a monospace font that works on any platform"""
+            for font_name in FONT_FALLBACKS:
+                try:
+                    font = pygame.font.SysFont(font_name, size, bold=bold)
+                    if font:
+                        return font
+                except:
+                    continue
+            # Ultimate fallback - pygame's default font
+            return pygame.font.Font(None, size)
+        
+        # Fonts - try bundled font first, then system fonts
         self.font_path = resource_path(os.path.join("assets", "font.ttf"))
         if os.path.exists(self.font_path):
-             self.font = pygame.font.Font(self.font_path, 20)
-             self.big_font = pygame.font.Font(self.font_path, 40)
+            try:
+                self.font = pygame.font.Font(self.font_path, 20)
+                self.big_font = pygame.font.Font(self.font_path, 40)
+                self.small_font = pygame.font.Font(self.font_path, 16)
+                self.ascii_font = pygame.font.Font(self.font_path, 14)
+            except:
+                # Font file exists but failed to load
+                self.font = get_system_font(20)
+                self.big_font = get_system_font(40)
+                self.small_font = get_system_font(16)
+                self.ascii_font = get_system_font(14)
         else:
-             # Try common pixel fonts if available or standard monospace
-             # 'pressstart2p', 'vt323', 'monospace', 'couriernew'
-             self.font = pygame.font.SysFont("monospace", 20, bold=True)
-             self.big_font = pygame.font.SysFont("monospace", 40, bold=True)
-             
-        # Small Font
-        if os.path.exists(self.font_path):
-             self.small_font = pygame.font.Font(self.font_path, 16)
-        else:
-             self.small_font = pygame.font.SysFont("monospace", 16, bold=True)
-        
-        # ASCII Font (Smaller for the logo)
-        if os.path.exists(self.font_path):
-             self.ascii_font = pygame.font.Font(self.font_path, 14)
-        else:
-             self.ascii_font = pygame.font.SysFont("monospace", 14, bold=True)
+            # Use cross-platform system font fallback
+            self.font = get_system_font(20)
+            self.big_font = get_system_font(40)
+            self.small_font = get_system_font(16)
+            self.ascii_font = get_system_font(14)
              
         # Cache key states
         self.key_states = [False] * 4

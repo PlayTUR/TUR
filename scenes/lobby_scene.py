@@ -495,6 +495,10 @@ class LobbyScene(Scene):
                     self.code_buffer = ""
                     self.state = "DIRECT_JOIN"
                     self.input_focus = 0
+                
+                elif item == "HOW IT WORKS":
+                    # Show help/instructions screen
+                    self.state = "TAILSCALE_SETUP"
 
     def _handle_host_setup(self, key, event):
         ctrl = (pygame.key.get_mods() & pygame.KMOD_CTRL)
@@ -777,144 +781,113 @@ class LobbyScene(Scene):
             self.state = "MENU"
 
     def _start_online_mode(self):
-        """Initialize online mode with Tailscale"""
+        """Show online mode options directly"""
+        self.selected_mode = "ONLINE"
+        self.mode_menu_items = ["HOST GAME", "JOIN GAME", "HOW IT WORKS", "BACK"]
+        self.mode_menu_index = 0
+        self.state = "MODE_SELECT"
+
+        # Pre-cache IP to avoid lag later
         from core.tailscale_manager import get_tailscale_manager
-        
         self.tailscale = get_tailscale_manager()
-        self.tailscale_checked = False
-        
-        # Check Tailscale status
-        def on_check_complete(success, result):
-            self.tailscale_checked = True
-            if success:
-                # Tailscale is connected, show mode select
-                self.selected_mode = "ONLINE"
-                self.mode_menu_items = ["HOST GAME", "JOIN GAME", "BACK"]
-                self.mode_menu_index = 0
-                self.state = "MODE_SELECT"
-            else:
-                # Show setup instructions
-                self.state = "TAILSCALE_SETUP"
-        
-        self.tailscale.check_connection(callback=on_check_complete)
-        self.state = "TAILSCALE_SETUP"  # Show checking state
+        self.cached_tailscale_ip = self.tailscale.get_ip()
     
     def _draw_tailscale_setup(self, surface, r, theme):
-        """Draw Tailscale setup/status screen"""
-        r.draw_panel(surface, 100, 100, 824, 520, "ONLINE_MULTIPLAYER")
+        """Draw simple online help screen"""
+        r.draw_panel(surface, 80, 80, 864, 560, "HOW_ONLINE_WORKS")
         
-        r.draw_text(surface, "TAILSCALE NETWORK", 380, 140, theme["primary"], r.big_font)
+        r.draw_text(surface, "ONLINE MULTIPLAYER", 350, 120, theme["primary"], r.big_font)
         
-        if hasattr(self, 'tailscale'):
-            ts = self.tailscale
-            
-            if ts.is_checking:
-                # Still checking
-                dots = "." * ((self.blink_timer // 15) % 4)
-                r.draw_text(surface, f"Checking Tailscale{dots}", 380, 220, theme["secondary"])
-            elif ts.is_connected:
-                # Connected!
-                r.draw_text(surface, "✓ CONNECTED", 420, 200, (50, 255, 50), r.big_font)
-                r.draw_text(surface, f"Your Tailscale IP: {ts.tailscale_ip}", 330, 260, theme["text"])
-                
-                # Show peers
-                peers = ts.get_peers()
-                if peers:
-                    r.draw_text(surface, f"Online peers: {len(peers)}", 400, 310, theme["secondary"])
-                    y = 340
-                    for peer in peers[:5]:
-                        r.draw_text(surface, f"  • {peer['name']} ({peer['ip']})", 320, y, (150, 150, 150))
-                        y += 25
-                else:
-                    r.draw_text(surface, "No other devices on your Tailnet yet", 310, 310, (120, 120, 120))
-                
-                r.draw_text(surface, "[ENTER] Continue  [ESC] Back", 360, 550, (100, 100, 100))
-                
-            elif ts.error_message == "Tailscale not installed":
-                # Not installed
-                r.draw_text(surface, "✗ TAILSCALE NOT INSTALLED", 330, 200, theme["error"], r.big_font)
-                r.draw_text(surface, "Tailscale is required for online play.", 310, 270, theme["text"])
-                r.draw_text(surface, "It creates a secure network between you and friends.", 240, 305, (150, 150, 150))
-                
-                r.draw_text(surface, "Installation:", 150, 360, theme["secondary"])
-                r.draw_text(surface, "1. Visit tailscale.com/download", 170, 395, theme["text"])
-                r.draw_text(surface, "2. Install Tailscale", 170, 425, theme["text"])
-                r.draw_text(surface, "3. Sign in (free account)", 170, 455, theme["text"])
-                r.draw_text(surface, "4. Invite your friend to your Tailnet", 170, 485, theme["text"])
-                
-                r.draw_text(surface, "[D] Open Download Page  [ESC] Back", 320, 550, (100, 100, 100))
-                
-            else:
-                # Not connected
-                r.draw_text(surface, "✗ NOT CONNECTED", 380, 200, theme["error"], r.big_font)
-                r.draw_text(surface, f"Status: {ts.error_message or 'Disconnected'}", 350, 260, (150, 150, 150))
-                r.draw_text(surface, "Please connect to Tailscale:", 340, 320, theme["text"])
-                r.draw_text(surface, "1. Open the Tailscale app", 170, 360, theme["text"])
-                r.draw_text(surface, "2. Click 'Connect' or sign in", 170, 390, theme["text"])
-                r.draw_text(surface, "3. Ensure your friend is on the same Tailnet", 170, 420, theme["text"])
-                
-                r.draw_text(surface, "[R] Retry  [D] Download Tailscale  [ESC] Back", 260, 550, (100, 100, 100))
-        else:
-            r.draw_text(surface, "Initializing...", 420, 300, theme["text"])
+        # Simple explanation
+        r.draw_text(surface, "Play with friends anywhere using Tailscale (free VPN)", 220, 180, theme["text"])
+        
+        # Setup steps
+        r.draw_text(surface, "SETUP (one-time):", 150, 230, theme["secondary"])
+        r.draw_text(surface, "1. Both players download Tailscale: tailscale.com", 170, 265, theme["text"])
+        r.draw_text(surface, "2. Create a free account and sign in", 170, 295, theme["text"])
+        r.draw_text(surface, "3. Invite your friend to your network (Tailnet)", 170, 325, theme["text"])
+        
+        # How to play
+        r.draw_text(surface, "TO PLAY:", 150, 380, theme["secondary"])
+        r.draw_text(surface, "HOST: Click 'Host Game' - share your IP with friend", 170, 415, theme["text"])
+        r.draw_text(surface, "JOIN: Click 'Join Game' - enter friend's IP", 170, 445, theme["text"])
+        
+        # Tip
+        r.draw_text(surface, "TIP: Same Tailnet? Just use the Tailscale IP!", 280, 500, (120, 120, 120))
+        r.draw_text(surface, "It works just like a local LAN IP.", 350, 530, (100, 100, 100))
+        
+        r.draw_text(surface, "[D] Download Tailscale  [ENTER/ESC] Back", 280, 590, (80, 80, 80))
     
     def _handle_tailscale_setup(self, key):
-        """Handle input on Tailscale setup screen"""
-        if key == pygame.K_ESCAPE:
+        """Handle input on help screen"""
+        if key in (pygame.K_ESCAPE, pygame.K_RETURN):
             self.play_sfx("back")
-            self.state = "MENU"
-        elif key == pygame.K_RETURN:
-            if hasattr(self, 'tailscale') and self.tailscale.is_connected:
-                self.play_sfx("accept")
-                # Go to mode select
-                self.selected_mode = "ONLINE"
-                self.mode_menu_items = ["HOST GAME", "JOIN GAME", "BACK"]
-                self.mode_menu_index = 0
-                self.state = "MODE_SELECT"
-        elif key == pygame.K_r:
-            # Retry check
-            self.play_sfx("blip")
-            self._start_online_mode()
+            self.state = "MODE_SELECT"
         elif key == pygame.K_d:
-            # Open download page
             self.play_sfx("accept")
-            if hasattr(self, 'tailscale'):
-                self.tailscale.open_download_page()
+            import webbrowser
+            webbrowser.open("https://tailscale.com/download")
     
     def _draw_tailscale_hosting(self, surface, r, theme):
-        """Draw Tailscale hosting screen"""
-        r.draw_panel(surface, 100, 100, 824, 450, "HOSTING_GAME")
+        """Draw hosting screen with cached IP display"""
+        # HUGE panel height to fit everything with comfortable spacing
+        r.draw_panel(surface, 50, 50, 924, 668, "") 
         
-        r.draw_text(surface, "HOSTING VIA TAILSCALE", 350, 140, theme["primary"], r.big_font)
+        r.draw_text(surface, "HOSTING GAME", 360, 90, theme["primary"], r.big_font)
         
-        if hasattr(self, 'tailscale') and self.tailscale.tailscale_ip:
-            ip = self.tailscale.tailscale_ip
-            port = self.game.network.port
-            
-            r.draw_text(surface, "Share this with your friend:", 350, 200, theme["secondary"])
-            
-            # Big IP display
-            r.draw_panel(surface, 250, 240, 500, 80, "CONNECTION_INFO")
-            address = f"{ip}:{port}"
-            r.draw_text(surface, address, 380, 270, theme["primary"], r.big_font)
-            
-            r.draw_text(surface, "Your friend should:", 380, 350, theme["text"])
-            r.draw_text(surface, "1. Open TUR → Multiplayer → Direct Connect", 230, 385, (150, 150, 150))
-            r.draw_text(surface, f"2. Enter: {address}", 230, 415, (150, 150, 150))
-            r.draw_text(surface, "3. (Both must be on the same Tailnet!)", 230, 445, (120, 120, 120))
-            
-            # Connection status
-            if self.game.network.connected:
-                r.draw_text(surface, "✓ PLAYER CONNECTED!", 380, 490, (50, 255, 50))
-            elif self.game.network.connecting:
-                dots = "." * ((self.blink_timer // 15) % 4)
-                r.draw_text(surface, f"Waiting for player{dots}", 390, 490, theme["secondary"])
-            else:
-                r.draw_text(surface, "Waiting for connection...", 380, 490, (120, 120, 120))
+        # Use cached IPs (prevents lag from subprocess calls)
+        from core.network_manager import get_local_ip
+        local_ip = get_local_ip()
+        port = self.game.network.port
+        tailscale_ip = getattr(self, 'cached_tailscale_ip', None)
         
-        r.draw_text(surface, "[ESC] Cancel", 450, 530, (80, 80, 80))
+        r.draw_text(surface, "Share one of these addresses with your friend:", 260, 150, theme["secondary"])
+        
+        # Display connection info
+        y = 200
+        if tailscale_ip:
+            # Tailscale Panel
+            # Title bar draws at y-28. Body 110px. Total visual height ~140px.
+            r.draw_panel(surface, 150, y, 724, 110, "TAILSCALE (ONLINE)")
+            
+            # Center text estimation
+            addr = f"{tailscale_ip}:{port}"
+            # 512 is screen center. rough char width 15px for big font
+            text_x = 512 - (len(addr) * 9) 
+            r.draw_text(surface, addr, text_x, y + 35, theme["primary"], r.big_font)
+            r.draw_text(surface, "Use this if your friend is on your Tailnet (VPN)", 330, y + 80, (100, 100, 100))
+            
+            y += 180 # 110 (body) + 70px gap
+        else:
+             # Try refreshing cache if missing
+             self.cached_tailscale_ip = self.tailscale.get_ip()
+        
+        # Local IP Panel
+        r.draw_panel(surface, 150, y, 724, 110, "LOCAL WIFI (LAN)")
+        addr = f"{local_ip}:{port}"
+        text_x = 512 - (len(addr) * 9)
+        r.draw_text(surface, addr, text_x, y + 35, theme["text"], r.big_font)
+        r.draw_text(surface, "Use this if your friend is on the same WiFi", 330, y + 80, (100, 100, 100))
+        
+        y += 160 # Gap before instructions
+        
+        # Instructions for friend
+        r.draw_text(surface, "YOUR FRIEND SHOULD:", 400, y, theme["text"])
+        r.draw_text(surface, "1. Go to Multiplayer > Direct Connect", 330, y + 35, theme["secondary"])
+        r.draw_text(surface, "2. Enter the address above", 380, y + 70, (180, 180, 180))
+        
+        # Connection status
+        y_status = 660
+        if self.game.network.connected:
+            r.draw_text(surface, "PLAYER CONNECTED!", 400, y_status, (50, 255, 50), r.big_font)
+        else:
+            dots = "." * ((self.blink_timer // 15) % 4)
+            r.draw_text(surface, f"Waiting for player{dots}", 400, y_status, theme["secondary"])
+        
+        r.draw_text(surface, "[ESC] Cancel", 450, 690, (80, 80, 80))
     
     def _handle_tailscale_hosting(self, key):
-        """Handle input while hosting via Tailscale"""
+        """Handle input while hosting"""
         if key == pygame.K_ESCAPE:
             self.play_sfx("back")
             self.game.network.close()

@@ -1,6 +1,24 @@
 import pygame
-
+import sys
 import os
+
+def _resource_path(relative_path):
+    """Get absolute path to resource, works for dev and for PyInstaller"""
+    if hasattr(sys, '_MEIPASS'):
+        return os.path.join(sys._MEIPASS, relative_path)
+    return os.path.join(os.path.abspath("."), relative_path)
+
+def _load_sfx(filename, volume=0.4):
+    """Load a sound effect with resource_path support"""
+    path = _resource_path(os.path.join("sfx", filename))
+    if os.path.exists(path):
+        try:
+            sound = pygame.mixer.Sound(path)
+            sound.set_volume(volume)
+            return sound
+        except:
+            pass
+    return None
 
 class Scene:
     def __init__(self, game):
@@ -8,29 +26,14 @@ class Scene:
         self.manager = game.scene_manager
         self.next_scene = None # If set, manager switches to this
         
-        # Common SFX
-        self.sfx_blip = None
-        self.sfx_accept = None
-        if os.path.exists("sfx/sfx_blip.wav"):
-             self.sfx_blip = pygame.mixer.Sound("sfx/sfx_blip.wav")
-             self.sfx_blip.set_volume(0.4)
-        if os.path.exists("sfx/sfx_accept.wav"):
-             self.sfx_accept = pygame.mixer.Sound("sfx/sfx_accept.wav")
-             self.sfx_accept.set_volume(0.4)
-        if os.path.exists("sfx/sfx_back.wav"):
-             self.sfx_back = pygame.mixer.Sound("sfx/sfx_back.wav")
-             self.sfx_back.set_volume(0.4)
-        if os.path.exists("sfx/sfx_shutdown.wav"):
-             self.sfx_shutdown = pygame.mixer.Sound("sfx/sfx_shutdown.wav")
-             self.sfx_shutdown.set_volume(0.6)
-             
-        # New SFX (shared)
-        self.sfx_type = pygame.mixer.Sound("sfx/sfx_type.wav") if os.path.exists("sfx/sfx_type.wav") else None
-        if self.sfx_type: self.sfx_type.set_volume(0.3)
-        self.sfx_hdd = pygame.mixer.Sound("sfx/sfx_hdd.wav") if os.path.exists("sfx/sfx_hdd.wav") else None
-        if self.sfx_hdd: self.sfx_hdd.set_volume(0.3)
-        self.sfx_success = pygame.mixer.Sound("sfx/sfx_success.wav") if os.path.exists("sfx/sfx_success.wav") else None
-        if self.sfx_success: self.sfx_success.set_volume(0.5)
+        # Common SFX - using resource_path for bundled builds
+        self.sfx_blip = _load_sfx("sfx_blip.wav", 0.4)
+        self.sfx_accept = _load_sfx("sfx_accept.wav", 0.4)
+        self.sfx_back = _load_sfx("sfx_back.wav", 0.4)
+        self.sfx_shutdown = _load_sfx("sfx_shutdown.wav", 0.6)
+        self.sfx_type = _load_sfx("sfx_type.wav", 0.3)
+        self.sfx_hdd = _load_sfx("sfx_hdd.wav", 0.3)
+        self.sfx_success = _load_sfx("sfx_success.wav", 0.5)
 
     def play_sfx(self, name):
         if name == "blip" and self.sfx_blip: self.sfx_blip.play()

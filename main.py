@@ -82,7 +82,7 @@ class Game:
         # Modules
         self.renderer = PygameRenderer(self.virtual_w, self.virtual_h)
         self.renderer.game = self # Inject ASAP for theme access
-        self.audio = AudioManager()
+        self.audio = AudioManager(self)
         self.score_manager = ScoreManager()
         from core.leaderboard_manager import LeaderboardManager
         self.leaderboard_manager = LeaderboardManager(self)
