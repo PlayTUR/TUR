@@ -41,6 +41,9 @@ jobs:
         "@ | Out-File -FilePath .build_version -Encoding utf8
       shell: pwsh
     
+    - name: Create songs directory
+      run: if (-not (Test-Path -Path songs)) { New-Item -Path songs -ItemType Directory }
+
     - name: Build executable
       run: pyinstaller TUR.spec
     
@@ -79,6 +82,9 @@ jobs:
       run: |
         echo "{\"build_time\": \"$(date -u +%Y-%m-%dT%H:%M:%SZ)\", \"commit\": \"${GITHUB_SHA:0:7}\", \"run_id\": \"${{ github.run_id }}\"}" > .build_version
     
+    - name: Create songs directory
+      run: mkdir -p songs
+
     - name: Build executable
       run: pyinstaller TUR.spec
     
