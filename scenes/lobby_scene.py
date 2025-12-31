@@ -384,7 +384,7 @@ class LobbyScene(Scene):
         """Direct Connect Join UI"""
         r.draw_panel(surface, 150, 150, 700, 300, "DIRECT_CONNECT")
         
-        r.draw_text(surface, "Enter Host IP or Room Code:", 180, 190, theme["secondary"])
+        r.draw_text(surface, "Enter Host IP or Room Code (IP:PORT optional):", 180, 190, theme["secondary"])
         
         r.draw_input_field(surface, "ADDRESS/CODE:", self.code_buffer, 180, 230, 600, self.input_focus == 0)
         
