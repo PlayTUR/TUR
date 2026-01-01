@@ -372,10 +372,16 @@ const Components = {
             
             <div style="margin-top: 2rem; border-top: 1px solid var(--color-grid); padding-top: 1rem;">
                 <h3>MAINTENANCE_LOG</h3>
-                ${status.api
-            ? `<p class="blink" style="color: var(--color-primary);">[SYSTEM_ALL_CLEAR] NO INCIDENTS REPORTED.</p>`
-            : `<p class="blink" style="color: var(--color-error);">[CRITICAL_FAILURE] UNABLE_TO_REACH_CORE_SERVICES.</p>`
+                <div style="font-family: 'JetBrains Mono', monospace; font-size: 0.85rem;">
+                    ${status.api
+            ? `<p style="color: var(--color-primary);">[${new Date().toISOString().split('T')[0]}] NO_INCIDENTS_REPORTED. SERVICE_STABILITY_OPTIMAL.</p>`
+            : `
+                        <p style="color: var(--color-error); margin-bottom: 0.5rem;">[${new Date().toISOString().split('T')[0]}] CRITICAL_FAILURE: API_GATEWAY_UNREACHABLE.</p>
+                        <p style="color: var(--color-dim);">DETECTION_SOURCE: WEB_PROBE_FAILED</p>
+                        <p style="color: var(--color-dim);">RECOMMENDED_ACTION: CHECK_VPS_FIREWALL_AND_PORT_80</p>
+                        `
         }
+                </div>
             </div>
             
             <div style="text-align: center; margin-top: 2rem;">
