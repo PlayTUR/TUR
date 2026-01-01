@@ -93,10 +93,6 @@ class AuthScene(Scene):
         draw_field("USERNAME", self.username, py + 35, self.active_field == 0)
         draw_field("PASSWORD", self.password, py + 125, self.active_field == 1, masked=True)
 
-        # Password reset hint
-        if getattr(self, 'reset_hint', False) and time.time() < getattr(self, 'reset_hint_timer', 0):
-            r.draw_text(surface, "Forgot password? Reset at:", px + 50, py + 230, (150, 150, 200))
-            r.draw_text(surface, "tur.wyind.dev", px + 50, py + 250, (100, 100, 255))
         if self.active_field == 2:
             # Highlight 'Remember Me' when active but don't draw it separately here
             pass
@@ -117,6 +113,13 @@ class AuthScene(Scene):
         
         # Move Exit below
         r.draw_text(surface, "[ESC] Cancel", px + 30, controls_y + 75, (100, 100, 100))
+        
+        # Move reset hint here
+        # Password reset hint
+        if getattr(self, 'reset_hint', False) and time.time() < getattr(self, 'reset_hint_timer', 0):
+            # Move up more to be safe
+            r.draw_text(surface, "Forgot password? Reset at:", px + 30, controls_y + 90, theme["text"]) 
+            r.draw_text(surface, "tur.wyind.dev", px + 30, controls_y + 110, (100, 150, 255))
         
         # Register link (only shown when not typing)
         # Register link (wrapped)
