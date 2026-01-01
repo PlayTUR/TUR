@@ -211,10 +211,20 @@ const App = {
             const data = await res.json();
 
             if (data.success) {
+                // Return success and show recovery key once
+                App.state.showRecoveryOnce = true;
+                if (data.recovery_key) {
+                    alert("REGISTRATION_SUCCESSFUL! [CRITICAL: WRITE DOWN YOUR RECOVERY KEY]: " + data.recovery_key);
+                }
+
+                // Automatically log in
                 App.state.token = data.token;
-                App.state.username = data.username;
-                localStorage.setItem('tur_token', data.token);
-                localStorage.setItem('tur_user', data.username);
+                App.state.username = data.username || user;
+                if (data.token) {
+                    localStorage.setItem('tur_token', data.token);
+                    localStorage.setItem('tur_user', data.username || user);
+                }
+
                 window.location.hash = '#account';
                 App.router();
             } else {
