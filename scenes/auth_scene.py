@@ -22,7 +22,9 @@ class AuthScene(Scene):
         self.password = ""
         self.error_msg = ""
         self.error_timer = 0
+        self.error_timer = 0
         self.logging_in = False
+        self.remember_me = True # Default to True
         
     def on_enter(self, params=None):
         # Discord RPC
@@ -99,6 +101,16 @@ class AuthScene(Scene):
         if getattr(self, 'reset_hint', False) and time.time() < getattr(self, 'reset_hint_timer', 0):
             r.draw_text(surface, "Forgot password? Reset at:", px + 50, py + 230, (150, 150, 200))
             r.draw_text(surface, "tur.wyind.dev", px + 50, py + 250, (100, 100, 255))
+        # Remember Me Checkbox
+        chk_y = py + 185
+        chk_x = px + (panel_w - 200) // 2
+        chk_char = "x" if self.remember_me else " "
+        chk_col = theme["success"] if self.remember_me else (100, 100, 100)
+        
+        # Draw box
+        r.draw_text(surface, f"[{chk_char}] REMEMBER ME", chk_x, chk_y, chk_col if self.active_field == 2 else theme["text"])
+        if self.active_field == 2:
+             pygame.draw.rect(surface, theme["primary"], (chk_x - 10, chk_y - 5, 220, 30), 1)
 
         # Controls
         controls_y = py + 240
@@ -124,7 +136,7 @@ class AuthScene(Scene):
                 
             elif event.key == pygame.K_TAB:
                 self.play_sfx("blip")
-                self.active_field = (self.active_field + 1) % 2
+                self.active_field = (self.active_field + 1) % 3 # 0=User, 1=Pass, 2=Remember
                 
             elif event.key == pygame.K_RETURN:
                 if self.active_field == 0 and self.username:
@@ -132,6 +144,9 @@ class AuthScene(Scene):
                     self.play_sfx("blip")
                 elif self.active_field == 1:
                     self._submit()
+                elif self.active_field == 2:
+                    self.remember_me = not self.remember_me
+                    self.play_sfx("blip")
                     
             elif event.key == pygame.K_BACKSPACE:
                 self.play_sfx("type")
@@ -172,7 +187,14 @@ class AuthScene(Scene):
                     self.game.settings.set("name", mc.username)
                     self.game.settings.set("account_type", "REGISTERED")
                     self.game.settings.set("logged_in", True)
-                    self.game.settings.set("auth_token", mc.auth_token)
+                    self.game.settings.set("account_type", "REGISTERED")
+                    self.game.settings.set("logged_in", True)
+                    
+                    if self.remember_me:
+                         self.game.settings.set("auth_token", mc.auth_token)
+                    else:
+                         self.game.settings.set("auth_token", None) # Clear it if user unchecked
+                         
                     self.play_sfx("success")
                     
                     from scenes.menu_scenes import TitleScene
