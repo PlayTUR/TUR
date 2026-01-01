@@ -320,7 +320,7 @@ async def promote_user(req: PromoteRequest, request: Request):
     
     conn = get_db()
     c = conn.cursor()
-    c.execute(f"UPDATE {TBL_USERS} SET is_admin = 1 WHERE username = ?", (req.username,))
+    c.execute(f"UPDATE {TBL_USERS} SET is_admin = 1 WHERE uname = ?", (req.username,))
     if c.rowcount == 0:
         conn.close()
         raise HTTPException(404, "User not found")

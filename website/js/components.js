@@ -76,7 +76,7 @@ const Components = {
             <div class="panel">
                 <h3>SUPPORTED FORMATS</h3>
                 <p><strong>Audio:</strong> MP3, OGG, WAV, FLAC</p>
-                <p><strong>Charts:</strong> .tur (native), .osu (partial)</p>
+                <p><strong>Charts:</strong> .tur (native), .osu / .osz (partial)</p>
                 <p style="margin-top: 0.5rem; color: var(--color-dim); font-size: 0.75rem;">Drop audio files in /songs folder. The game automatically generates beatmaps on first load using audio analysis.</p>
             </div>
         </div>
@@ -90,11 +90,11 @@ const Components = {
             </details>
             <details>
                 <summary>Can I import charts from other games?</summary>
-                <p>Partial .osu file support is available. Place .osu files alongside the audio in /songs. Native .tur charts can be shared directly between players.</p>
+                <p>Partial .osu and .osz file support is available. Place .osu files or .osz packs alongside the audio in /songs. Native .tur charts can be shared directly between players.</p>
             </details>
             <details>
                 <summary>How does multiplayer work?</summary>
-                <p>One player hosts a session from the Online menu. Others join using the host's address. Songs are automatically transferred to players who don't have them. Scores are compared in real-time.</p>
+                <p>One player hosts a session from the Online menu. The server is then broadcast to the global server list where other players can join. LAN play is also supported via direct connection.</p>
             </details>
             <details>
                 <summary>Are my scores saved?</summary>
