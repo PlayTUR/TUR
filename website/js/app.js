@@ -249,13 +249,19 @@ const App = {
     // STATS
     fetchNews: async () => {
         const res = await fetch(`${API_URL}/api/v2/news`);
-        if (!res.ok) throw new Error("Failed");
+        if (!res.ok) {
+            const err = await res.json().catch(() => ({}));
+            throw new Error(err.detail || err.error || "UPLINK_FAILED");
+        }
         return await res.json();
     },
 
     fetchLeaderboard: async () => {
         const res = await fetch(`${API_URL}/api/v2/leaderboard`);
-        if (!res.ok) throw new Error("Failed");
+        if (!res.ok) {
+            const err = await res.json().catch(() => ({}));
+            throw new Error(err.detail || err.error || "FAILED_TO_CONNECT_TO_MAINFRAME");
+        }
         return await res.json();
     },
 
@@ -263,7 +269,10 @@ const App = {
         const res = await fetch(`${API_URL}/api/v2/users/me`, {
             headers: { 'Authorization': `Bearer ${App.state.token}` }
         });
-        if (!res.ok) throw new Error("Failed");
+        if (!res.ok) {
+            const err = await res.json().catch(() => ({}));
+            throw new Error(err.detail || err.error || "SESSION_EXPIRED");
+        }
         const data = await res.json();
 
         // Handle Admin Status
@@ -271,12 +280,15 @@ const App = {
             App.state.isAdmin = true;
         }
 
-        return data; // Return full data object
+        return data;
     },
 
     fetchPublicProfile: async (username) => {
         const res = await fetch(`${API_URL}/api/v2/users/profile/${username}`);
-        if (!res.ok) throw new Error("Failed");
+        if (!res.ok) {
+            const err = await res.json().catch(() => ({}));
+            throw new Error(err.detail || err.error || "OPERATOR_NOT_FOUND");
+        }
         return await res.json();
     },
 

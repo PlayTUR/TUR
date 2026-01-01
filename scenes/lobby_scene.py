@@ -919,8 +919,14 @@ class LobbyScene(Scene):
             dots = "." * ((self.blink_timer // 10) % 4)
             r.draw_text(surface, f"Loading servers{dots}", 400, 320, (150, 150, 150))
         elif not servers:
-            r.draw_text(surface, "No servers online.", 420, 280, (150, 150, 150))
-            r.draw_text(surface, "Be the first to host!", 400, 320, theme["secondary"])
+            mc_error = getattr(self.master_client, 'error', None)
+            if mc_error:
+                r.draw_text(surface, "SYSTEM_ERROR:", 420, 260, theme["error"])
+                r.draw_text(surface, f"{mc_error}", 150, 300, theme["error"])
+                r.draw_text(surface, "[R] to Retry", 420, 360, (150, 150, 150))
+            else:
+                r.draw_text(surface, "No servers online.", 420, 280, (150, 150, 150))
+                r.draw_text(surface, "Be the first to host!", 400, 320, theme["secondary"])
         else:
             # Header row
             r.draw_text(surface, "NAME", 120, 190, theme["secondary"])

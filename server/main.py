@@ -74,6 +74,14 @@ async def validate_client(request: Request, call_next):
     if request.url.path in ["/", "/health"]:
         return await call_next(request)
     
+    # NEW: Proactive IP Ban Check
+    client_ip = get_client_ip(request)
+    if client_ip not in ["127.0.0.1", "::1"]:
+        from blacklist import blocklist # Redundant but safe
+        ban_info = is_user_banned(ip=client_ip)
+        if ban_info:
+            return JSONResponse(status_code=403, content={"detail": f"ACCESS_RESTRICTED: You are BANNED. Reason: {ban_info['reason']}"})
+
     # Allow CORS preflight (let CORSMiddleware handle it)
     if request.method == "OPTIONS":
         return await call_next(request)
