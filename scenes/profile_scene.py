@@ -88,11 +88,18 @@ class ProfileScene(Scene):
 
             # 1. Ensure we are logged in
             if not self.game.master_client.logged_in:
-                # If guest, just load local settings simulation but mark as offline/guest
-                self.profile_data = self._get_guest_profile()
-                self.connection_status = "GUEST"
-                self.loading = False
-                return
+                # Attempt Auto-Auth from saved token (Lazy Login)
+                saved_token = self.game.settings.get("auth_token")
+                if saved_token:
+                     self.game.master_client.auth_token = saved_token
+                     self.game.master_client.logged_in = True
+                     # Retry fetch basically immediately by falling through to step 2
+                else:
+                    # genuinely guest
+                    self.profile_data = self._get_guest_profile()
+                    self.connection_status = "GUEST"
+                    self.loading = False
+                    return
 
             # 2. Fetch full profile from API
             data = self.game.master_client.get_my_stats()
@@ -269,7 +276,7 @@ class ProfileScene(Scene):
                   msg2 = "CANNOT REACH SERVER"
              elif self.connection_status == "GUEST":
                   msg1 = "GUEST ACCESS"
-                  msg2 = "LOGIN FOR GLOBAL SUNC"
+                  msg2 = "LOGIN FOR GLOBAL SYNC"
              elif self.connection_status == "ERROR":
                   msg1 = "DATA CORRUPTION"
                   msg2 = "FETCH FAILED"
