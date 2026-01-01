@@ -770,7 +770,7 @@ async def get_my_stats(request: Request):
     stats = c.fetchone()
     
     # Get user info including admin status
-    c.execute(f"SELECT uname, is_admin FROM {TBL_USERS} WHERE id = ?", (uid,))
+    c.execute(f"SELECT uname, is_admin, l_at FROM {TBL_USERS} WHERE id = ?", (uid,))
     u_row = c.fetchone()
     
     # Advanced Stats
