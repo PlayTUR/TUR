@@ -158,6 +158,10 @@ class ProfileScene(Scene):
         data = self.profile_data or {}
         stats = data.get("stats", {})
         
+        # Define layout coordinates early
+        panel_x = 50
+        panel_y = 120
+        
         username = data.get("username", "Unknown")
         uid = data.get("id", 0)
         is_admin = data.get("is_admin", False) is True
@@ -191,8 +195,6 @@ class ProfileScene(Scene):
         # ---- LAYOUT ----
         
         # 1. Left Panel: ID Card
-        panel_x = 50
-        panel_y = 120
         r.draw_panel(surface, panel_x, panel_y, 400, 350, "OPERATOR_ID")
         
         # Avatar (ASCII Style)
