@@ -7,7 +7,7 @@ from core.config import *
 class ProfileScene(Scene):
     def __init__(self, game):
         super().__init__(game)
-        self.menu_items = ["VIEW LEADERBOARD", "EDIT PROFILE (RENAME)", "LOGOUT", "BACK"]
+        self.menu_items = ["VIEW LEADERBOARD", "EDIT PROFILE", "LOGOUT", "BACK"]
         self.index = 0
         
         self.loading = True
@@ -136,15 +136,18 @@ class ProfileScene(Scene):
         r.draw_text(surface, f"NAME: {username}", info_x, y, theme["text"])
         r.draw_text(surface, f"UID:  #{uid:04d}", info_x, y + 30, (150, 150, 150))
         
-        rank_str = f"#{rank}" if rank > 0 else "UNRANKED"
-        r.draw_text(surface, f"RANK: {rank_str}", info_x, y + 60, theme["primary"])
-        
-        # Admin Badge
+        # Admin Badge (Replaces Rank)
         if is_admin and not is_stealth:
-            badge_rect = pygame.Rect(panel_x + 40, y + 100, 120, 26)
+            badge_rect = pygame.Rect(info_x, y + 60, 120, 26)
             pygame.draw.rect(surface, (255, 215, 0), badge_rect)
             pygame.draw.rect(surface, (255, 255, 255), badge_rect, 1)
-            r.draw_text(surface, "ROOT ADMIN", panel_x + 55, y + 104, (0, 0, 0), r.small_font)
+            r.draw_text(surface, "ROOT ADMIN", info_x + 15, y + 64, (0, 0, 0), r.small_font)
+        else:
+             # If not admin/stealth, maybe show something else or nothing? 
+             # User asked to "remove rank, replace with badge". 
+             # I'll leave it empty or show "OPERATOR" for non-admins to keep spacing?
+             # Let's show "OPERATOR" for aesthetics.
+             r.draw_text(surface, "OPERATOR", info_x, y + 60, (100, 100, 100))
         
         # 2. Right Panel: Stats
         stats_x = 500
@@ -262,7 +265,7 @@ class ProfileScene(Scene):
             self.game.settings.set("account_type", "GUEST")
             self.game.settings.set("is_admin", False)
             self.game.scene_manager.pop_scene()
-        elif item == "EDIT PROFILE (RENAME)":
+        elif item == "EDIT PROFILE":
             self.renaming = True
             # Get current name from profile data
             current_name = ""
