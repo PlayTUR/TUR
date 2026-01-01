@@ -310,7 +310,14 @@ const Components = {
                         ${isOnline ? 'ONLINE' : 'OFFLINE'}
                     </div>
                 </div>
-                <div style="color: var(--color-dim); font-size: 0.9rem;">ID: #${stats?.id || "---"}</div>
+                
+                <div style="display: flex; gap: 1rem; align-items: center; margin-bottom: 0.5rem;">
+                    <div style="color: var(--color-dim); font-size: 0.9rem;">ID: #${stats?.id || "---"}</div>
+                    ${(stats?.is_admin || App.state.isAdmin && !isPublic) ?
+            `<span style="color: #ffd700; border: 1px solid #ffd700; padding: 0 4px; font-size: 0.7rem; letter-spacing: 1px;">ROOT</span>` :
+            `<span style="color: var(--color-dim); border: 1px solid var(--color-dim); padding: 0 4px; font-size: 0.7rem; letter-spacing: 1px;">USER</span>`
+        }
+                </div>
             </div>
         </div>
         

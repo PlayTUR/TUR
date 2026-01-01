@@ -52,7 +52,7 @@ AVATARS = [
 class ProfileScene(Scene):
     def __init__(self, game):
         super().__init__(game)
-        self.menu_items = ["VIEW LEADERBOARD", "EDIT PROFILE", "CHANGE AVATAR", "LOGOUT", "BACK"]
+        self.menu_items = ["VIEW LEADERBOARD", "CHANGE AVATAR", "LOGOUT", "BACK"]
         self.index = 0
         
         self.loading = True
@@ -326,15 +326,6 @@ class ProfileScene(Scene):
             self.game.settings.set("account_type", "GUEST")
             self.game.settings.set("is_admin", False)
             self.game.scene_manager.pop_scene()
-        elif item == "EDIT PROFILE":
-            self.renaming = True
-            # Get current name from profile data
-            current_name = ""
-            if self.profile_data:
-                current_name = self.profile_data.get("username", "")
-            if not current_name:
-                current_name = self.game.settings.get("name", "User")
-            self.temp_name = current_name
         elif item == "CHANGE AVATAR":
             self.changing_avatar = True
             self.play_sfx("blip")
