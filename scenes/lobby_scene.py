@@ -218,8 +218,6 @@ class LobbyScene(Scene):
         r.draw_text(surface, "PLAYERS:", 230, y, theme["text"])
         y += 35
         h_label = " (HOST)"
-        if self.game.settings.get("is_admin"):
-            h_label = " (ROOT ADMIN)"
         r.draw_text(surface, f"  1. You{h_label}", 230, y, theme["primary"])
         y += 30
         
@@ -299,8 +297,6 @@ class LobbyScene(Scene):
         r.draw_text(surface, f"  1. {self.game.network.opponent_name} (HOST)", 230, y, theme["primary"])
         y += 30
         p2_label = ""
-        if self.game.settings.get("is_admin"):
-            p2_label = " (ROOT ADMIN)"
         r.draw_text(surface, f"  2. You{p2_label}", 230, y, theme["text"])
         y += 50
         

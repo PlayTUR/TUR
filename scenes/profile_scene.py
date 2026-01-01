@@ -12,10 +12,10 @@ class ProfileScene(Scene):
         self.renaming = False
         self.temp_name = ""
         
-        # Admin check
+        # Admin check - Removed from UI as per request (Web Only)
         self.is_admin = self.game.settings.get("is_admin") or False
-        if self.is_admin:
-            self.menu_items.insert(0, "ACCESS ADMIN PANEL")
+        # if self.is_admin:
+        #     self.menu_items.insert(0, "ACCESS ADMIN PANEL")
         
         # Stats Cache
         self.stats = {}
@@ -219,11 +219,7 @@ class ProfileScene(Scene):
             elif event.key == pygame.K_RETURN:
                 self.play_sfx("accept")
                 sel = self.menu_items[self.index]
-                if sel == "ACCESS ADMIN PANEL":
-                    # Placeholder or new scene
-                    from scenes.admin_scene import AdminScene
-                    self.game.scene_manager.switch_to(AdminScene)
-                elif sel == "CHANGE NAME":
+                if sel == "CHANGE NAME":
                     self.renaming = True
                     self.temp_name = self.game.settings.get("name")
                 elif sel == "VIEW LEADERBOARD":
