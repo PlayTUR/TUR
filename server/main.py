@@ -73,6 +73,10 @@ async def validate_client(request: Request, call_next):
     if request.headers.get("X-TUR-Client") == CLIENT_SECRET:
         return await call_next(request)
     
+    # Allow localhost (SSH/Internal)
+    if get_client_ip(request) in ["127.0.0.1", "::1"]:
+        return await call_next(request)
+    
     # Website origin
     origin = request.headers.get("Origin", "") or request.headers.get("Referer", "")
     allowed = ["https://tur.wyind.dev", "http://localhost", "http://127.0.0.1"]
