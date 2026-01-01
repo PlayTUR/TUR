@@ -5,9 +5,9 @@
 set -e
 
 # Configuration
-VPS_USER="root"
+VPS_USER="${VPS_USER:-root}"
 VPS_HOST="154.53.35.148"
-VPS_PATH="/home/tur-server"
+VPS_PATH="/root/TURSS/server"
 BUILD_DIR="dist"
 
 echo "=== TUR DEPLOYMENT SCRIPT ==="

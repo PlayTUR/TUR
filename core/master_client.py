@@ -19,17 +19,30 @@ class MasterClient:
         self.server_url = server_url or MASTER_SERVER_URL
         
         # Auto-detect local server for dev
-        if not server_url:
+        # Auto-detect local server for dev (Only in Debug Mode or if explicit)
+        # Pass debug=True to get_master_client() or use -D flag
+        import sys
+        is_debug = "-D" in sys.argv
+        
+        if not server_url and is_debug:
             try:
-                # Quick check if localhost is alive
-                with urllib.request.urlopen("http://localhost:80/health", timeout=0.2) as r:
-                    if r.getcode() == 200:
-                         print("Local Master Server detected! Switching to localhost.")
-                         self.server_url = "http://localhost:80"
+                # Check localhost:8080 (Dev) then localhost:80 (Prod)
+                for port in [8080, 80]:
+                    try:
+                        with urllib.request.urlopen(f"http://localhost:{port}/health", timeout=0.1) as r:
+                            if r.getcode() == 200:
+                                 print(f"[DEBUG] Local Master Server detected on port {port}!")
+                                 self.server_url = f"http://localhost:{port}"
+                                 break
+                    except:
+                        continue
             except:
                 pass
 
         self.auth_token = None
+        if self.server_url:
+            print(f"[MasterClient] Connecting to: {self.server_url}", flush=True)
+
         self.auth_token = None
         self.username = None
         self.username = None

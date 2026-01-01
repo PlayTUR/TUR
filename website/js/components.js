@@ -217,7 +217,11 @@ const Components = {
         let rows = data.map((entry, idx) => `
             <tr>
                 <td style="color: ${idx < 3 ? 'var(--color-secondary)' : 'inherit'}">#${idx + 1}</td>
-                <td>${entry.username}</td>
+                <td>
+                    <a href="#user/${entry.username}" style="color: inherit; text-decoration: none; border-bottom: 1px dotted var(--color-dim); transition: 0.2s;" onmouseover="this.style.color='var(--color-primary)'" onmouseout="this.style.color='inherit'">
+                        ${entry.username}
+                    </a>
+                </td>
                 <td>LVL.${entry.level}</td>
                 <td style="text-align: right;">${entry.xp.toLocaleString()} XP</td>
                 <td style="text-align: right;">${entry.score.toLocaleString()} PTS</td>
@@ -469,7 +473,9 @@ const Components = {
                 <h3>SESSION_INFO</h3>
                 <div style="margin-bottom: 1rem;">
                     <div style="font-size: 0.8rem; color: var(--color-dim);">STATUS</div>
-                    <div style="color: var(--color-primary); font-weight: bold;">ONLINE</div>
+                    <div style="color: ${isOnline ? 'var(--color-primary)' : 'var(--color-dim)'}; font-weight: bold;">
+                        ${isOnline ? 'ONLINE' : 'OFFLINE'}
+                    </div>
                 </div>
                 ${!isPublic ? `
                     <div style="display: flex; flex-direction: column; gap: 0.5rem;">

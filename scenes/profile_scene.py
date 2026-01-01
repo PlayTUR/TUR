@@ -219,7 +219,7 @@ class ProfileScene(Scene):
         has_admin = is_admin and not is_stealth
         
         if has_admin:
-            role_txt = "ROOT"
+            role_txt = "ADMIN"
             role_col = (255, 215, 0) # Gold
         elif uid == 0:
             role_txt = "GUEST"
@@ -269,8 +269,8 @@ class ProfileScene(Scene):
         
         # Role Text
         if is_admin and not is_stealth:
-            # "ROOT" in Gold
-            r.draw_text(surface, "ROOT", info_x, y + 60, (255, 215, 0)) 
+            # "ADMIN" in Gold
+            r.draw_text(surface, "ADMIN", info_x, y + 60, (255, 215, 0)) 
         else:
              # "USER" in Grey
              r.draw_text(surface, "USER", info_x, y + 60, (100, 100, 100))

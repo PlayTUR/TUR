@@ -495,7 +495,7 @@ class LobbyScene(Scene):
                 self.state = "MODE_SELECT"
                 
             elif item == "ONLINE":
-                if not self.server_online:
+                if not self.game.master_client.server_online:
                      self.play_sfx("back")
                      return
                 
@@ -543,7 +543,7 @@ class LobbyScene(Scene):
                     self.state = "DIRECT_JOIN"
                     self.input_focus = 0
             
-            elif self.selected_mode == "ONLINE":
+            if self.selected_mode == "ONLINE":
                 if item == "BROWSE SERVERS":
                     self.state = "ONLINE_BROWSER"
                     self.server_index = 0
@@ -553,6 +553,8 @@ class LobbyScene(Scene):
                     # Go to setup screen first for room name and password
                     self.state = "ONLINE_HOST_SETUP"
                     self.input_focus = 0
+                    # Default to Relay for Online Hosting
+                    self.use_playit = True
                     
                 elif item == "DIRECT JOIN":
                     self.code_buffer = ""
@@ -851,6 +853,7 @@ class LobbyScene(Scene):
     def _start_online_mode(self):
         """Show online mode options with server browser"""
         self.selected_mode = "ONLINE"
+        self.selected_mode = "ONLINE"
         self.mode_menu_items = ["BROWSE SERVERS", "HOST GAME", "BACK"]
         self.mode_menu_index = 0
         self.state = "MODE_SELECT"
@@ -1004,7 +1007,7 @@ class LobbyScene(Scene):
             ip = srv.get("host_ip", "")
             port = srv.get("port", 1337)
             
-            if ip and ip != "0.0.0.0":
+            if ip:
                 # Check if password protected
                 if srv.get("password_protected"):
                     # Store server info and prompt for password
@@ -1013,7 +1016,11 @@ class LobbyScene(Scene):
                     self.state = "PASSWORD_PROMPT"
                 else:
                     # Join directly
-                    self.game.network.join_game(f"{ip}:{port}")
+                    if str(ip).startswith("relay:"):
+                        room_id = ip.split(":")[1]
+                        self.game.network.join_relay(room_id)
+                    else:
+                        self.game.network.join_game(f"{ip}:{port}")
                     self.state = "JOINING"
             else:
                 self.game.network.error_message = "Server has invalid address"
@@ -1083,21 +1090,44 @@ class LobbyScene(Scene):
                 self.max_players_buffer = "2"
             
             # Start hosting with password
-            self.game.network.host_game(room_name, password) 
-            
-            # Register with master server
-            from core.master_client import get_master_client
-            mc = get_master_client()
-            mc.register_server(
-                name=room_name,
-                port=self.game.network.port,
-                password_protected=bool(password),
-                max_players=max_players
-            )
-            
+            if getattr(self, 'use_playit', False):
+                # Use WebSocket Relay (Server-side)
+                self.game.network.host_relay(room_name, password)
+                
+                # Register with master server so it appears in browser
+                # For Relay, we register with a special "relay:ROOMID" address
+                # Wait for room ID to be generated? It's generated in host_relay immediately.
+                time.sleep(0.1) 
+                
+                from core.master_client import get_master_client
+                mc = get_master_client()
+                mc.register_server(
+                    name=room_name,
+                    port=0, # Port 0 indicates relay/virtual
+                    password_protected=bool(password),
+                    max_players=max_players,
+                    public_ip=f"relay:{self.game.network.relay_room_id}"
+                )
+                
+                self.state = "HOSTING"
+                
+            else:
+                # Standard TCP/IP Hosting
+                self.game.network.host_game(room_name, password) 
+                
+                # Register with master server with Public IP (auto-detected by master)
+                from core.master_client import get_master_client
+                mc = get_master_client()
+                mc.register_server(
+                    name=room_name,
+                    port=self.game.network.port,
+                    password_protected=bool(password),
+                    max_players=max_players
+                )
+                self.state = "HOSTING"
+
             self.play_sfx("accept")
             self.show_password = False # Init toggle state
-            self.state = "HOSTING"
             
         elif key == pygame.K_ESCAPE:
             self.play_sfx("back")
@@ -1154,7 +1184,11 @@ class LobbyScene(Scene):
             
             if ip:
                 self.play_sfx("accept")
-                self.game.network.join_game(f"{ip}:{port}", pw)
+                if str(ip).startswith("relay:"):
+                    room_id = ip.split(":")[1]
+                    self.game.network.join_relay(room_id, pw)
+                else:
+                    self.game.network.join_game(f"{ip}:{port}", pw)
                 self.state = "JOINING"
             
         elif key == pygame.K_BACKSPACE:

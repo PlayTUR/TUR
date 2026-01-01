@@ -15,6 +15,9 @@ import hashlib
 import base64
 import os
 import struct
+import asyncio
+import websockets
+import secrets # for room IDs
 
 
 def get_local_ip():
@@ -246,6 +249,12 @@ class NetworkManager:
     
     def join_with_code(self, code, password=""):
         """Join game using room code"""
+        # Relay Code (8 chars)
+        if len(code) == 8:
+            self.join_relay(code, password)
+            return
+
+        # Legacy IP Code
         ip, port = self.decode_room_code(code)
         if ip:
             self.port = port
@@ -491,6 +500,10 @@ class NetworkManager:
                     self.error_message = error_msg
     
     def send(self, data, conn=None):
+        if self.use_relay:
+            self.relay_queue.append(data)
+            return True
+
         if self.room_connect and self.room_connect.connected:
             return self.room_connect.send_game_data(data)
         
@@ -535,6 +548,95 @@ class NetworkManager:
         self.status_message = "Disconnected"
         if self.room_connect and self.room_connect.error_message:
              self.error_message = self.room_connect.error_message
+
+    # === Relay System ===
+
+    def host_relay(self, room_name, password=""):
+        """Host game via WebSocket Relay"""
+        self.is_host = True
+        self.room_name = room_name
+        self.room_password = password
+        self.connected = False
+        self.connecting = True
+        self.use_relay = True
+        self.error_message = ""
+        
+        # Create unique room ID
+        self.relay_room_id = secrets.token_hex(4).upper()
+        self.room_code = self.relay_room_id # Display this as code
+        
+        threading.Thread(target=self._relay_entry, args=("HOST",), daemon=True).start()
+
+    def join_relay(self, room_id, password=""):
+        """Join game via WebSocket Relay"""
+        self.is_host = False
+        self.room_password = password
+        self.connected = False
+        self.connecting = True
+        self.use_relay = True
+        self.error_message = ""
+        self.relay_room_id = room_id
+        
+        threading.Thread(target=self._relay_entry, args=("CLIENT",), daemon=True).start()
+
+    def _relay_entry(self, role):
+        asyncio.run(self._relay_loop(role))
+
+    async def _relay_loop(self, role):
+        # Determine URL dynamically from MasterClient
+        base_url = "http://154.53.35.148:80"
+        if hasattr(self, 'game') and hasattr(self.game, 'master_client'):
+             base_url = self.game.master_client.server_url
+        
+        # Convert http to ws
+        ws_proto = "wss" if "https" in base_url else "ws"
+        host_part = base_url.replace("http://", "").replace("https://", "")
+        
+        uri = f"{ws_proto}://{host_part}/ws/{self.relay_room_id}/{role}"
+        
+        try:
+            self.status_message = f"Connecting to relay..."
+            async with websockets.connect(uri) as websocket:
+                self.relay_ws = websocket
+                self.connected = True
+                self.connecting = False
+                self.status_message = "Connected via Relay!" if role == "CLIENT" else f"Hosting Relay: {self.relay_room_id}"
+                
+                # Handshake
+                handshake = {
+                    'type': 'hello',
+                    'name': self.game.settings.get("username", "PLAYER") if hasattr(self, 'game') else 'PLAYER',
+                    'check_password': self.room_password if role == "CLIENT" else None
+                }
+                await websocket.send(json.dumps(handshake))
+                
+                # Main Loop
+                while self.running and self.use_relay:
+                    # Receive
+                    try:
+                        msg = await asyncio.wait_for(websocket.recv(), timeout=0.01)
+                        if msg:
+                            data = json.loads(msg)
+                            self._handle_message(data, None)
+                    except asyncio.TimeoutError:
+                        pass
+                    except websockets.exceptions.ConnectionClosed:
+                        break
+                        
+                    # Send
+                    while self.relay_queue:
+                        item = self.relay_queue.pop(0)
+                        await websocket.send(json.dumps(item))
+                        
+                    await asyncio.sleep(0.01)
+                    
+        except Exception as e:
+            # print(f"Relay error: {e}")
+            self.error_message = f"Relay error: {e}"
+        finally:
+            self.connected = False
+            self.use_relay = False
+            self.status_message = "Disconnected"
 
     # === Song Transfer ===
     

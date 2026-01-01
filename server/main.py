@@ -8,7 +8,7 @@ from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, field_validator
-from typing import Optional, List
+from typing import Optional, List, Dict
 import sqlite3
 import bcrypt
 import secrets
@@ -19,6 +19,34 @@ from collections import defaultdict
 from blacklist import blocklist
 import asyncio
 import httpx
+
+# === WebSocket Manager ===
+from fastapi import WebSocket, WebSocketDisconnect
+
+class ConnectionManager:
+    def __init__(self):
+        # room_id -> list of WebSockets
+        self.active_connections: Dict[str, List[WebSocket]] = defaultdict(list)
+
+    async def connect(self, websocket: WebSocket, room_id: str):
+        await websocket.accept()
+        self.active_connections[room_id].append(websocket)
+
+    def disconnect(self, websocket: WebSocket, room_id: str):
+        if room_id in self.active_connections:
+            if websocket in self.active_connections[room_id]:
+                self.active_connections[room_id].remove(websocket)
+            if not self.active_connections[room_id]:
+                del self.active_connections[room_id]
+
+    async def broadcast(self, message: str, room_id: str, sender: WebSocket):
+        if room_id in self.active_connections:
+            for connection in self.active_connections[room_id]:
+                if connection != sender:
+                    await connection.send_text(message)
+
+manager = ConnectionManager()
+
 
 # === Helpers (Moved Up) ===
 def get_client_ip(request: Request) -> str:
@@ -89,7 +117,7 @@ async def validate_client(request: Request, call_next):
     # Game client header
     if request.headers.get("X-TUR-Client") == CLIENT_SECRET:
         return await call_next(request)
-    
+
     # Allow localhost (SSH/Internal)
     if get_client_ip(request) in ["127.0.0.1", "::1"]:
         return await call_next(request)
@@ -107,6 +135,22 @@ async def validate_client(request: Request, call_next):
         return await call_next(request)
     
     return JSONResponse(status_code=403, content={"detail": f"Unauthorized client origin: {origin}"})
+
+@app.websocket("/ws/{room_id}/{client_id}")
+async def websocket_endpoint(websocket: WebSocket, room_id: str, client_id: str):
+    try:
+        await manager.connect(websocket, room_id)
+        try:
+            while True:
+                data = await websocket.receive_text()
+                await manager.broadcast(data, room_id, websocket)
+        except WebSocketDisconnect:
+            manager.disconnect(websocket, room_id)
+    except Exception as e:
+        print(f"WebSocket Error: {e}")
+        try:
+             await websocket.close()
+        except: pass
 
 DB_PATH = "tur_server.db"
 REGISTER_API_KEY = os.environ.get("TUR_REGISTER_KEY", "PBd&%qm!Qt$w#!n@pBtwV3Fz4LuiCPD7I2@2ZC@KF@%4DuVUsk&cx")
@@ -1480,5 +1524,10 @@ if os.path.exists("static"):
 
 if __name__ == "__main__":
     import uvicorn
-    # Port 80 is required for Cloudflare Flexible SSL to work without extra config
-    uvicorn.run(app, host="0.0.0.0", port=80)
+    import os
+    
+    # Use PORT env var, or default to 8080 (Dev)
+    # On VPS run: sudo PORT=80 python3 main.py
+    port = int(os.getenv("PORT", 8080))
+    
+    uvicorn.run(app, host="0.0.0.0", port=port)

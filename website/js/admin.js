@@ -1,4 +1,4 @@
-const API_URL = "http://154.53.35.148:80"; // API Server (Port 80)
+const API_URL = "https://turapi.wyind.dev"; // API Server
 
 const AdminApp = {
     state: {
