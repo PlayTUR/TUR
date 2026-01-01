@@ -60,12 +60,28 @@ const Components = {
                     <p>Choose your operating system for direct download:</p>
                     <div class="platform-grid">
                         <button class="btn btn-win" onclick="App.download('win')">
-                            <span class="icon">🪟</span> WINDOWS
-                            <span class="sub">.zip (64-bit)</span>
+                            <!-- Pixel Art Windows Logo (SVG) -->
+                            <svg class="icon-svg" width="48" height="48" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style="image-rendering: pixelated;">
+                                <rect x="2" y="2" width="9" height="9" fill="currentColor"/>
+                                <rect x="13" y="2" width="9" height="9" fill="currentColor"/>
+                                <rect x="2" y="13" width="9" height="9" fill="currentColor"/>
+                                <rect x="13" y="13" width="9" height="9" fill="currentColor"/>
+                            </svg>
+                            <span class="sub">WINDOWS .zip (64-bit)</span>
                         </button>
                         <button class="btn btn-nix" onclick="App.download('lin')">
-                            <span class="icon">🐧</span> LINUX
-                            <span class="sub">.zip (x86_64)</span>
+                            <!-- Pixel Art Linux Tux Logo (Simplified SVG) -->
+                            <svg class="icon-svg" width="48" height="48" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style="image-rendering: pixelated;">
+                                <rect x="7" y="2" width="10" height="3" fill="currentColor"/>
+                                <rect x="6" y="5" width="2" height="4" fill="currentColor"/>
+                                <rect x="16" y="5" width="2" height="4" fill="currentColor"/>
+                                <rect x="8" y="5" width="8" height="11" fill="currentColor"/>
+                                <rect x="4" y="9" width="4" height="4" fill="currentColor"/> <!-- L Wing -->
+                                <rect x="16" y="9" width="4" height="4" fill="currentColor"/> <!-- R Wing -->
+                                <rect x="5" y="16" width="6" height="3" fill="currentColor"/> <!-- L Foot -->
+                                <rect x="13" y="16" width="6" height="3" fill="currentColor"/> <!-- R Foot -->
+                            </svg>
+                            <span class="sub">LINUX .zip (x86_64)</span>
                         </button>
                     </div>
                     <div class="modal-footer">

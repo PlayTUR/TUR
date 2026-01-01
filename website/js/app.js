@@ -398,8 +398,10 @@ const App = {
                 .btn-win, .btn-nix { display: flex; flex-direction: column; align-items: center; padding: 1.5rem; border: 1px solid var(--color-dim); background: rgba(255,255,255,0.05); color: var(--color-text); cursor: pointer; transition: all 0.2s; }
                 .btn-win:hover { border-color: #00a8e8; background: rgba(0,168,232,0.1); transform: translateY(-2px); }
                 .btn-nix:hover { border-color: #fca311; background: rgba(252,163,17,0.1); transform: translateY(-2px); }
-                .btn-win .icon, .btn-nix .icon { font-size: 2rem; margin-bottom: 0.5rem; }
-                .btn-win .sub, .btn-nix .sub { font-size: 0.7rem; color: var(--color-dim); margin-top: 0.5rem; }
+                .btn-win .icon-svg, .btn-nix .icon-svg { margin-bottom: 0.5rem; fill: var(--color-text); }
+                .btn-win:hover .icon-svg { fill: #00a8e8; } 
+                .btn-nix:hover .icon-svg { fill: #fca311; }
+                .btn-win .sub, .btn-nix .sub { font-size: 0.7rem; color: var(--color-dim); margin-top: 0.5rem; font-family: 'JetBrains Mono'; }
                 .modal-footer { margin-top: 1rem; font-size: 0.8rem; }
                 .modal-footer a { color: var(--color-secondary); text-decoration: none; }
                 .modal-footer a:hover { text-decoration: underline; }
