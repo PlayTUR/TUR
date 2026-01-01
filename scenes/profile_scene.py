@@ -115,11 +115,18 @@ class ProfileScene(Scene):
                 if is_admin and "WEB ADMIN PANEL" not in self.menu_items:
                      self.menu_items.insert(0, "WEB ADMIN PANEL")
                 
-                # We do NOT hide admin panel in menu even if stealth, 
                 # but we hide the badge in the UI.
                 
             else:
                 self.error_msg = "Failed to load profile data."
+                
+            # Add Reauthenticate if not OK
+            if self.connection_status != "OK" and "REAUTHENTICATE" not in self.menu_items:
+                 self.menu_items.insert(0, "REAUTHENTICATE")
+            elif self.connection_status == "OK" and "REAUTHENTICATE" in self.menu_items:
+                 self.menu_items.remove("REAUTHENTICATE")
+                 self.index = 0 # Reset to avoid index out of bounds
+            
                 
             
         except Exception as e:
@@ -395,6 +402,19 @@ class ProfileScene(Scene):
         elif item == "CHANGE AVATAR":
             self.changing_avatar = True
             self.play_sfx("blip")
+        elif item == "REAUTHENTICATE":
+             # Force refresh session
+             self.play_sfx("type")
+             self.loading = True
+             self.menu_items = ["VIEW LEADERBOARD", "CHANGE AVATAR", "LOGOUT", "BACK"] # Reset
+             
+             # Attempt to reload token from disk if lost
+             saved_token = self.game.settings.get("auth_token")
+             if saved_token:
+                  self.game.master_client.auth_token = saved_token
+                  self.game.master_client.logged_in = True
+             
+             self.on_enter()
         elif item == "VIEW LEADERBOARD":
              from scenes.leaderboard_scene import LeaderboardScene
              self.game.scene_manager.switch_to(LeaderboardScene)
