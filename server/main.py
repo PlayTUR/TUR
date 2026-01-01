@@ -74,6 +74,10 @@ async def validate_client(request: Request, call_next):
     if request.url.path in ["/", "/health"]:
         return await call_next(request)
     
+    # Allow CORS preflight (let CORSMiddleware handle it)
+    if request.method == "OPTIONS":
+        return await call_next(request)
+    
     # Game client header
     if request.headers.get("X-TUR-Client") == CLIENT_SECRET:
         return await call_next(request)
@@ -84,11 +88,17 @@ async def validate_client(request: Request, call_next):
     
     # Website origin
     origin = request.headers.get("Origin", "") or request.headers.get("Referer", "")
-    allowed = ["https://tur.wyind.dev", "http://localhost", "http://127.0.0.1"]
+    allowed = [
+        "https://tur.wyind.dev", 
+        "http://tur.wyind.dev",
+        "https://turapi.wyind.dev", 
+        "http://localhost", 
+        "http://127.0.0.1"
+    ]
     if any(origin.startswith(a) for a in allowed):
         return await call_next(request)
     
-    return JSONResponse(status_code=403, content={"error": "Unauthorized"})
+    return JSONResponse(status_code=403, content={"detail": f"Unauthorized client origin: {origin}"})
 
 DB_PATH = "tur_server.db"
 REGISTER_API_KEY = os.environ.get("TUR_REGISTER_KEY", "PBd&%qm!Qt$w#!n@pBtwV3Fz4LuiCPD7I2@2ZC@KF@%4DuVUsk&cx")

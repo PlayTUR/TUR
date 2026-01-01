@@ -77,7 +77,7 @@ const AdminApp = {
                     'Content-Type': 'application/json',
                     'Authorization': `Bearer ${AdminApp.state.token}`
                 },
-                body: JSON.stringify({ username: target }) // admin_key not needed with token
+                body: JSON.stringify({ username: target })
             });
 
             if (res.ok) {
@@ -85,10 +85,11 @@ const AdminApp = {
                 document.getElementById('promote-target').value = "";
             } else {
                 const err = await res.json();
-                alert(`ERROR: ${err.detail}`);
+                alert(`ERROR: ${err.detail || err.error || 'Unknown Error'}`);
             }
         } catch (e) {
-            alert("CONNECTION_ERROR");
+            console.error("Promote Error:", e);
+            alert(`CONNECTION_ERROR: ${e.message}\nCheck if ${API_URL} is reachable and CORS is allowing your current origin.`);
         }
     },
 
@@ -125,10 +126,11 @@ const AdminApp = {
                 AdminApp.loadBans();
             } else {
                 const err = await res.json();
-                alert(`ERROR: ${err.detail}`);
+                alert(`ERROR: ${err.detail || err.error || 'Unknown Error'}`);
             }
         } catch (e) {
-            alert("CONNECTION_ERROR");
+            console.error("Ban Error:", e);
+            alert(`CONNECTION_ERROR: ${e.message}\nCheck if ${API_URL} is reachable and CORS is allowing your current origin.`);
         }
     },
 
