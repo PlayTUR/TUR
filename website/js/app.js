@@ -267,29 +267,36 @@ const App = {
             return;
         }
 
+        resultsEl.innerHTML = `[SEARCHING_FOR_OPERATOR: "${query}"...]`;
+        resultsEl.style.display = 'block';
+
         try {
             const res = await fetch(`${API_URL}/api/v2/users/search?q=${encodeURIComponent(query)}`);
             const data = await res.json();
 
-            if (data.users && data.users.length > 0) {
-                resultsEl.style.display = 'block';
-                resultsEl.innerHTML = `
-                    <div class="panel" style="background: rgba(0,0,0,0.3);">
-                        <div style="font-size: 0.8rem; color: var(--color-dim); margin-bottom: 0.5rem;">SEARCH_RESULTS:</div>
-                        ${data.users.map(u => `
-                            <div style="display: flex; justify-content: space-between; align-items: center; padding: 0.5rem 0; border-bottom: 1px solid rgba(255,255,255,0.05);">
-                                <a href="#user/${u.username}" style="color: var(--color-primary);">${u.username}</a>
-                                <span style="font-size: 0.8rem; color: ${u.online ? 'var(--color-primary)' : 'var(--color-dim)'}">${u.online ? 'ONLINE' : 'OFFLINE'}</span>
-                            </div>
-                        `).join('')}
+            // Note: API returns { results: [...] } or { users: [...] }? 
+            // Previous code used data.users. Let's check main.py or just handle both.
+            const users = data.users || data.results || [];
+
+            if (users.length > 0) {
+                resultsEl.innerHTML = users.map(u => `
+                    <div class="search-result-card" onclick="window.location.hash='#user/${u.username}'" style="cursor: pointer;">
+                        <div class="user-info">
+                            <span class="username">${u.username}</span>
+                            <span class="stats-summary">LVL.${u.level || 1} • ${(u.xp || 0).toLocaleString()} XP</span>
+                        </div>
+                        <div style="display: flex; align-items: center; gap: 0.5rem; font-size: 0.7rem;">
+                            <span style="color: ${u.online ? 'var(--color-primary)' : 'var(--color-dim)'}">●</span>
+                            ${u.online ? 'ONLINE' : 'OFFLINE'}
+                        </div>
                     </div>
-                `;
+                `).join('');
             } else {
-                resultsEl.style.display = 'block';
-                resultsEl.innerHTML = `<p style="color: var(--color-dim);">NO_OPERATORS_FOUND_SEARCHING_NAME_"${query}"</p>`;
+                resultsEl.innerHTML = `<p style="text-align: center; color: var(--color-dim); padding: 1rem;">NO_OPERATORS_FOUND_SEARCHING_NAME_"${query}"</p>`;
             }
         } catch (e) {
             console.error("Search error:", e);
+            resultsEl.innerHTML = `<p style="color: var(--color-error);">SEARCH_PROTOCOL_FAILURE</p>`;
         }
     },
 
