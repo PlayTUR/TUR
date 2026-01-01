@@ -152,7 +152,7 @@ async def websocket_endpoint(websocket: WebSocket, room_id: str, client_id: str)
              await websocket.close()
         except: pass
 
-DB_PATH = "tur_server.db"
+DB_PATH = "/root/TURSS/server/tur_server.db"
 REGISTER_API_KEY = os.environ.get("TUR_REGISTER_KEY", "PBd&%qm!Qt$w#!n@pBtwV3Fz4LuiCPD7I2@2ZC@KF@%4DuVUsk&cx")
 ADMIN_API_KEY = os.environ.get("TUR_ADMIN_KEY", "DKkc5k^Eu#V1K8q$wRYxlSJ!aVb84AgL3I96K6ROkZr7EqA9%M%#ojZ!Sl&V$Yfbryg19iSBNGL3")
 
@@ -197,6 +197,7 @@ def sanitize_text(text: str, max_len: int = 50) -> str:
 # === Database ===
 
 def get_db():
+    print(f"[DEBUG] Connecting to DB at {os.path.abspath(DB_PATH)}")
     conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
     return conn
@@ -1393,7 +1394,9 @@ async def get_public_profile(username: str):
     username = sanitize_username(username)
     conn = get_db()
     c = conn.cursor()
-    c.execute(f"SELECT id, uname, l_at, is_admin, is_stealth FROM {TBL_USERS} WHERE uname = ?", (username,))
+    print(f"[DEBUG] Looking for profile: '{username}'")
+    # Case-insensitive lookup
+    c.execute(f"SELECT id, uname, l_at, is_admin, is_stealth FROM {TBL_USERS} WHERE uname = ? COLLATE NOCASE", (username,))
     u_row = c.fetchone()
     
     if not u_row:
