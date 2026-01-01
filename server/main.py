@@ -1042,6 +1042,54 @@ async def toggle_stealth(request: Request):
     
     return {"success": True, "is_stealth": bool(new_state)}
 
+@app.post("/api/v2/admin/promote")
+async def promote_user(request: Request):
+    client_ip = get_client_ip(request)
+    if not check_rate_limit(client_ip, "admin_action", 5):
+         raise HTTPException(429, "Rate limit")
+         
+    # Auth
+    auth_header = request.headers.get("Authorization")
+    if not auth_header or not auth_header.startswith("Bearer "):
+        raise HTTPException(401, "No token")
+    token = auth_header.split(" ")[1]
+    
+    try:
+        data = await request.json()
+        target_username = data.get("username")
+    except:
+        raise HTTPException(400, "Invalid JSON")
+        
+    conn = get_db()
+    c = conn.cursor()
+    c.execute(f"SELECT uid FROM {TBL_SESSIONS} WHERE tk = ?", (token,))
+    sess = c.fetchone()
+    
+    if not sess:
+         conn.close()
+         raise HTTPException(401, "Invalid token")
+    
+    # Check if requestor is admin
+    uid = sess['uid']
+    c.execute(f"SELECT is_admin FROM {TBL_USERS} WHERE id = ?", (uid,))
+    me = c.fetchone()
+    if not me or not me['is_admin']:
+        conn.close()
+        raise HTTPException(403, "Not an admin")
+        
+    # Promote target
+    c.execute(f"SELECT id FROM {TBL_USERS} WHERE uname = ?", (target_username,))
+    target = c.fetchone()
+    if not target:
+        conn.close()
+        raise HTTPException(404, "Target user not found")
+        
+    c.execute(f"UPDATE {TBL_USERS} SET is_admin = 1 WHERE id = ?", (target['id'],))
+    conn.commit()
+    conn.close()
+    
+    return {"success": True, "username": target_username}
+
 @app.get("/api/v2/users/search")
 async def search_users(q: str):
     if len(q) < 2:

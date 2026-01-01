@@ -277,6 +277,14 @@ const AdminApp = {
         } catch {
             alert("ERROR");
         }
+    },
+
+    manualUnban: async () => {
+        const target = document.getElementById('unban-target').value;
+        if (!target) return alert("INVALID_TARGET");
+
+        AdminApp.unban(target, null, target.includes('.') ? target : null);
+        document.getElementById('unban-target').value = "";
     }
 };
 
