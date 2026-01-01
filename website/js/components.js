@@ -150,6 +150,17 @@ const Components = {
 
         return `
             <h2>GLOBAL_LEADERBOARD</h2>
+            <div class="panel" style="margin-bottom: 2rem;">
+                <div class="form-group" style="margin-bottom: 0;">
+                    <label>OPERATOR_SEARCH</label>
+                    <div style="display: flex; gap: 1rem;">
+                        <input type="text" id="user-search-input" placeholder="Search by name..." style="flex: 1;" onkeyup="if(event.key==='Enter') App.searchUsers(this.value)">
+                        <button class="btn" onclick="App.searchUsers(document.getElementById('user-search-input').value)">[SEARCH]</button>
+                    </div>
+                </div>
+                <div id="search-results" style="margin-top: 1rem; display: none;"></div>
+            </div>
+
             <div class="panel">
                 <table>
                     <thead>
@@ -212,8 +223,14 @@ const Components = {
         </div>
     `,
 
-    Profile: (user, stats) => `
-        <h2>OPERATOR_PROFILE: ${user}</h2>
+    Profile: (user, stats, isPublic = false, isOnline = false) => `
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+            <h2>OPERATOR_PROFILE: ${user}</h2>
+            <div style="display: flex; align-items: center; gap: 0.5rem; font-size: 0.9rem;">
+                <span style="color: ${isOnline ? 'var(--color-primary)' : 'var(--color-error)'}">●</span>
+                ${isOnline ? 'ONLINE' : 'OFFLINE'}
+            </div>
+        </div>
         
         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 2rem;">
             <div class="panel">
@@ -263,8 +280,12 @@ const Components = {
             <div class="panel">
                 <h3>SESSION_INFO</h3>
                 <p>STATUS: <span style="color: var(--color-primary);">ONLINE</span></p>
-                ${App.state.isAdmin ? `<button class="btn" style="margin-top: 1rem; width: 100%; text-align: center;" onclick="window.location.href='m7x9k2.html'">[ACCESS_ROOT_TERMINAL]</button>` : ''}
-                <button class="btn btn-secondary" style="margin-top: 1rem;" onclick="App.logout()">[TERMINATE_SESSION]</button>
+                ${!isPublic ? `
+                    ${App.state.isAdmin ? `<button class="btn" style="margin-top: 1rem; width: 100%; text-align: center;" onclick="window.location.href='m7x9k2.html'">[ACCESS_ROOT_TERMINAL]</button>` : ''}
+                    <button class="btn btn-secondary" style="margin-top: 1rem;" onclick="App.logout()">[TERMINATE_SESSION]</button>
+                ` : `
+                    <button class="btn" style="margin-top: 1rem; width: 100%;" onclick="window.location.hash='#leaderboard'">[RETURN]</button>
+                `}
             </div>
         </div>
     `,

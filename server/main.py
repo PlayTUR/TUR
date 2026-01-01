@@ -795,6 +795,7 @@ async def get_my_stats(request: Request):
         "username": u_row['uname'],
         "id": uid,
         "is_admin": bool(u_row['is_admin']),
+        "online": (u_row['l_at'] or 0) > (time.time() - 300),
         "stats": {
             "score": stats['t_score'] if stats else 0,
             "plays": stats['t_plays'] if stats else 0,
@@ -806,6 +807,73 @@ async def get_my_stats(request: Request):
         }
     }
     return res
+
+@app.get("/api/v2/users/search")
+async def search_users(q: str):
+    if len(q) < 2:
+        return {"users": []}
+    
+    conn = get_db()
+    c = conn.cursor()
+    # Search by username, LIMIT 10 for performance
+    c.execute(f"SELECT uname, l_at FROM {TBL_USERS} WHERE uname LIKE ? LIMIT 10", (f"%{q}%",))
+    rows = c.fetchall()
+    conn.close()
+    
+    now = time.time()
+    return {
+        "users": [{
+            "username": r["uname"],
+            "online": (r["l_at"] or 0) > (now - 300)
+        } for r in rows]
+    }
+
+@app.get("/api/v2/users/profile/{username}")
+async def get_public_profile(username: str):
+    username = sanitize_username(username)
+    conn = get_db()
+    c = conn.cursor()
+    c.execute(f"SELECT id, uname, l_at, is_admin FROM {TBL_USERS} WHERE uname = ?", (username,))
+    u_row = c.fetchone()
+    
+    if not u_row:
+        conn.close()
+        raise HTTPException(404, "User not found")
+    
+    uid = u_row['id']
+    c.execute(f"SELECT * FROM {TBL_STATS} WHERE uid = ?", (uid,))
+    stats = c.fetchone()
+    
+    # 1. Best Score
+    c.execute("SELECT MAX(score) FROM s_logs WHERE uid = ?", (uid,))
+    best_score = c.fetchone()[0] or 0
+    
+    # 2. Most Played Difficulty
+    c.execute("SELECT difficulty, COUNT(*) as cnt FROM s_logs WHERE uid = ? GROUP BY difficulty ORDER BY cnt DESC LIMIT 1", (uid,))
+    fav_diff_row = c.fetchone()
+    fav_diff = fav_diff_row[0] if fav_diff_row else "NONE"
+    
+    # 3. Global Rank (by XP)
+    my_xp = stats['xp'] if stats else 0
+    c.execute(f"SELECT COUNT(*) FROM {TBL_STATS} WHERE xp > ?", (my_xp,))
+    rank = c.fetchone()[0] + 1
+    
+    conn.close()
+    
+    return {
+        "username": u_row['uname'],
+        "online": (u_row['l_at'] or 0) > (time.time() - 300),
+        "is_admin": bool(u_row['is_admin']),
+        "stats": {
+            "score": stats['t_score'] if stats else 0,
+            "plays": stats['t_plays'] if stats else 0,
+            "level": stats['lvl'] if stats else 1,
+            "xp": stats['xp'] if stats else 0,
+            "rank": rank,
+            "best_score": best_score,
+            "fav_difficulty": fav_diff
+        }
+    }
 
 @app.post("/api/v2/news/webhook")
 async def post_news_webhook(request: Request):

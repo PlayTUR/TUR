@@ -107,13 +107,14 @@ const App = {
             case 'account':
                 if (App.state.token) {
                     content.innerHTML = Components.Loader();
-                    App.fetchProfile().then(stats => {
-                        content.innerHTML = Components.Profile(App.state.username, stats);
+                    App.fetchProfile().then(profileData => {
+                        // profileData now contains {username, online, stats, is_admin}
+                        content.innerHTML = Components.Profile(profileData.username, profileData.stats, false, profileData.online);
                         // Ensure selector matches current state after render
                         const sel = document.getElementById('theme-select');
                         if (sel) sel.value = localStorage.getItem('tur_theme') || 'TERMINAL';
                     }).catch(err => {
-                        // Token invalid?
+                        console.error("Profile fetch error:", err);
                         App.logout();
                         content.innerHTML = Components.AccountLogin();
                     });
@@ -126,6 +127,15 @@ const App = {
                 break;
             case 'eula':
                 content.innerHTML = Components.Eula();
+                break;
+            case (hash.startsWith('user/') ? hash : ''):
+                const targetUser = hash.split('/')[1];
+                content.innerHTML = Components.Loader();
+                App.fetchPublicProfile(targetUser).then(profile => {
+                    content.innerHTML = Components.Profile(profile.username, profile.stats, true, profile.online);
+                }).catch(err => {
+                    content.innerHTML = Components.Error("OPERATOR_NOT_FOUND");
+                });
                 break;
             default:
                 content.innerHTML = Components.Home(); // Fallback
@@ -238,7 +248,46 @@ const App = {
             App.state.isAdmin = true;
         }
 
-        return data.stats; // Return just stats for profile render
+        return data; // Return full data object
+    },
+
+    fetchPublicProfile: async (username) => {
+        const res = await fetch(`${API_URL}/api/v2/users/profile/${username}`);
+        if (!res.ok) throw new Error("Failed");
+        return await res.json();
+    },
+
+    searchUsers: async (query) => {
+        const resultsEl = document.getElementById('search-results');
+        if (!query || query.length < 2) {
+            resultsEl.style.display = 'none';
+            return;
+        }
+
+        try {
+            const res = await fetch(`${API_URL}/api/v2/users/search?q=${encodeURIComponent(query)}`);
+            const data = await res.json();
+
+            if (data.users && data.users.length > 0) {
+                resultsEl.style.display = 'block';
+                resultsEl.innerHTML = `
+                    <div class="panel" style="background: rgba(0,0,0,0.3);">
+                        <div style="font-size: 0.8rem; color: var(--color-dim); margin-bottom: 0.5rem;">SEARCH_RESULTS:</div>
+                        ${data.users.map(u => `
+                            <div style="display: flex; justify-content: space-between; align-items: center; padding: 0.5rem 0; border-bottom: 1px solid rgba(255,255,255,0.05);">
+                                <a href="#user/${u.username}" style="color: var(--color-primary);">${u.username}</a>
+                                <span style="font-size: 0.8rem; color: ${u.online ? 'var(--color-primary)' : 'var(--color-dim)'}">${u.online ? 'ONLINE' : 'OFFLINE'}</span>
+                            </div>
+                        `).join('')}
+                    </div>
+                `;
+            } else {
+                resultsEl.style.display = 'block';
+                resultsEl.innerHTML = `<p style="color: var(--color-dim);">NO_OPERATORS_FOUND_SEARCHING_NAME_"${query}"</p>`;
+            }
+        } catch (e) {
+            console.error("Search error:", e);
+        }
     },
 
     fetchStatus: async () => {

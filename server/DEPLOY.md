@@ -47,7 +47,7 @@ sudo nohup python3 main.py > server.log 2>&1 &
    Type=simple
    User=root
    WorkingDirectory=/home/tur-server
-   ExecStart=/usr/bin/python3 /home/tur-server/main.py
+   ExecStart=/home/tur-server/venv/bin/python3 /home/tur-server/main.py
    Restart=always
 
    [Install]
