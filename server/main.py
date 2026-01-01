@@ -1107,8 +1107,6 @@ async def get_my_stats(request: Request):
     res = {
         "username": u_row['uname'],
         "id": uid,
-        "username": u_row['uname'],
-        "id": uid,
         "is_admin": bool(u_row['is_admin']),
         "avatar_id": u_row['avatar_id'] if 'avatar_id' in u_row.keys() else 0,
         "is_stealth": bool(u_row['is_stealth']) if 'is_stealth' in u_row.keys() else False,

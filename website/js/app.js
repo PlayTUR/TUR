@@ -118,6 +118,7 @@ const App = {
                         if (profileData.stats) {
                             profileData.stats.is_admin = profileData.is_admin;
                             profileData.stats.is_stealth = profileData.is_stealth;
+                            profileData.stats.id = profileData.id;
                         }
                         content.innerHTML = Components.Profile(profileData.username, profileData.stats, false, profileData.online, profileData.avatar_id);
 
@@ -154,6 +155,7 @@ const App = {
                     if (profile.stats) {
                         profile.stats.is_admin = profile.is_admin;
                         profile.stats.is_stealth = profile.is_stealth;
+                        profile.stats.id = profile.id;
                     }
                     content.innerHTML = Components.Profile(profile.username, profile.stats, true, profile.online, profile.avatar_id);
                 }).catch(err => {
