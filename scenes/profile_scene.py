@@ -126,28 +126,31 @@ class ProfileScene(Scene):
         panel_y = 120
         r.draw_panel(surface, panel_x, panel_y, 400, 350, "OPERATOR_ID")
         
-        # Avatar placeholder
-        r.draw_text(surface, "[ AVATAR ]", panel_x + 140, panel_y + 60, (50, 50, 50))
-        pygame.draw.rect(surface, theme["secondary"], (panel_x + 120, panel_y + 40, 160, 80), 1)
-        
-        info_x = panel_x + 40
+        # Avatar (ASCII Style)
+        avatar = [
+            r"  .---.  ",
+            r" /     \ ",
+            r"|  O O  |",
+            r" \  ^  / ",
+            r"  '---'  "
+        ]
+        av_y = panel_y + 50
+        for i, line in enumerate(avatar):
+            r.draw_text(surface, line, panel_x + 30, av_y + i*20, theme["secondary"], r.ascii_font)
+            
+        info_x = panel_x + 150
         y = panel_y + 160
         
         r.draw_text(surface, f"NAME: {username}", info_x, y, theme["text"])
-        r.draw_text(surface, f"UID:  #{uid:04d}", info_x, y + 30, (150, 150, 150))
+        r.draw_text(surface, f"UID:  #{uid}", info_x, y + 30, (150, 150, 150))
         
-        # Admin Badge (Replaces Rank)
+        # Role Text
         if is_admin and not is_stealth:
-            badge_rect = pygame.Rect(info_x, y + 60, 120, 26)
-            pygame.draw.rect(surface, (255, 215, 0), badge_rect)
-            pygame.draw.rect(surface, (255, 255, 255), badge_rect, 1)
-            r.draw_text(surface, "ROOT ADMIN", info_x + 15, y + 64, (0, 0, 0), r.small_font)
+            # "ROOT" in Gold
+            r.draw_text(surface, "ROOT", info_x, y + 60, (255, 215, 0)) 
         else:
-             # If not admin/stealth, maybe show something else or nothing? 
-             # User asked to "remove rank, replace with badge". 
-             # I'll leave it empty or show "OPERATOR" for non-admins to keep spacing?
-             # Let's show "OPERATOR" for aesthetics.
-             r.draw_text(surface, "OPERATOR", info_x, y + 60, (100, 100, 100))
+             # "USER" in Grey
+             r.draw_text(surface, "USER", info_x, y + 60, (100, 100, 100))
         
         # 2. Right Panel: Stats
         stats_x = 500
