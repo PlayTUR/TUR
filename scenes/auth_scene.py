@@ -105,7 +105,8 @@ class AuthScene(Scene):
         chk_y = py + 185
         chk_x = px + (panel_w - 200) // 2
         chk_char = "x" if self.remember_me else " "
-        chk_col = theme["success"] if self.remember_me else (100, 100, 100)
+        # Use primary color instead of non-existent 'success' key
+        chk_col = theme["primary"] if self.remember_me else (100, 100, 100)
         
         # Draw box
         r.draw_text(surface, f"[{chk_char}] REMEMBER ME", chk_x, chk_y, chk_col if self.active_field == 2 else theme["text"])
