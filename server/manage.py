@@ -5,7 +5,9 @@ import os
 import argparse
 
 # Configuration matching main.py
-DB_PATH = "tur_server.db"
+# Ensure we use the DB in the same folder as this script
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+DB_PATH = os.path.join(BASE_DIR, "tur_server.db")
 TBL_USERS = "u_data"
 
 def get_db():
