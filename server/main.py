@@ -170,12 +170,17 @@ def init_db():
         hb REAL DEFAULT (strftime('%s', 'now'))
     )""")
     
-    # Migration: Add is_admin if user table exists but column missing
+    # Migration: Add is_admin and recovery_key if columns missing
     try:
-        c.execute(f"SELECT is_admin FROM {TBL_USERS} LIMIT 1")
+        c.execute(f"SELECT is_admin, recovery_key FROM {TBL_USERS} LIMIT 1")
     except sqlite3.OperationalError:
-        print("Migrating DB: Adding is_admin column")
-        c.execute(f"ALTER TABLE {TBL_USERS} ADD COLUMN is_admin INTEGER DEFAULT 0")
+        print("Migrating DB: Checking columns in user table")
+        try:
+            c.execute(f"ALTER TABLE {TBL_USERS} ADD COLUMN is_admin INTEGER DEFAULT 0")
+        except: pass
+        try:
+            c.execute(f"ALTER TABLE {TBL_USERS} ADD COLUMN recovery_key TEXT")
+        except: pass
 
     c.execute(f"""CREATE TABLE IF NOT EXISTS {TBL_BANS} (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -336,6 +341,69 @@ async def promote_user(req: PromoteRequest, request: Request):
     conn.commit()
     conn.close()
     return {"success": True, "message": f"User {req.username} is now an ADMIN"}
+
+# === Password Recovery ===
+
+class ResetPasswordRequest(BaseModel):
+    username: str
+    recovery_key: str
+    new_password: str
+
+@app.get("/api/v2/users/me/recovery")
+async def get_recovery_key(request: Request):
+    auth_header = request.headers.get("Authorization")
+    if not auth_header or not auth_header.startswith("Bearer "):
+        raise HTTPException(401, "No token")
+    token = auth_header.split(" ")[1]
+    
+    user = get_user_from_token(token)
+    if not user:
+        raise HTTPException(401, "Invalid token")
+        
+    conn = get_db()
+    c = conn.cursor()
+    c.execute(f"SELECT recovery_key FROM {TBL_USERS} WHERE id = ?", (user['id'],))
+    row = c.fetchone()
+    
+    # Generate one if it doesn't exist (for old accounts)
+    key = row['recovery_key']
+    if not key:
+        key = secrets.token_hex(8).upper()
+        c.execute(f"UPDATE {TBL_USERS} SET recovery_key = ? WHERE id = ?", (key, user['id']))
+        conn.commit()
+    
+    conn.close()
+    return {"recovery_key": key}
+
+@app.post("/api/v2/users/reset-password")
+async def reset_password(req: ResetPasswordRequest, request: Request):
+    client_ip = get_client_ip(request)
+    if not check_rate_limit(client_ip, "password_reset", 3):
+        raise HTTPException(429, "Too many reset attempts")
+        
+    conn = get_db()
+    c = conn.cursor()
+    c.execute(f"SELECT id, recovery_key FROM {TBL_USERS} WHERE uname = ?", (req.username,))
+    user = c.fetchone()
+    
+    if not user or not user['recovery_key'] or user['recovery_key'] != req.recovery_key:
+        conn.close()
+        raise HTTPException(403, "Invalid Username or Recovery Key")
+        
+    # Validate password
+    if len(req.new_password) < 6:
+        conn.close()
+        raise HTTPException(400, "Password too short")
+        
+    hashed = bcrypt.hashpw(req.new_password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
+    c.execute(f"UPDATE {TBL_USERS} SET p_hash = ? WHERE id = ?", (hashed, user['id']))
+    
+    # Invalidate all sessions for security
+    c.execute(f"DELETE FROM {TBL_SESSIONS} WHERE uid = ?", (user['id'],))
+    
+    conn.commit()
+    conn.close()
+    return {"success": True, "message": "Password updated successfully. Please login again."}
 
 # === Models (Pydantic V2) ===
 

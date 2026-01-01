@@ -200,7 +200,8 @@ const Components = {
             <button class="btn" onclick="App.login()">[AUTHENTICATE]</button>
             
             <p style="margin-top: 1.5rem; font-size: 0.9rem;">
-                NO_CREDENTIALS? <a href="#register">[REGISTER_NEW_ID]</a>
+                NO_CREDENTIALS? <a href="#register">[REGISTER_NEW_ID]</a><br>
+                LOST_ACCESS? <a href="#recovery">[RESET_PASSPHRASE]</a>
             </p>
         </div>
     `,
@@ -227,6 +228,38 @@ const Components = {
             <p style="margin-top: 1.5rem; font-size: 0.9rem;">
                 ALREADY_REGISTERED? <a href="#account">[LOGIN]</a>
             </p>
+        </div>
+    `,
+    AccountRecovery: () => `
+        <h2>ACCOUNT_RECOVERY_PROTOCOL</h2>
+        <div class="panel" style="max-width: 500px; margin: 0 auto;">
+            <p style="margin-bottom: 1.5rem; font-size: 0.8rem; color: var(--color-dim);">Enter your Operator ID and unique Recovery Key to initialize a passphrase reset. Invalidation of all active sessions will follow.</p>
+            <div class="form-group">
+                <label>OPERATOR_ID</label>
+                <input type="text" id="reset-user" placeholder="Enter Username...">
+            </div>
+            <div class="form-group">
+                <label>RECOVERY_KEY</label>
+                <input type="text" id="reset-key" placeholder="Enter 16-character Key...">
+            </div>
+            <div class="form-group">
+                <label>NEW_PASSPHRASE</label>
+                <input type="password" id="reset-pass" placeholder="6-64 Characters...">
+            </div>
+            <div id="reset-error" class="error-msg"></div>
+            <button class="btn btn-primary" onclick="App.resetPassword()">[EXECUTE_RESET]</button>
+            <button class="btn btn-secondary" style="margin-left: 0.5rem;" onclick="window.location.hash='#account'">[CANCEL]</button>
+        </div>
+    `,
+
+    RecoveryKeyDisplay: (key) => `
+        <div class="panel" style="border-color: var(--color-primary); margin-top: 1rem;">
+            <h3 style="color: var(--color-primary);">🔐 ACCOUNT_RECOVERY_KEY_GENERATED</h3>
+            <p style="font-size: 0.8rem; margin: 0.5rem 0;">This is your <strong>ONLY</strong> way to recover your account if you forget your password. Write it down or save it securely.</p>
+            <div style="background: rgba(0,255,136,0.1); padding: 1rem; text-align: center; font-family: var(--font-mono); font-size: 1.5rem; letter-spacing: 2px; border: 1px dashed var(--color-primary); margin: 1rem 0;">
+                ${key}
+            </div>
+            <button class="btn" style="width: 100%;" onclick="this.parentElement.remove()">[ACKNOWLEDGE_AND_SECURE]</button>
         </div>
     `,
 

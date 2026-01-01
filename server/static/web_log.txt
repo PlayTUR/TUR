@@ -71,3 +71,5 @@
 127.0.0.1 - - [31/Dec/2025 23:36:22] "GET /css/style.css HTTP/1.1" 304 -
 127.0.0.1 - - [31/Dec/2025 23:36:22] "GET /js/components.js HTTP/1.1" 200 -
 127.0.0.1 - - [31/Dec/2025 23:36:22] "GET /js/app.js HTTP/1.1" 304 -
+127.0.0.1 - - [01/Jan/2026 01:30:06] code 501, message Unsupported method ('POST')
+127.0.0.1 - - [01/Jan/2026 01:30:06] "POST /api/v2/admin/promote HTTP/1.1" 501 -

@@ -98,6 +98,9 @@ const App = {
                     content.innerHTML = Components.Error("FAILED_TO_CONNECT_TO_MAINFRAME");
                 });
                 break;
+            case 'recovery':
+                content.innerHTML = Components.AccountRecovery();
+                break;
             case 'search':
                 content.innerHTML = Components.Search();
                 break;
@@ -110,10 +113,17 @@ const App = {
             case 'account':
                 if (App.state.token) {
                     content.innerHTML = Components.Loader();
-                    App.fetchProfile().then(profileData => {
-                        // profileData now contains {username, online, stats, is_admin}
+                    Promise.all([App.fetchProfile(), App.fetchRecoveryKey()]).then(([profileData, recoveryData]) => {
                         content.innerHTML = Components.Profile(profileData.username, profileData.stats, false, profileData.online);
-                        // Ensure selector matches current state after render
+
+                        // Show recovery key warning if just registered or if user wants to see it
+                        if (App.state.showRecoveryOnce) {
+                            const container = document.createElement('div');
+                            container.innerHTML = Components.RecoveryKeyDisplay(recoveryData.recovery_key);
+                            content.prepend(container);
+                            App.state.showRecoveryOnce = false;
+                        }
+
                         const sel = document.getElementById('theme-select');
                         if (sel) sel.value = localStorage.getItem('tur_theme') || 'TERMINAL';
                     }).catch(err => {
