@@ -93,7 +93,11 @@ class LeaderboardScene(Scene):
             
             r.draw_text(surface, f"TOTAL SCORE: {ms.get('total_score', 0):,}", 500, panel_y + 48, theme["secondary"])
             r.draw_text(surface, f"PLAYS: {ms.get('plays', 0)}", 750, panel_y + 48, (150, 150, 150))
-        elif not self.game.master_client.logged_in:
+        elif self.game.master_client.logged_in:
+             # Logged in but failed to fetch stats? Or just empty stats?
+             r.draw_panel(surface, 50, panel_y, 924, 60, "MY STATS")
+             r.draw_centered_text(surface, "Fetching performance data...", SCREEN_WIDTH // 2, panel_y + 35, (150, 150, 150))
+        else:
              r.draw_panel(surface, 50, panel_y, 924, 60, "MY STATS")
              r.draw_centered_text(surface, "Login to track stats!", SCREEN_WIDTH // 2, panel_y + 35, (100, 100, 100))
             

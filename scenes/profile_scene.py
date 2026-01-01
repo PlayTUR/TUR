@@ -59,6 +59,7 @@ class ProfileScene(Scene):
         self.profile_data = None
         self.error_msg = None
         self.avatar_id = 0
+        self.is_offline = False  # Track offline state
         
         # Temp state
         self.renaming = False
@@ -77,8 +78,9 @@ class ProfileScene(Scene):
         try:
             # 1. Ensure we are logged in
             if not self.game.master_client.logged_in:
-                # If guest, just load local settings simulation
+                # If guest, just load local settings simulation but mark as offline/guest
                 self.profile_data = self._get_guest_profile()
+                self.is_offline = True
                 self.loading = False
                 return
 
@@ -109,8 +111,10 @@ class ProfileScene(Scene):
             else:
                 self.error_msg = "Failed to load profile data."
                 
+            
         except Exception as e:
             self.error_msg = f"Error: {str(e)}"
+            self.is_offline = True # Treat errors as offline/disconnected state
             print(f"Profile fetch error: {e}")
             
         self.loading = False
@@ -219,7 +223,10 @@ class ProfileScene(Scene):
         y = panel_y + 160
         
         r.draw_text(surface, f"NAME: {username}", info_x, y, theme["text"])
-        r.draw_text(surface, f"UID:  #{uid}", info_x, y + 30, (150, 150, 150))
+        
+        # Real UID from DB
+        uid_display = f"#{uid}" if uid != 0 else "OFFLINE"
+        r.draw_text(surface, f"UID:  {uid_display}", info_x, y + 30, (150, 150, 150))
         
         # Role Text
         if is_admin and not is_stealth:
@@ -232,6 +239,12 @@ class ProfileScene(Scene):
         # 2. Right Panel: Stats
         stats_x = 500
         r.draw_panel(surface, stats_x, panel_y, 500, 220, "PERFORMANCE_METRICS")
+        
+        if self.is_offline and uid == 0:
+             # Offline Message
+             r.draw_centered_text(surface, "CONNECT TO SERVER", stats_x + 250, panel_y + 80, theme["secondary"])
+             r.draw_centered_text(surface, "TO VIEW GLOBAL STATS", stats_x + 250, panel_y + 110, (100, 100, 100))
+             return # Skip drawing empty stats
         
         sx = stats_x + 40
         sy = panel_y + 60
@@ -335,14 +348,19 @@ class ProfileScene(Scene):
                 self._handle_menu_action()
             elif event.key == pygame.K_ESCAPE:
                 self.play_sfx("back")
-                self.game.scene_manager.pop_scene()
+                # Route to TitleScene
+                from scenes.menu_scenes import TitleScene
+                self.game.scene_manager.switch_to(TitleScene)
 
     def _handle_menu_action(self):
         item = self.menu_items[self.index]
         self.play_sfx("accept")
         
         if item == "BACK":
-            self.game.scene_manager.pop_scene()
+            # Explicitly return to Main Menu (TitleScene) as requested by user
+            # Instead of popping (which enters looping logic if stack empty or goes to Lobby)
+            from scenes.menu_scenes import TitleScene
+            self.game.scene_manager.switch_to(TitleScene)
         elif item == "LOGOUT":
             self.game.master_client.logout()
             self.game.settings.set("logged_in", False)
@@ -406,12 +424,6 @@ class ProfileScene(Scene):
             threading.Thread(target=save_av, daemon=True).start()
             self.changing_avatar = False
             
-        elif event.key == pygame.K_ESCAPE:
-            # Revert? Or just keep? Let's keep for now but not save?
-            # Ideally fetch original but we don't store it separate.
-            # user likely expects escape to cancel.
-            if self.profile_data:
-                self.avatar_id = self.profile_data.get("avatar_id", 0)
             self.changing_avatar = False
             self.play_sfx("back")
 
