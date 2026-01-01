@@ -432,8 +432,8 @@ const Components = {
                 <div style="display: flex; gap: 1rem; align-items: center; margin-bottom: 0.5rem;">
                     <div style="color: var(--color-dim); font-size: 0.9rem;">ID: #${stats?.id || "---"}</div>
                     ${(() => {
-            // Check if the PROFILE USER is admin (from DB or Override)
-            const isProfileAdmin = (stats?.is_admin || ["wyind"].includes(user.toLowerCase()));
+            // Check if the PROFILE USER is admin (from DB)
+            const isProfileAdmin = (stats?.is_admin);
             const isGuest = !stats || !stats.id;
 
             if (isProfileAdmin) {
