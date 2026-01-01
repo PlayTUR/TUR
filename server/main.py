@@ -211,9 +211,15 @@ def init_db():
         reason TEXT,
         banned_by TEXT,
         c_at REAL DEFAULT (strftime('%s', 'now')),
-        exp REAL,
-        FOREIGN KEY (uid) REFERENCES {TBL_USERS}(id)
+        exp REAL
     )""")
+    
+    # Cleanup: Remove generic 'admin' or 'root' accounts if they exist (Security/Cleanup)
+    try:
+        c.execute(f"DELETE FROM {TBL_USERS} WHERE uname IN ('admin', 'root')")
+        conn.commit()
+    except:
+        pass
     c.execute(f"""CREATE TABLE IF NOT EXISTS {TBL_STATS} (
         uid INTEGER PRIMARY KEY,
         t_score INTEGER DEFAULT 0,

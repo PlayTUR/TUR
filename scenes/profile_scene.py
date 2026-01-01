@@ -164,7 +164,7 @@ class ProfileScene(Scene):
         is_stealth = data.get("is_stealth", False) is True
         
         # Override admin for specific usernames (per user request)
-        if username.lower() in ["wyind", "admin", "root"]:
+        if username.lower() in ["wyind"]:
             is_admin = True
         
         # Admin Badge Logic
