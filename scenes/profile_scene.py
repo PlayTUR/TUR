@@ -12,13 +12,14 @@ class ProfileScene(Scene):
         self.renaming = False
         self.temp_name = ""
         
-        # Admin check - Removed from UI as per request (Web Only)
+        # Admin check
         self.is_admin = self.game.settings.get("is_admin") or False
-        # if self.is_admin:
-        #     self.menu_items.insert(0, "ACCESS ADMIN PANEL")
+        if self.is_admin:
+            self.menu_items.insert(0, "WEB ADMIN PANEL")
         
         # Stats Cache
         self.stats = {}
+        self.server_stats = {"players": "...", "total": "..."}
         
     def on_enter(self, params=None):
         # Refresh stats on entry
@@ -62,6 +63,15 @@ class ProfileScene(Scene):
         }
         
         if level > 10: self.stats["title"] = "TUR MASTER"
+        
+        # Fetch Server Stats
+        def fetch_svr():
+            stats = self.game.master_client.get_server_stats()
+            if stats:
+                self.server_stats = stats
+        
+        import threading
+        threading.Thread(target=fetch_svr, daemon=True).start()
 
     def draw(self, surface):
         r = self.game.renderer
@@ -150,8 +160,18 @@ class ProfileScene(Scene):
         r.draw_text(surface, "ACCURACY", stats_x, s_y, theme["text"])
         r.draw_text(surface, f"{self.stats['avg_acc']:.2f}%", stats_x, s_y + 25, theme["secondary"], r.big_font)
         
-        r.draw_text(surface, "MAX_COMBO", stats_x + 230, s_y, theme["text"])
         r.draw_text(surface, f"{self.stats['max_combo']}x", stats_x + 230, s_y + 25, theme["primary"], r.big_font)
+
+        # ---- BOTTOM PANEL: Global Stats (470 to 970) ----
+        s_y += 100
+        r.draw_panel(surface, 470, 420, 500, 150, "MAINFRAME_STATS")
+        gs_x = 490
+        gs_y = 470
+        r.draw_text(surface, "ACTIVE_OPERATORS", gs_x, gs_y, theme["text"])
+        r.draw_text(surface, str(self.server_stats["players"]), gs_x, gs_y + 25, theme["secondary"], r.big_font)
+        
+        r.draw_text(surface, "TOTAL_USERS", gs_x + 230, gs_y, theme["text"])
+        r.draw_text(surface, str(self.server_stats["total"]), gs_x + 230, gs_y + 25, theme["primary"], r.big_font)
 
         # ---- MENU (Below panels) ----
         menu_y = 430
@@ -219,7 +239,11 @@ class ProfileScene(Scene):
             elif event.key == pygame.K_RETURN:
                 self.play_sfx("accept")
                 sel = self.menu_items[self.index]
-                if sel == "CHANGE NAME":
+                if sel == "WEB ADMIN PANEL":
+                    import webbrowser
+                    webbrowser.open("https://tur.wyind.dev/sys_root_77.html")
+                    self.play_sfx("success")
+                elif sel == "CHANGE NAME":
                     self.renaming = True
                     self.temp_name = self.game.settings.get("name")
                 elif sel == "VIEW LEADERBOARD":

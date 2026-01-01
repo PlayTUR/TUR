@@ -199,6 +199,12 @@ def init_db():
         try:
             c.execute(f"ALTER TABLE {TBL_USERS} ADD COLUMN recovery_key TEXT")
         except: pass
+        try:
+            c.execute(f"ALTER TABLE {TBL_USERS} ADD COLUMN is_stealth INTEGER DEFAULT 0")
+        except: pass
+        try:
+            c.execute(f"ALTER TABLE {TBL_USERS} ADD COLUMN is_stealth INTEGER DEFAULT 0")
+        except: pass
 
     c.execute(f"""CREATE TABLE IF NOT EXISTS {TBL_BANS} (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -541,7 +547,24 @@ async def root():
 
 @app.get("/health")
 async def health():
-    return {"status": "ok"}
+    conn = get_db()
+    c = conn.cursor()
+    c.execute(f"SELECT COUNT(*) FROM {TBL_USERS}")
+    total_users = c.fetchone()[0]
+    
+    # Active users in last 5 minutes
+    now = time.time()
+    c.execute(f"SELECT COUNT(*) FROM {TBL_USERS} WHERE l_at > ?", (now - 300,))
+    active_users = c.fetchone()[0]
+    conn.close()
+    
+    return {
+        "status": "ok",
+        "players": active_users,
+        "total_operators": total_users,
+        "threat_level": "LOW",
+        "version": "v2.1.0"
+    }
 
 @app.post("/register")
 async def register(req: RegisterRequest, request: Request):
@@ -871,7 +894,7 @@ async def get_leaderboard():
     now = time.time()
     # Filter out banned users
     c.execute(f"""
-        SELECT s.xp, s.lvl, s.t_score, u.uname 
+        SELECT s.xp, s.lvl, s.t_score, u.uname, u.is_admin 
         FROM {TBL_STATS} s
         JOIN {TBL_USERS} u ON s.uid = u.id
         WHERE u.id NOT IN (SELECT uid FROM {TBL_BANS} WHERE exp IS NULL OR exp > ?)
@@ -881,7 +904,7 @@ async def get_leaderboard():
     rows = c.fetchall()
     conn.close()
     
-    return {"leaderboard": [{"username": r["uname"], "xp": r["xp"], "level": r["lvl"], "score": r["t_score"]} for r in rows]}
+    return {"leaderboard": [{"username": r["uname"], "xp": r["xp"], "level": r["lvl"], "score": r["t_score"], "is_admin": bool(r["is_admin"]) if not r.get("is_stealth") else False} for r in rows]}
 
 @app.get("/api/v2/users/me")
 async def get_my_stats(request: Request):
@@ -929,6 +952,7 @@ async def get_my_stats(request: Request):
         "username": u_row['uname'],
         "id": uid,
         "is_admin": bool(u_row['is_admin']),
+        "is_stealth": bool(u_row['is_stealth']) if 'is_stealth' in u_row.keys() else False,
         "online": (u_row['l_at'] or 0) > (time.time() - 300),
         "stats": {
             "score": stats['t_score'] if stats else 0,
@@ -941,6 +965,41 @@ async def get_my_stats(request: Request):
         }
     }
     return res
+
+@app.post("/api/v2/admin/toggle-stealth")
+async def toggle_stealth(request: Request):
+    client_ip = get_client_ip(request)
+    if not check_rate_limit(client_ip, "admin_action", 10):
+         raise HTTPException(429, "Rate limit")
+         
+    # Auth
+    auth_header = request.headers.get("Authorization")
+    if not auth_header or not auth_header.startswith("Bearer "):
+        raise HTTPException(401, "No token")
+    token = auth_header.split(" ")[1]
+    
+    conn = get_db()
+    c = conn.cursor()
+    c.execute(f"SELECT uid FROM {TBL_SESSIONS} WHERE tk = ?", (token,))
+    sess = c.fetchone()
+    if not sess:
+         conn.close()
+         raise HTTPException(401, "Invalid token")
+    
+    uid = sess['uid']
+    c.execute(f"SELECT is_admin, is_stealth FROM {TBL_USERS} WHERE id = ?", (uid,))
+    u_row = c.fetchone()
+    
+    if not u_row or not u_row['is_admin']:
+        conn.close()
+        raise HTTPException(403, "Not an admin")
+        
+    new_state = 0 if u_row['is_stealth'] else 1
+    c.execute(f"UPDATE {TBL_USERS} SET is_stealth = ? WHERE id = ?", (new_state, uid))
+    conn.commit()
+    conn.close()
+    
+    return {"success": True, "is_stealth": bool(new_state)}
 
 @app.get("/api/v2/users/search")
 async def search_users(q: str):
@@ -967,7 +1026,7 @@ async def get_public_profile(username: str):
     username = sanitize_username(username)
     conn = get_db()
     c = conn.cursor()
-    c.execute(f"SELECT id, uname, l_at, is_admin FROM {TBL_USERS} WHERE uname = ?", (username,))
+    c.execute(f"SELECT id, uname, l_at, is_admin, is_stealth FROM {TBL_USERS} WHERE uname = ?", (username,))
     u_row = c.fetchone()
     
     if not u_row:
@@ -997,7 +1056,7 @@ async def get_public_profile(username: str):
     return {
         "username": u_row['uname'],
         "online": (u_row['l_at'] or 0) > (time.time() - 300),
-        "is_admin": bool(u_row['is_admin']),
+        "is_admin": bool(u_row['is_admin']) if not u_row.get('is_stealth') else False,
         "stats": {
             "score": stats['t_score'] if stats else 0,
             "plays": stats['t_plays'] if stats else 0,

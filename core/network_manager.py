@@ -56,6 +56,7 @@ class NetworkManager:
         # Peer info
         self.peer_address = None
         self.opponent_name = "Waiting..."
+        self.opponent_is_admin = False
         self.opponent_score = 0
         self.opponent_ready = False
         
@@ -336,7 +337,8 @@ class NetworkManager:
             # Handshake
             self.send({
                 'type': 'hello',
-                'name': 'PLAYER 2',
+                'name': self.game.settings.get("username", "PLAYER") if hasattr(self, 'game') else 'PLAYER',
+                'is_admin': self.game.settings.get("is_admin", False) if hasattr(self, 'game') else False,
                 'password': self.room_password
             })
             
@@ -391,9 +393,14 @@ class NetworkManager:
                         return
                     
                     self.opponent_name = msg.get('name', 'Player 2')
-                    self.send({'type': 'hello', 'name': 'HOST'})
+                    self.opponent_is_admin = msg.get('is_admin', False)
+                    # Host reply
+                    h_msg = {'type': 'hello', 'name': 'HOST'}
+                    if hasattr(self, 'is_admin'): h_msg['is_admin'] = self.is_admin
+                    self.send(h_msg)
                 else:
                     self.opponent_name = msg.get('name', 'Host')
+                    self.opponent_is_admin = msg.get('is_admin', False)
             
             elif msg_type == 'score':
                 self.opponent_score = msg.get('score', 0)

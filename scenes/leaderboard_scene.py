@@ -150,7 +150,14 @@ class LeaderboardScene(Scene):
                 surface.blit(s, (list_x + 15, entry_y))
             
             r.draw_text(surface, f"#{rank}", list_x + 20, entry_y + 5, rank_col)
-            r.draw_text(surface, entry['username'], list_x + 80, entry_y + 5, theme["text"])
+            
+            u_name = entry['username']
+            r.draw_text(surface, u_name, list_x + 80, entry_y + 5, theme["text"])
+            
+            # Admin Tag
+            if entry.get('is_admin'):
+                r.draw_text(surface, "[ROOT]", list_x + 80 + r.font.size(u_name)[0] + 10, entry_y + 5, (255, 215, 0), r.small_font)
+
             r.draw_text(surface, str(entry['level']), list_x + 400, entry_y + 5, theme["secondary"])
             r.draw_text(surface, f"{entry['xp']:,}", list_x + 550, entry_y + 5, (150, 150, 150))
             r.draw_text(surface, f"{entry['score']:,}", list_x + 750, entry_y + 5, theme["primary"])

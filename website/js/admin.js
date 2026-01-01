@@ -39,6 +39,16 @@ const AdminApp = {
             document.getElementById('auth-panel').classList.add('hidden');
             document.getElementById('admin-dashboard').classList.remove('hidden');
 
+            document.getElementById('admin-dashboard').classList.remove('hidden');
+
+            // Set initial stealth state
+            if (data.is_stealth) {
+                const btn = document.getElementById('btn-stealth');
+                btn.innerText = "[ACTIVE]";
+                btn.style.color = "var(--color-primary)";
+                btn.style.borderColor = "var(--color-primary)";
+            }
+
             AdminApp.loadBans();
             AdminApp.checkPing();
 
@@ -61,6 +71,32 @@ const AdminApp = {
             document.getElementById('ping').innerText = ms;
         } catch {
             document.getElementById('ping').innerText = "ERR";
+        }
+    },
+
+    toggleStealth: async () => {
+        try {
+            const res = await fetch(`${API_URL}/api/v2/admin/toggle-stealth`, {
+                method: 'POST',
+                headers: { 'Authorization': `Bearer ${AdminApp.state.token}` }
+            });
+            const data = await res.json();
+
+            const btn = document.getElementById('btn-stealth');
+            if (data.is_stealth) {
+                btn.innerText = "[ACTIVE]";
+                btn.style.color = "var(--color-primary)";
+                btn.style.borderColor = "var(--color-primary)";
+                alert("STEALTH MODE ENGAGED. ADMIN STATUS HIDDEN.");
+            } else {
+                btn.innerText = "[DISABLED]";
+                btn.style.color = "";
+                btn.style.borderColor = "";
+                alert("STEALTH MODE DISENGAGED. ADMIN STATUS VISIBLE.");
+            }
+        } catch (e) {
+            console.error("Toggle Stealth Error:", e);
+            alert("TOGGLE FAILED");
         }
     },
 

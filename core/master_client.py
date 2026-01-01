@@ -82,6 +82,17 @@ class MasterClient:
             return None
             return None
     
+    def get_server_stats(self):
+        """Fetch global server performance metrics"""
+        res = self._request("/health")
+        if res:
+            return {
+                "players": res.get("players", "0"),
+                "total": res.get("total_operators", "0"),
+                "version": res.get("version", "v1.0.0")
+            }
+        return None
+
     def get_status(self):
         """Check if server is online"""
         try:
