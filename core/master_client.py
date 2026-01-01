@@ -12,7 +12,7 @@ import threading
 import time
 
 # Default server URL - your VPS
-MASTER_SERVER_URL = "http://154.53.35.148:8080"
+MASTER_SERVER_URL = "http://154.53.35.148:80"
 
 class MasterClient:
     def __init__(self, server_url=None):
@@ -22,10 +22,10 @@ class MasterClient:
         if not server_url:
             try:
                 # Quick check if localhost is alive
-                with urllib.request.urlopen("http://localhost:8080/health", timeout=0.2) as r:
+                with urllib.request.urlopen("http://localhost:80/health", timeout=0.2) as r:
                     if r.getcode() == 200:
                          print("Local Master Server detected! Switching to localhost.")
-                         self.server_url = "http://localhost:8080"
+                         self.server_url = "http://localhost:80"
             except:
                 pass
 
