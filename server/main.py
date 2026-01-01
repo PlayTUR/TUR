@@ -188,23 +188,21 @@ def init_db():
         hb REAL DEFAULT (strftime('%s', 'now'))
     )""")
     
-    # Migration: Add is_admin and recovery_key if columns missing
-    try:
-        c.execute(f"SELECT is_admin, recovery_key FROM {TBL_USERS} LIMIT 1")
-    except sqlite3.OperationalError:
-        print("Migrating DB: Checking columns in user table")
+    # Migration: Add columns if missing (Try/Except for each to be safe)
+    # We simply try to add them. If they exist, it throws an OperationalError, which we ignore.
+    migrations = [
+        f"ALTER TABLE {TBL_USERS} ADD COLUMN is_admin INTEGER DEFAULT 0",
+        f"ALTER TABLE {TBL_USERS} ADD COLUMN recovery_key TEXT",
+        f"ALTER TABLE {TBL_USERS} ADD COLUMN is_stealth INTEGER DEFAULT 0",
+        f"ALTER TABLE {TBL_USERS} ADD COLUMN avatar_id INTEGER DEFAULT 0"
+    ]
+    
+    for mig in migrations:
         try:
-            c.execute(f"ALTER TABLE {TBL_USERS} ADD COLUMN is_admin INTEGER DEFAULT 0")
-        except: pass
-        try:
-            c.execute(f"ALTER TABLE {TBL_USERS} ADD COLUMN recovery_key TEXT")
-        except: pass
-        try:
-            c.execute(f"ALTER TABLE {TBL_USERS} ADD COLUMN is_stealth INTEGER DEFAULT 0")
-        except: pass
-        try:
-            c.execute(f"ALTER TABLE {TBL_USERS} ADD COLUMN avatar_id INTEGER DEFAULT 0")
-        except: pass
+            c.execute(mig)
+            # print(f"Applied migration: {mig}")
+        except sqlite3.OperationalError:
+            pass # Column likely exists
 
     c.execute(f"""CREATE TABLE IF NOT EXISTS {TBL_BANS} (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
