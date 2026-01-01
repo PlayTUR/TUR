@@ -181,7 +181,9 @@ class ProfileScene(Scene):
             role_txt = "USER"
             role_col = (50, 255, 50) # Green
             
-        r.draw_text_right(surface, role_txt, panel_x + 370, panel_y + 35, role_col, r.font)        
+        # Custom right align since renderer lacks helper
+        txt_w, txt_h = r.font.size(role_txt)
+        r.draw_text(surface, role_txt, panel_x + 370 - txt_w, panel_y + 35, role_col, r.font)
         lvl = stats.get("level", 1)
         xp = stats.get("xp", 0)
         rank = stats.get("rank", 0)
