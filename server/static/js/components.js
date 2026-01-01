@@ -150,24 +150,14 @@ const Components = {
 
         return `
             <h2>GLOBAL_LEADERBOARD</h2>
-            <div class="panel" style="margin-bottom: 2rem;">
-                <div class="form-group" style="margin-bottom: 0;">
-                    <label>OPERATOR_SEARCH</label>
-                    <div style="display: flex; gap: 1rem;">
-                        <input type="text" id="user-search-input" placeholder="Search by name..." style="flex: 1;" onkeyup="if(event.key==='Enter') App.searchUsers(this.value)">
-                        <button class="btn" onclick="App.searchUsers(document.getElementById('user-search-input').value)">[SEARCH]</button>
-                    </div>
-                </div>
-                <div id="search-results" style="margin-top: 1rem; display: none;"></div>
-            </div>
-
+            
             <div class="panel">
                 <table>
                     <thead>
                         <tr>
                             <th width="10%">RANK</th>
                             <th>OPERATOR</th>
-                            <th>LEVEL</th>
+                            <th style="text-align: center;">LEVEL</th>
                             <th style="text-align: right;">EXP</th>
                             <th style="text-align: right;">TOTAL_SCORE</th>
                         </tr>
@@ -175,8 +165,25 @@ const Components = {
                     <tbody>${rows}</tbody>
                 </table>
             </div>
+            
+            <div style="margin-top: 1.5rem; text-align: center;">
+                <p style="color: var(--color-dim); font-size: 0.8rem;">Looking for a specific operator? <a href="#search" style="color: var(--color-primary);">[USE_SEARCH_PROTOCOL]</a></p>
+            </div>
         `;
     },
+    Search: () => `
+        <h2>OPERATOR_DIRECTORY</h2>
+        <div class="panel" style="max-width: 600px; margin: 0 auto 2rem;">
+            <p style="margin-bottom: 1rem; font-size: 0.8rem; color: var(--color-dim);"> Query the global user database for active operators. Minimum 2 characters required for initialization.</p>
+            <div class="form-group" style="margin-bottom: 0;">
+                <div style="display: flex; gap: 1rem;">
+                    <input type="text" id="user-search-input" placeholder="Enter Operator ID..." style="flex: 1;" onkeyup="if(event.key==='Enter') App.searchUsers(this.value)">
+                    <button class="btn btn-primary" onclick="App.searchUsers(document.getElementById('user-search-input').value)">[SEARCH]</button>
+                </div>
+            </div>
+        </div>
+        <div id="search-results" style="max-width: 600px; margin: 0 auto;"></div>
+    `,
 
     AccountLogin: () => `
         <h2>ACCESS_CONTROL</h2>

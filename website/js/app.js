@@ -98,6 +98,9 @@ const App = {
                     content.innerHTML = Components.Error("FAILED_TO_CONNECT_TO_MAINFRAME");
                 });
                 break;
+            case 'search':
+                content.innerHTML = Components.Search();
+                break;
             case 'status':
                 content.innerHTML = Components.Loader();
                 App.fetchStatus().then(status => {
