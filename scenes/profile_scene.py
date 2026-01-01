@@ -59,7 +59,9 @@ class ProfileScene(Scene):
         self.profile_data = None
         self.error_msg = None
         self.avatar_id = 0
-        self.is_offline = False  # Track offline state
+        self.error_msg = None
+        self.avatar_id = 0
+        self.connection_status = "OK"  # OK, GUEST, OFFLINE, ERROR
         
         # Temp state
         self.renaming = False
@@ -76,11 +78,19 @@ class ProfileScene(Scene):
         
     def _fetch_profile(self):
         try:
+            # Check general connectivity first
+            status_ok = self.game.master_client.get_status() # Force check
+            if not status_ok:
+                 self.connection_status = "OFFLINE"
+                 self.profile_data = self._get_guest_profile()
+                 self.loading = False
+                 return
+
             # 1. Ensure we are logged in
             if not self.game.master_client.logged_in:
                 # If guest, just load local settings simulation but mark as offline/guest
                 self.profile_data = self._get_guest_profile()
-                self.is_offline = True
+                self.connection_status = "GUEST"
                 self.loading = False
                 return
 
@@ -114,7 +124,7 @@ class ProfileScene(Scene):
             
         except Exception as e:
             self.error_msg = f"Error: {str(e)}"
-            self.is_offline = True # Treat errors as offline/disconnected state
+            self.connection_status = "ERROR" # Treat errors as fetch failure
             print(f"Profile fetch error: {e}")
             
         self.loading = False
@@ -225,7 +235,7 @@ class ProfileScene(Scene):
         r.draw_text(surface, f"NAME: {username}", info_x, y, theme["text"])
         
         # Real UID from DB
-        uid_display = f"#{uid}" if uid != 0 else "OFFLINE"
+        uid_display = f"#{uid}" if uid != 0 else self.connection_status
         r.draw_text(surface, f"UID:  {uid_display}", info_x, y + 30, (150, 150, 150))
         
         # Role Text
@@ -240,10 +250,25 @@ class ProfileScene(Scene):
         stats_x = 500
         r.draw_panel(surface, stats_x, panel_y, 500, 220, "PERFORMANCE_METRICS")
         
-        if self.is_offline and uid == 0:
-             # Offline Message
-             r.draw_centered_text(surface, "CONNECT TO SERVER", stats_x + 250, panel_y + 80, theme["secondary"])
-             r.draw_centered_text(surface, "TO VIEW GLOBAL STATS", stats_x + 250, panel_y + 110, (100, 100, 100))
+        # 2. Right Panel: Stats
+        stats_x = 500
+        r.draw_panel(surface, stats_x, panel_y, 500, 220, "PERFORMANCE_METRICS")
+        
+        if self.connection_status != "OK" and uid == 0:
+             # State Message
+             msg1, msg2 = "UNKNOWN STATE", ""
+             if self.connection_status == "OFFLINE":
+                  msg1 = "UPLINK OFFLINE"
+                  msg2 = "CANNOT REACH SERVER"
+             elif self.connection_status == "GUEST":
+                  msg1 = "GUEST ACCESS"
+                  msg2 = "LOGIN FOR GLOBAL SUNC"
+             elif self.connection_status == "ERROR":
+                  msg1 = "DATA CORRUPTION"
+                  msg2 = "FETCH FAILED"
+                  
+             r.draw_centered_text(surface, msg1, stats_x + 250, panel_y + 80, theme["secondary"])
+             r.draw_centered_text(surface, msg2, stats_x + 250, panel_y + 110, (100, 100, 100))
              return # Skip drawing empty stats
         
         sx = stats_x + 40
