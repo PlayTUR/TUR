@@ -423,10 +423,6 @@ const Components = {
             <div style="flex: 1;">
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
                     <h2 style="margin: 0;">OPERATOR_PROFILE: ${user}</h2>
-                    <div style="display: flex; align-items: center; gap: 0.5rem; font-size: 0.9rem;">
-                        <span style="color: ${isOnline ? 'var(--color-primary)' : 'var(--color-error)'}">●</span>
-                        ${isOnline ? 'ONLINE' : 'OFFLINE'}
-                    </div>
                 </div>
                 
                 <div style="display: flex; gap: 1rem; align-items: center; margin-bottom: 0.5rem;">
