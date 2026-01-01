@@ -214,6 +214,16 @@ class BootScene(Scene):
                 # Store in game for later use
                 self.game.song_cache = songs
                 
+                # --- SESSION REFRESH ---
+                # Check if we have a saved token and refresh profile while booting
+                if self.game.master_client.logged_in:
+                    update_status("Synchronizing uplink...")
+                    profile = self.game.master_client.get_my_stats()
+                    if profile:
+                        self.game.settings.set("is_admin", profile.get("is_admin", False))
+                        self.game.settings.set("username", profile.get("username", "User"))
+                        # print(f"Session Refreshed: {profile.get('username')}")
+                
             except Exception as e:
                 print(f"Song loading error: {e}")
                 import traceback

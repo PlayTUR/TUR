@@ -1164,10 +1164,10 @@ async def search_users(q: str):
     
     # Check if query is numeric (ID search)
     if q.isdigit():
-        c.execute(f"SELECT uname, l_at, level, xp FROM {TBL_USERS} LEFT JOIN {TBL_STATS} ON {TBL_USERS}.id = {TBL_STATS}.uid WHERE {TBL_USERS}.id = ?", (int(q),))
+        c.execute(f"SELECT uname, l_at, lvl as level, xp FROM {TBL_USERS} LEFT JOIN {TBL_STATS} ON {TBL_USERS}.id = {TBL_STATS}.uid WHERE {TBL_USERS}.id = ?", (int(q),))
     else:
         # Search by username, LIMIT 10 for performance
-        c.execute(f"SELECT uname, l_at, level, xp FROM {TBL_USERS} LEFT JOIN {TBL_STATS} ON {TBL_USERS}.id = {TBL_STATS}.uid WHERE uname LIKE ? LIMIT 10", (f"%{q}%",))
+        c.execute(f"SELECT uname, l_at, lvl as level, xp FROM {TBL_USERS} LEFT JOIN {TBL_STATS} ON {TBL_USERS}.id = {TBL_STATS}.uid WHERE uname LIKE ? LIMIT 10", (f"%{q}%",))
         
     rows = c.fetchall()
     conn.close()
