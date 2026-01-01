@@ -93,10 +93,6 @@ class AuthScene(Scene):
         draw_field("USERNAME", self.username, py + 35, self.active_field == 0)
         draw_field("PASSWORD", self.password, py + 125, self.active_field == 1, masked=True)
 
-        # Error Message Overlay
-        if time.time() < self.error_timer:
-            r.draw_high_viz_popup(surface, "IDENT_FAILURE", self.error_msg)
-            
         # Password reset hint
         if getattr(self, 'reset_hint', False) and time.time() < getattr(self, 'reset_hint_timer', 0):
             r.draw_text(surface, "Forgot password? Reset at:", px + 50, py + 230, (150, 150, 200))
@@ -110,10 +106,14 @@ class AuthScene(Scene):
         r.draw_text(surface, "[TAB] Switch Field", px + 30, controls_y, (100, 100, 100))
         r.draw_text(surface, "[ENTER] Login", px + 30, controls_y + 25, (100, 100, 100))
         
-        # "Remember Me" integrated into controls (replacing position of ESC roughly)
+        # "Remember Me" integrated into controls
         chk_char = "x" if self.remember_me else " "
-        chk_col = theme["primary"] if self.active_field == 2 else (100, 100, 100)
-        r.draw_text(surface, f"[{chk_char}] REMEMBER ME", px + 30, controls_y + 50, chk_col)
+        
+        # Highlight if toggled recently or just keep standard color? 
+        # User asked for "same color" but "toggle to a keybind"
+        chk_col = theme["text"] if self.remember_me else (100, 100, 100)
+        
+        r.draw_text(surface, f"[{chk_char}] REMEMBER ME [F1]", px + 30, controls_y + 50, chk_col)
         
         # Move Exit below
         r.draw_text(surface, "[ESC] Cancel", px + 30, controls_y + 75, (100, 100, 100))
@@ -123,6 +123,10 @@ class AuthScene(Scene):
         r.draw_text(surface, "No account?", px + panel_w - 180, controls_y, (100, 100, 100))
         r.draw_text(surface, "Press ESC then", px + panel_w - 180, controls_y + 25, (80, 80, 80))
         r.draw_text(surface, "R to register", px + panel_w - 180, controls_y + 45, (80, 80, 80))
+
+        # Error Message Overlay (Moved to end for Z-Index)
+        if time.time() < self.error_timer:
+            r.draw_high_viz_popup(surface, "IDENT_FAILURE", self.error_msg)
 
     def handle_input(self, event):
         if self.logging_in:
@@ -136,17 +140,24 @@ class AuthScene(Scene):
                 
             elif event.key == pygame.K_TAB:
                 self.play_sfx("blip")
-                self.active_field = (self.active_field + 1) % 3 # 0=User, 1=Pass, 2=Remember
+                self.active_field = (self.active_field + 1) % 2 # 0=User, 1=Pass
+                
+            elif event.key == pygame.K_F1:
+                 # Toggle Remember Me via Keybind
+                 self.remember_me = not self.remember_me
+                 self.play_sfx("blip")
                 
             elif event.key == pygame.K_RETURN:
                 if self.active_field == 0 and self.username:
                     self.active_field = 1
                     self.play_sfx("blip")
-                elif self.active_field == 1:
-                    self._submit()
-                elif self.active_field == 2:
-                    self.remember_me = not self.remember_me
-                    self.play_sfx("blip")
+                elif self.active_field == 1 or (self.active_field == 0 and self.username):
+                    # Enter always tries to submit if we have a username, or moves to pass
+                    if not self.password:
+                         self.active_field = 1
+                         self.play_sfx("blip")
+                    else:
+                         self._submit()
                     
             elif event.key == pygame.K_BACKSPACE:
                 self.play_sfx("type")
