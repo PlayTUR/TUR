@@ -165,10 +165,10 @@ class LobbyScene(Scene):
 
         # How it works panel
         r.draw_panel(surface, 550, 180, 400, 180, "HOW_IT_WORKS")
-        r.draw_text(surface, "HOST:", 580, 220, theme["secondary"]) # Added padding (570->580)
-        r.draw_text(surface, "Create room, share code.", 580, 245, (150, 150, 150))
+        r.draw_text(surface, "HOST:", 580, 220, theme["secondary"]) 
+        r.draw_text(surface, "Detailed settings, public list.", 580, 245, (150, 150, 150))
         r.draw_text(surface, "JOIN:", 580, 285, theme["secondary"])
-        r.draw_text(surface, "Enter host's room code.", 580, 300, (150, 150, 150))
+        r.draw_text(surface, "Browse public servers.", 580, 300, (150, 150, 150))
         r.draw_text(surface, "No port forwarding needed!", 580, 330, theme["primary"])
         
         # NAT Type display
@@ -180,7 +180,7 @@ class LobbyScene(Scene):
             r.draw_text(surface, "Checking NAT type...", 570, 420, (100, 100, 100))
             self._check_nat_type()
         
-        r.draw_text(surface, "[↑/↓] Navigate  [ENTER] Select  [ESC] Back", 100, 580, (80, 80, 80))
+        r.draw_text(surface, "[↑/↓] Navigate  [ENTER] Select  [P] Profile  [ESC] Back", 100, 580, (80, 80, 80))
     
     def _check_nat_type(self):
         """NAT check - no longer uses STUN"""
@@ -245,7 +245,8 @@ class LobbyScene(Scene):
         
         # Server Status at Bottom Right (replacing old room code location)
         sw, sh = surface.get_width(), surface.get_height()
-        r.draw_text(surface, "STATUS: ONLINE (HOSTING)", sw - 280, sh - 40, (100, 255, 100))
+        # Increased padding from right (sw - 280 -> sw - 360) to prevent clipping
+        r.draw_text(surface, "STATUS: ONLINE (HOSTING)", sw - 360, sh - 40, (100, 255, 100))
 
     def _draw_lan_join(self, surface, r, theme):
         """LAN game browser - shows games on same network"""
@@ -480,6 +481,9 @@ class LobbyScene(Scene):
         elif key == pygame.K_DOWN:
             self.menu_index = (self.menu_index + 1) % len(self.menu_items)
             self.play_sfx("blip")
+        elif key == pygame.K_p:
+            from scenes.profile_scene import ProfileScene
+            self.game.scene_manager.switch_to(ProfileScene)
         elif key == pygame.K_RETURN:
             self.play_sfx("accept")
             item = self.menu_items[self.menu_index]
