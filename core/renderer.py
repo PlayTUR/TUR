@@ -354,6 +354,44 @@ class PygameRenderer:
             
         return x, content_y # Return content start position
 
+    def draw_high_viz_popup(self, surface, title, message, color=None):
+        """Draw a centered, highly visible popup modal for critical errors/bans"""
+        theme = self.get_theme()
+        if not color:
+            color = theme["error"]
+            
+        sw, sh = surface.get_width(), surface.get_height()
+        
+        # Calculate size based on lines
+        lines = self.wrap_text(message, 50)
+        h = 100 + (len(lines) * 30)
+        w = 600
+        
+        px, py = (sw - w)//2, (sh - h)//2
+        
+        # 1. Shadows/Dim (Full screen)
+        dim = pygame.Surface((sw, sh), pygame.SRCALPHA)
+        dim.fill((0, 0, 0, 180))
+        surface.blit(dim, (0, 0))
+        
+        # 2. Main Box
+        pygame.draw.rect(surface, (10, 5, 5), (px, py, w, h))
+        pygame.draw.rect(surface, color, (px, py, w, h), 3) # Outer Glowing Border
+        
+        # 3. Header Bar
+        pygame.draw.rect(surface, color, (px, py, w, 45))
+        self.draw_text(surface, f"!! {title} !!", px + 20, py + 10, (0, 0, 0), self.big_font)
+        
+        # 4. Content
+        y_text = py + 70
+        for line in lines:
+            # Draw shadow for text
+            self.draw_text(surface, line, px + 32, y_text + 2, (0, 0, 0))
+            self.draw_text(surface, line, px + 30, y_text, theme["text"])
+            y_text += 30
+            
+        return px, py, w, h
+
     def draw_styled_rect(self, surface, x, y, w, h, color, outline_color=None, thickness=1):
         """Draw a rect with optional alpha and outline"""
         s = pygame.Surface((w, h), pygame.SRCALPHA)

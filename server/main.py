@@ -360,6 +360,42 @@ async def promote_user(req: PromoteRequest, request: Request):
     conn.close()
     return {"success": True, "message": f"User {req.username} is now an ADMIN"}
 
+# === Admin Wipe Stats ===
+class WipeStatsRequest(BaseModel):
+    admin_key: Optional[str] = None
+    username: str
+
+@app.post("/api/v2/admin/wipe-stats")
+async def wipe_stats_user(req: WipeStatsRequest, request: Request):
+    client_ip = get_client_ip(request)
+    if not check_rate_limit(client_ip, "admin_action", 5):
+         raise HTTPException(429, "Rate limit")
+         
+    # Check Auth (Key OR Token)
+    auth_header = request.headers.get("Authorization")
+    token = auth_header.split(" ")[1] if auth_header and auth_header.startswith("Bearer ") else None
+    
+    if not is_admin_request(req.admin_key, token):
+        raise HTTPException(403, "Invalid Admin Key or Token")
+    
+    conn = get_db()
+    c = conn.cursor()
+    c.execute(f"SELECT id FROM {TBL_USERS} WHERE uname = ?", (req.username,))
+    user = c.fetchone()
+    if not user:
+        conn.close()
+        raise HTTPException(404, "User not found")
+    
+    uid = user['id']
+    # Reset aggregated stats
+    c.execute(f"UPDATE {TBL_STATS} SET xp=0, lvl=1, t_score=0, t_plays=0 WHERE uid = ?", (uid,))
+    # Delete individual logs
+    c.execute("DELETE FROM s_logs WHERE uid = ?", (uid,))
+    
+    conn.commit()
+    conn.close()
+    return {"success": True, "message": f"Stats for {req.username} have been wiped."}
+
 # === Password Recovery ===
 
 class ResetPasswordRequest(BaseModel):
@@ -832,13 +868,16 @@ async def submit_score(req: ScoreSubmitRequest, request: Request):
 async def get_leaderboard():
     conn = get_db()
     c = conn.cursor()
+    now = time.time()
+    # Filter out banned users
     c.execute(f"""
         SELECT s.xp, s.lvl, s.t_score, u.uname 
         FROM {TBL_STATS} s
         JOIN {TBL_USERS} u ON s.uid = u.id
+        WHERE u.id NOT IN (SELECT uid FROM {TBL_BANS} WHERE exp IS NULL OR exp > ?)
         ORDER BY s.xp DESC
         LIMIT 50
-    """)
+    """, (now,))
     rows = c.fetchall()
     conn.close()
     

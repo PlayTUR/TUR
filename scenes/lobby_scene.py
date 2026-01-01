@@ -921,9 +921,8 @@ class LobbyScene(Scene):
         elif not servers:
             mc_error = getattr(self.master_client, 'error', None)
             if mc_error:
-                r.draw_text(surface, "SYSTEM_ERROR:", 420, 260, theme["error"])
-                r.draw_text(surface, f"{mc_error}", 150, 300, theme["error"])
-                r.draw_text(surface, "[R] to Retry", 420, 360, (150, 150, 150))
+                r.draw_high_viz_popup(surface, "SYSTEM_ERROR", mc_error)
+                r.draw_text(surface, "PRESS [R] TO RETRY CONNECTION", 350, 520, (150, 150, 150), r.small_font)
             else:
                 r.draw_text(surface, "No servers online.", 420, 280, (150, 150, 150))
                 r.draw_text(surface, "Be the first to host!", 400, 320, theme["secondary"])

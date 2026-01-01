@@ -93,6 +93,36 @@ const AdminApp = {
         }
     },
 
+    wipeStats: async () => {
+        const target = document.getElementById('wipe-target').value;
+        if (!target) return alert("INVALID_TARGET");
+
+        if (!confirm(`CRITICAL WARNING: PERMANENTLY WIPE ALL STATS FOR [${target}]?\nTHIS CANNOT BE UNDONE.`)) return;
+        if (!confirm(`ARE YOU ABSOLUTELY SURE?`)) return;
+
+        try {
+            const res = await fetch(`${API_URL}/api/v2/admin/wipe-stats`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${AdminApp.state.token}`
+                },
+                body: JSON.stringify({ username: target })
+            });
+
+            if (res.ok) {
+                alert(`SUCCESS: STATS FOR [${target}] HAVE BEEN PURGED.`);
+                document.getElementById('wipe-target').value = "";
+            } else {
+                const err = await res.json();
+                alert(`ERROR: ${err.detail || err.error || 'Unknown Error'}`);
+            }
+        } catch (e) {
+            console.error("Wipe Stats Error:", e);
+            alert(`CONNECTION_ERROR: ${e.message}\nCheck if ${API_URL} is reachable.`);
+        }
+    },
+
     banUser: async () => {
         const target = document.getElementById('ban-target').value;
         const reason = document.getElementById('ban-reason').value;

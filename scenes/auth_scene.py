@@ -93,22 +93,7 @@ class AuthScene(Scene):
 
         # Error Message Overlay
         if time.time() < self.error_timer:
-            # Use big font for visibility
-            font = r.big_font
-            ew, eh = font.size(self.error_msg)
-            
-            # Center on screen as a modal pop-up
-            ex = (sw - ew) // 2
-            ey = (sh - eh) // 2
-            padding = 20
-            
-            # Draw highly visible box (Black bg with Red border)
-            pygame.draw.rect(surface, (0, 0, 0), (ex - padding, ey - padding, ew + padding*2, eh + padding*2))
-            pygame.draw.rect(surface, theme["error"], (ex - padding, ey - padding, ew + padding*2, eh + padding*2), 3)
-            
-            # Draw shadow text for legibility
-            r.draw_text(surface, self.error_msg, ex + 2, ey + 2, (0, 0, 0), font)
-            r.draw_text(surface, self.error_msg, ex, ey, theme["error"], font)
+            r.draw_high_viz_popup(surface, "IDENT_FAILURE", self.error_msg)
             
         # Password reset hint
         if getattr(self, 'reset_hint', False) and time.time() < getattr(self, 'reset_hint_timer', 0):
