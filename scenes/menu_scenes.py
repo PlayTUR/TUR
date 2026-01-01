@@ -1922,18 +1922,34 @@ class ReplaySelectScene(Scene):
                 path = os.path.join(replay_dir, f)
                 with open(path, 'r') as file:
                     data = json.load(file)
-                    # Basic metadata
+                    # Check if song exists (basic check)
+                    is_corrupted = False
+                    song_name = data.get('song', 'Unknown')
+                    # This check is tricky effectively because we don't know the exact folder structure 
+                    # from just the song name if it wasn't stored fully. 
+                    # But user wants "corrupted" if something is wrong.
+                    
                     self.replays.append({
                         'filename': f,
-                        'song': data.get('song', 'Unknown'),
+                        'song': song_name,
                         'score': data.get('score', 0),
                         'max_score': data.get('max_score', 0),
                         'timestamp': data.get('timestamp', 0),
                         'difficulty': data.get('difficulty', 'MEDIUM'),
-                        'full_data': data
+                        'full_data': data,
+                        'corrupted': is_corrupted
                     })
             except Exception as e:
                 print(f"Failed to load replay {f}: {e}")
+                # Add as corrupted entry so user can delete it
+                self.replays.append({
+                    'filename': f,
+                    'song': "Unknown (Corrupted)",
+                    'score': 0,
+                    'timestamp': 0,
+                    'difficulty': "???",
+                    'corrupted': True
+                })
                 
     def draw(self, surface):
         r = self.game.renderer
@@ -1974,11 +1990,25 @@ class ReplaySelectScene(Scene):
             col = theme["text"] if is_selected else (200, 200, 200)
             
             # Format Date
-            import time
-            date_str = time.strftime('%Y-%m-%d %H:%M', time.localtime(item['timestamp']))
+            date_str = "Unknown Date"
+            try:
+                ts = float(item.get('timestamp', 0))
+                date_str = time.strftime('%Y-%m-%d %H:%M', time.localtime(ts))
+            except:
+                pass
+            
+            # Check for missing song
+            song_path = os.path.join("songs", item.get('song_filename', ''))
+            # Try legacy 'song' field if song_filename missing (older replays might store just name)
+            if not os.path.exists(song_path):
+                 # Try to assume folder name = song name
+                 song_path = os.path.join("songs", item.get('song', ''), "audio.mp3") 
             
             # Song Title
-            r.draw_text(surface, f"{item['song']} [{item['difficulty']}]", panel_x + 20, y + 15, col, r.font)
+            if item.get('corrupted', False):
+                 r.draw_text(surface, f"⚠ CORRUPTED REPLAY", panel_x + 20, y + 15, theme["error"], r.font)
+            else:
+                 r.draw_text(surface, f"{item['song']} [{item['difficulty']}]", panel_x + 20, y + 15, col, r.font)
             
             # Score
             score_txt = f"{item['score']:,}"
