@@ -15,15 +15,21 @@ const AdminApp = {
 
         // Verify with server (and check is_admin)
         try {
+            console.log("Verifying token:", AdminApp.state.token);
             const res = await fetch(`${API_URL}/api/v2/users/me`, {
                 headers: { 'Authorization': `Bearer ${AdminApp.state.token}` }
             });
 
-            if (!res.ok) throw new Error("Auth Failed");
+            if (!res.ok) {
+                const errData = await res.json().catch(() => ({}));
+                throw new Error(`Auth Failed: ${res.status} ${errData.detail || ""}`);
+            }
 
             const data = await res.json();
+            console.log("Response data:", data);
+
             if (!data.is_admin) {
-                alert("ACCESS_DENIED: INSUFFICIENT_PRIVILEGES");
+                alert(`ACCESS_DENIED: User [${data.username}] is NOT an administrator.`);
                 window.location.href = "index.html";
                 return;
             }
@@ -37,7 +43,8 @@ const AdminApp = {
             AdminApp.checkPing();
 
         } catch (e) {
-            console.error(e);
+            console.error("Admin Init Error:", e);
+            alert("ADMIN_INIT_ERROR: " + e.message);
             window.location.href = "index.html";
         }
     },
