@@ -398,13 +398,14 @@ window.Utils = {
     // Fetch latest version from GitHub on page load
     fetchLatestVersion: async () => {
         try {
-            const res = await fetch("https://api.github.com/repos/PlayTUR/RELEASES/releases/latest");
+            // Updated to use the correct repository path
+            const res = await fetch("https://api.github.com/repos/PlayTUR/TUR/releases/latest");
             if (res.ok) {
                 const data = await res.json();
                 Utils.latestVersion = data.tag_name;
 
                 // Find Windows asset (direct download URL)
-                const windowsAsset = data.assets.find(a => a.name.includes("Windows") && a.name.endsWith(".zip"));
+                const windowsAsset = data.assets.find(a => a.name.toLowerCase().includes("windows") && a.name.endsWith(".zip"));
                 if (windowsAsset) {
                     Utils.downloadUrl = windowsAsset.browser_download_url;
                 } else {
@@ -412,13 +413,14 @@ window.Utils = {
                     const anyZip = data.assets.find(a => a.name.endsWith(".zip"));
                     Utils.downloadUrl = anyZip ? anyZip.browser_download_url : data.html_url;
                 }
-
-                // Update ALL download buttons on page
-                Utils.updateDownloadButtons();
+            } else {
+                console.warn("GitHub API returned status:", res.status);
             }
         } catch (e) {
-            console.log("Version fetch failed:", e);
-            Utils.updateDownloadButtons("OFFLINE");
+            console.error("Version fetch failed:", e);
+        } finally {
+            // Always update buttons, even on failure, to clear "CHECKING..."
+            Utils.updateDownloadButtons();
         }
     },
 
