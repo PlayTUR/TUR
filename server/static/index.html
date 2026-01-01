@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TUR - The Unnamed Rhythm Game</title>
+    <link rel="stylesheet" href="css/style.css">
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+    <link rel="icon" type="image/png" href="assets/favicon.png"> <!-- Placeholder -->
+</head>
+
+<body>
+    <div class="crt-overlay"></div>
+    <div class="scanline"></div>
+    <div class="bg-grid"></div>
+
+    <div class="container">
+        <header>
+            <div class="header-inner">
+                <a href="#home" class="logo">
+                    <pre>▀█▀ █ █ █▀█
+ █  █▄█ █▀▄</pre>
+                </a>
+                <nav>
+                    <a href="#home" class="nav-link active" data-page="home">HOME</a>
+                    <a href="#leaderboard" class="nav-link" data-page="leaderboard">LEADERBOARD</a>
+                    <a href="https://discord.gg/FSXS54PdpQ" target="_blank" class="nav-link">DISCORD</a>
+                    <a href="#account" class="nav-link" data-page="account">ACCOUNT</a>
+                </nav>
+            </div>
+        </header>
+
+        <main id="content">
+            <!-- Dynamic Content Injected Here -->
+        </main>
+
+        <footer>
+            <div
+                style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
+                <div style="display: flex; align-items: center; gap: 2rem;">
+                    <span>&copy; 2025 TEAM TUR</span>
+                    <a href="#eula" style="color: var(--color-dim);">TERMS</a>
+                    <a href="#status" class="status-indicator"><span class="blink">●</span> ONLINE</a>
+                </div>
+                <div style="display: flex; align-items: center; gap: 0.5rem;">
+                    <label style="color: var(--color-dim); font-size: 0.8rem; margin: 0;">THEME:</label>
+                    <select id="theme-select" onchange="App.setTheme(this.value)"
+                        style="background: var(--color-bg); color: var(--color-primary); border: 1px solid var(--color-border); padding: 0.4rem 0.8rem; border-radius: 4px; font-family: inherit; font-size: 0.8rem; cursor: pointer;">
+                        <option value="TERMINAL">TERMINAL</option>
+                        <option value="CYBERPUNK">CYBERPUNK</option>
+                        <option value="SYNTHWAVE">SYNTHWAVE</option>
+                        <option value="NEON">NEON</option>
+                        <option value="MATRIX">MATRIX</option>
+                        <option value="MIDNIGHT">MIDNIGHT</option>
+                        <option value="OCEAN">OCEAN</option>
+                        <option value="SUNSET">SUNSET</option>
+                        <option value="BLOOD">BLOOD</option>
+                        <option value="FROST">FROST</option>
+                        <option value="ROYAL">ROYAL</option>
+                        <option value="COTTON_CANDY">COTTON CANDY</option>
+                    </select>
+                </div>
+            </div>
+        </footer>
+    </div>
+
+    <!-- Scripts -->
+    <script src="js/components.js"></script>
+    <script src="js/app.js"></script>
+</body>
+
+</html>

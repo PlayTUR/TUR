@@ -22,6 +22,8 @@ datas = [
     ('story_music', 'story_music'),
     ('mainmenu_music', 'mainmenu_music'),
     ('tools', 'tools'),
+    ('tools', 'tools'),
+    # ('songs', 'songs'), # Excluded as per user request (game generates these)
     
     # Config files
     ('default_settings.json', '.'),
@@ -31,7 +33,6 @@ datas = [
 # Add optional files/folders if they exist
 optional_items = [
     ('themes', 'themes'),
-    ('songs', 'songs'),
     ('.build_version', '.'),
     ('yt-dlp', '.'),  # YouTube downloader binary
 ]

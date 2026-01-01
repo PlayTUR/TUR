@@ -19,8 +19,8 @@ class DiscordRPCManager:
         self.start_time = int(time.time())
         self.last_update = 0
         
-        # Get ID from settings (settings_manager ensures this is always valid)
-        client_id = self.game.settings.get("discord_client_id") or DEFAULT_CLIENT_ID
+        # Use built-in Client ID
+        client_id = DEFAULT_CLIENT_ID
         
         if PYPRESENCE_AVAILABLE:
             import threading

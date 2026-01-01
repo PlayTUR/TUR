@@ -92,6 +92,14 @@ def parse_osu(file_path):
     # Sort notes by time
     data['notes'].sort(key=lambda x: x['time'])
     
+    # Calculate duration based on last note
+    if data['notes']:
+        last_note = data['notes'][-1]
+        data['duration'] = last_note['time'] + last_note.get('length', 0) + 2.0
+    else:
+        # Fallback if no notes (shouldn't happen on valid map)
+        data['duration'] = 180.0
+    
     # Log conversion info
     if data['keys'] != 4:
         print(f"Converted {data['keys']}K map to 4K: {len(data['notes'])} notes")

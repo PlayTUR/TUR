@@ -1,0 +1,100 @@
+END USER LICENSE AGREEMENT (EULA)
+=================================
+Last Updated: December 31, 2025
+
+IMPORTANT -- READ CAREFULLY: This End User License Agreement
+('Agreement') is a legal agreement between you (either an
+individual or a single entity) and the developers of
+TUR (The Unnamed Rhythm Game) ('Licensor').
+
+By installing, copying, or otherwise using the Software,
+you agree to be bound by the terms of this Agreement.
+If you do not agree to the terms of this Agreement, do not
+install or use the Software.
+
+1. LICENSE GRANT
+   Subject to the terms of this Agreement, Licensor grants you
+   a limited, non-exclusive, non-transferable license to
+   download, install, and use the Software for your personal,
+   non-commercial use.
+
+2. RESTRICTIONS
+   You agree not to, and you will not permit others to:
+   a) License, sell, rent, lease, transfer, assign, distribute,
+      host, or otherwise commercially exploit the Software;
+   b) Modify, translate, adapt, merge, make derivative works
+      of, disassemble, decompile, reverse compile or reverse
+      engineer any part of the Software, except to the extent
+      the foregoing restrictions are expressly prohibited by
+      applicable law;
+   c) Remove or destroy any copyright notices or other
+      proprietary markings contained on or in the Software.
+
+3. ONLINE CONDUCT & FAIR PLAY
+   The Software includes online multiplayer features.
+   To ensure a fair environment, you agree explicitly that:
+   a) AUTOMATION: The use of macros, bots, auto-clickers,
+      hardware assistance, or any automation software is
+      strictly prohibited in all online modes.
+   b) INTEGRITY: You will not intercept, emulate, or redirect
+      communication protocols used by Licensor.
+   c) BEHAVIOR: You will not harass, threaten, or abuse other
+      users.
+
+4. SECURITY & ENFORCEMENT (ZERO TOLERANCE)
+   WARNING: The server actively monitors for anomalies.
+   Any attempt to hack, tamper, injection, or submission
+   of falsified data will result in an IMMEDIATE,
+   PERMANENT ACCOUNT BAN.
+
+   CRITICAL SECURITY WARNING:
+   We will NOT hesitate to SUE or involve LAW ENFORCEMENT
+   against anyone attempting to DDoS, exploit, or damage
+   server infrastructure in any way. We treat infrastructure
+   attacks as criminal offenses.
+   We WILL send the police to your door.
+
+5. OWNERSHIP
+   The Software is licensed, not sold. Licensor retains all
+   ownership rights, title, and interest in and to the
+   Software, including all intellectual property rights.
+
+6. DATA COLLECTION & PRIVACY
+   By using the Software, you consent to the collection of
+   technical data and related information, including but
+   not limited to technical information about your device,
+   system and application software, and peripherals.
+   This data, including Account Identifiers and gameplay
+   telemetry, is collected solely to facilitate software
+   updates, product support, and for anti-cheat enforcement.
+
+7. TERMINATION
+   This Agreement is effective until terminated. Your rights
+   under this Agreement will terminate automatically without
+   notice from Licensor if you fail to comply with any term(s)
+   of this Agreement. Upon termination, you shall cease all
+   use of the Software and destroy all copies, full or partial,
+   of the Software.
+
+8. DISCLAIMER OF WARRANTIES
+   THE SOFTWARE IS PROVIDED 'AS IS', WITH ALL FAULTS AND
+   WITHOUT WARRANTY OF ANY KIND. LICENSOR HEREBY DISCLAIMS
+   ALL WARRANTIES AND CONDITIONS WITH RESPECT TO THE SOFTWARE,
+   EXPRESS, IMPLIED OR STATUTORY.
+
+9. LIMITATION OF LIABILITY
+   IN NO EVENT SHALL LICENSOR BE LIABLE FOR ANY INCIDENTAL,
+   SPECIAL, INDIRECT OR CONSEQUENTIAL DAMAGES WHATSOEVER,
+   INCLUDING, WITHOUT LIMITATION, DAMAGES FOR LOSS OF PROFITS,
+   LOSS OF DATA, OR KEYBOARD DESTRUCTION DUE TO INTENSE
+   RHYTHM GAMEPLAY.
+
+10. GOVERNING LAW
+    This Agreement shall be governed by the laws of the
+    Internet and Common Sense, excluding its conflicts of
+    law rules.
+
+=================================
+END OF DOCUMENT
+
+DO YOU ACCEPT THESE TERMS?

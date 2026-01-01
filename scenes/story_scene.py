@@ -25,7 +25,22 @@ class StoryScene(Scene):
                 print(f"Story error: {e}")
                 self.campaign = {'title': 'OPERATION PHANTOM', 'chapters': []}
         
-        self.current_idx = params.get('index', 0)
+        if params.get('index') is None:
+            # Load progress if not explicitly provided
+            saved = self.game.settings.get("story_progress")
+            if saved is not None:
+                self.current_idx = int(saved)
+            else:
+                self.current_idx = 0
+        else:
+            self.current_idx = params.get('index', 0)
+            
+            # Save progress if we advanced
+            current_saved = self.game.settings.get("story_progress") or 0
+            if self.current_idx > current_saved:
+                self.game.settings.set("story_progress", self.current_idx)
+                self.game.settings.save()
+        
         self.chapters = self.campaign.get('chapters', [])
         
         # Check if we should play outro from previous mission
@@ -34,6 +49,10 @@ class StoryScene(Scene):
         
         if self.current_idx >= len(self.chapters):
             self.state = "COMPLETE"
+            # Ensure saved progress reflects completion
+            self.game.settings.set("story_progress", len(self.chapters))
+            self.game.settings.save()
+            
             self.victory_lines = self.campaign.get('victory_text', [
                 "MISSION COMPLETE.",
                 "THE NETWORK IS SECURE."
@@ -259,8 +278,10 @@ class StoryScene(Scene):
             r.draw_text(surface, "█", cursor_x, text_y, theme["text"])
         
         # Skip hint
-        r.draw_text(surface, "[SPACE] Skip  [ENTER] Continue", 
-                   SCREEN_WIDTH - 280, SCREEN_HEIGHT - 30, (80, 80, 80))
+        text = "[SPACE] Skip  [ENTER] Continue"
+        w, h = r.font.size(text)
+        r.draw_text(surface, text, 
+                   SCREEN_WIDTH - w - 50, SCREEN_HEIGHT - 30, (80, 80, 80))
 
     def _draw_victory(self, surface, r, theme):
         """Draw campaign complete screen"""
@@ -291,7 +312,7 @@ class StoryScene(Scene):
         # Victory text panel
         r.draw_panel(surface, 80, 360, 860, 250, "FINAL_TRANSMISSION")
         
-        y = 390
+        y = 410 # Increased from 390 (360+32=392)
         for i, line in enumerate(self.victory_lines):
             if i <= self.current_line:
                 color = theme["text"]
@@ -304,7 +325,7 @@ class StoryScene(Scene):
                 r.draw_text(surface, f"> {line}", 100, y, color)
                 y += 32
         
-        r.draw_text(surface, "[ENTER] Return to Menu", 380, 670, theme["secondary"])
+        r.draw_text(surface, "[R] Reset Progress    [ESC] Exit", 380, 670, theme["secondary"])
 
     def _draw_briefing(self, surface, r, theme):
         """Draw chapter briefing"""
@@ -329,9 +350,9 @@ class StoryScene(Scene):
             r.draw_text(surface, p['char'], int(p['x']), int(p['y']), theme["primary"])
         
         # Dialogue panel
-        r.draw_panel(surface, 40, 130, 580, 330, "TRANSMISSION")
+        r.draw_panel(surface, 40, 130, 560, 330, "TRANSMISSION")
         
-        y = 155
+        y = 175 # Increased from 155 to clear Title Bar (130+32=162)
         max_y = 440
         for i, line in enumerate(self.briefing_lines):
             if y > max_y:
@@ -345,7 +366,7 @@ class StoryScene(Scene):
             
             color = self._get_speaker_color(line, theme)
             
-            wrapped = r.wrap_text(display, 44)
+            wrapped = r.wrap_text(display, 42)
             for wline in wrapped:
                 if y > max_y:
                     break
@@ -359,9 +380,9 @@ class StoryScene(Scene):
             r.draw_text(surface, "█", cursor_x, y - 30, theme["text"])
         
         # Objective panel
-        r.draw_panel(surface, 40, 490, 580, 90, "OBJECTIVE")
+        r.draw_panel(surface, 40, 490, 560, 90, "OBJECTIVE")
         obj = self.chapter.get('objective', 'Complete the mission.')
-        r.draw_text(surface, obj, 60, 520, theme["text"])
+        r.draw_text(surface, obj, 60, 530, theme["text"]) # Increased from 520 (490+32=522)
         
         # Difficulty badge (now progressive!)
         diff = self.chapter.get('difficulty', 'MEDIUM')
@@ -386,10 +407,10 @@ class StoryScene(Scene):
         frame_idx = (self.frame_timer // 20) % len(art_frames)
         art = art_frames[frame_idx] if frame_idx < len(art_frames) else art_frames[0]
         
-        art_x = 640
-        art_y = 140
+        art_x = 650
+        art_y = 155 # Increased from 140 to clear Title Bar
         
-        panel_w = 380
+        panel_w = 360
         panel_h = len(art) * 22 + 50
         r.draw_panel(surface, art_x - 20, art_y - 20, panel_w, panel_h, "VISUAL_FEED")
         
@@ -460,11 +481,35 @@ class StoryScene(Scene):
             return
         
         if event.key == pygame.K_ESCAPE:
-            self.play_sfx("back")
-            self.game.audio.stop()
-            from scenes.menu_scenes import TitleScene
-            self.game.scene_manager.switch_to(TitleScene)
+            if self.state == "COMPLETE":
+                # Exit but keep progress (will likely return to complete state on reload)
+                self.play_sfx("back")
+                self.game.audio.stop()
+                from scenes.menu_scenes import TitleScene
+                self.game.scene_manager.switch_to(TitleScene)
+            else:
+                self.play_sfx("back")
+                self.game.audio.stop()
+                from scenes.menu_scenes import TitleScene
+                self.game.scene_manager.switch_to(TitleScene)
         
+        elif event.key == pygame.K_r:
+            if self.state == "COMPLETE":
+                # RESET PROGRESS
+                self.play_sfx("type")
+                self.game.settings.set("story_progress", 0)
+                self.game.settings.save()
+                
+                # Restart Scene
+                self.current_idx = 0
+                self.state = "BRIEFING"
+                self.chapter = self.chapters[0]
+                self.briefing_lines = self.chapter.get('briefing', [])
+                self._start_intro_or_briefing()
+                self.current_line = 0
+                self.char_index = 0
+                self.line_complete = False
+                
         elif event.key == pygame.K_SPACE:
             if self.state.startswith("CUTSCENE"):
                 # Skip current cutscene frame
@@ -490,6 +535,7 @@ class StoryScene(Scene):
         
         elif event.key == pygame.K_RETURN:
             if self.state == "COMPLETE":
+                # Default logic for enter is just exit, same as ESC in this context
                 self.game.audio.stop()
                 from scenes.menu_scenes import TitleScene
                 self.game.scene_manager.switch_to(TitleScene)
@@ -505,6 +551,7 @@ class StoryScene(Scene):
                 from scenes.game_scene import GameScene
                 self.game.scene_manager.switch_to(GameScene, {
                     'song': self.chapter.get('song', ''),
+                    'song_title': f"{self.chapter.get('title')} - Wyind", # Append suffix for in-game HUD
                     'difficulty': self.chapter.get('difficulty', 'MEDIUM'),
                     'mode': 'story',
                     'next_scene_class': StoryScene,

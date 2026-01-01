@@ -1,0 +1,106 @@
+name: Create Release
+
+on:
+  push:
+    tags:
+      - 'v*'  # Triggers on version tags like v1.0.0, v0.1.0-beta, etc.
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version tag (e.g., v1.0.0, private-beta-1)'
+        required: true
+        default: 'private-beta-1'
+
+jobs:
+  build-and-release:
+    runs-on: windows-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+        cache: 'pip'
+    
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        pip install pyinstaller
+    
+    - name: Get version
+      id: version
+      run: |
+        if ("${{ github.event_name }}" -eq "workflow_dispatch") {
+          echo "VERSION=${{ github.event.inputs.version }}" >> $env:GITHUB_OUTPUT
+        } else {
+          echo "VERSION=${{ github.ref_name }}" >> $env:GITHUB_OUTPUT
+        }
+      shell: pwsh
+    
+    - name: Write build version
+      run: |
+        $timestamp = Get-Date -Format "o"
+        $commit = "${{ github.sha }}".Substring(0,7)
+        $version = "${{ steps.version.outputs.VERSION }}"
+        @"
+        {
+          "version": "$version",
+          "build_time": "$timestamp",
+          "commit": "$commit",
+          "run_id": "${{ github.run_id }}"
+        }
+        "@ | Out-File -FilePath .build_version -Encoding utf8
+      shell: pwsh
+    
+    - name: Create songs directory
+      run: if (-not (Test-Path -Path songs)) { New-Item -Path songs -ItemType Directory }
+    
+    - name: Build executable
+      run: pyinstaller TUR.spec
+    
+    - name: Create ZIP
+      run: |
+        cd dist
+        Compress-Archive -Path TUR -DestinationPath TUR-Windows-${{ steps.version.outputs.VERSION }}.zip
+      shell: pwsh
+    
+    - name: Generate SHA256 Hash
+      run: |
+        cd dist
+        $hash = (Get-FileHash -Path TUR-Windows-${{ steps.version.outputs.VERSION }}.zip -Algorithm SHA256).Hash.ToLower()
+        "$hash  TUR-Windows-${{ steps.version.outputs.VERSION }}.zip" | Out-File -FilePath TUR-Windows-${{ steps.version.outputs.VERSION }}.zip.sha256 -Encoding utf8 -NoNewline
+        Write-Host "SHA256: $hash"
+      shell: pwsh
+    
+    - name: Create Release
+      uses: softprops/action-gh-release@v1
+      with:
+        repository: PlayTUR/RELEASES
+        tag_name: ${{ steps.version.outputs.VERSION }}
+        name: TUR ${{ steps.version.outputs.VERSION }}
+        body: |
+          ## TUR - The Unnamed Rhythm Game
+          
+          **Version:** ${{ steps.version.outputs.VERSION }}
+          **Build:** ${{ github.run_id }}
+          
+          ### Download
+          - **Windows:** `TUR-Windows-${{ steps.version.outputs.VERSION }}.zip`
+          
+          ### Installation
+          1. Download and extract the ZIP
+          2. Run `TUR.exe`
+          
+          ### Changelog
+          See commit history for changes.
+        files: |
+          dist/TUR-Windows-${{ steps.version.outputs.VERSION }}.zip
+          dist/TUR-Windows-${{ steps.version.outputs.VERSION }}.zip.sha256
+        draft: false
+        prerelease: ${{ contains(steps.version.outputs.VERSION, 'beta') || contains(steps.version.outputs.VERSION, 'alpha') }}
+      env:
+        GITHUB_TOKEN: ${{ secrets.RELEASE_PAT }}

@@ -1,12 +1,14 @@
 import json
 import os
 import pygame
+import base64
+import os
+import pygame
 
 STATS_FILE = "settings.json"
 
-# Discord Rich Presence Client ID for TUR
-# This ID is registered with Discord and allows RPC to work for all players
-DISCORD_CLIENT_ID = "1453128602110529678"
+# Discord Rich Presence Client ID removed from settings (moved to discord_manager.py)
+
 
 DEFAULT_SETTINGS = {
     "name": "ANON",
@@ -14,7 +16,7 @@ DEFAULT_SETTINGS = {
     "music_volume": 0.7,
     "sfx_volume": 1.0,
     "speed": 600,
-    "keybinds": [pygame.K_s, pygame.K_d, pygame.K_k, pygame.K_l],
+    "keybinds": [pygame.K_d, pygame.K_f, pygame.K_j, pygame.K_k],
     "resolution": [1024, 768],
     "fullscreen": False,
     "vsync": True,
@@ -41,8 +43,12 @@ DEFAULT_SETTINGS = {
     "show_hold_ends": True,
     "account_type": "GUEST",
     "last_name_change": 0,
-    "is_admin": False,
-    "discord_client_id": DISCORD_CLIENT_ID,
+    "last_name_change": 0,
+    # "is_admin": False, # Removed
+
+    "last_name_change": 0,
+    # "is_admin": False, # Removed
+
     "user_id": "00000000",
     "auto_recreate_beatmaps": False,
     "language": "EN",
@@ -66,7 +72,7 @@ class SettingsManager:
                 with open(bundled_defaults, 'r') as f:
                     bundled = json.load(f)
                     for k, v in bundled.items():
-                        if k not in self.settings or k == "discord_client_id":
+                        if k not in self.settings:
                             self.settings[k] = v
         except Exception as e:
             pass  # Use hardcoded defaults
@@ -78,13 +84,20 @@ class SettingsManager:
                     data = json.load(f)
                     # Merge data into defaults to ensure new keys exist
                     for k, v in data.items():
-                        self.settings[k] = v
+                        # Skip is_admin
+                        if k == "is_admin": continue
+                        
+                        if k == "auth_token" and v:
+                            # De-obfuscate token on load
+                            self.settings[k] = self._deobfuscate(v)
+                        else:
+                            self.settings[k] = v
             except Exception as e:
                 print(f"Failed to load settings: {e}")
         
-        # Always ensure Discord client ID is the correct one (not a placeholder)
-        if self.settings.get("discord_client_id") == "123456789012345678":
-            self.settings["discord_client_id"] = DISCORD_CLIENT_ID
+        if self.settings.get("discord_client_id"):
+            del self.settings["discord_client_id"]
+
         
         # Ensure User ID exists
         if "user_id" not in self.settings or self.settings["user_id"] == "00000000":
@@ -95,10 +108,41 @@ class SettingsManager:
 
     def save(self):
         try:
+            # Create a copy to obfuscate sensitive data before writing
+            save_data = self.settings.copy()
+            
+            # Obfuscate auth_token if present
+            if save_data.get("auth_token"):
+                save_data["auth_token"] = self._obfuscate(save_data["auth_token"])
+                
+            # Remove is_admin if it crept in
+            if "is_admin" in save_data:
+                del save_data["is_admin"]
+            
             with open(STATS_FILE, 'w') as f:
-                json.dump(self.settings, f, indent=4)
+                json.dump(save_data, f, indent=4)
         except Exception as e:
             print(f"Failed to save settings: {e}")
+
+    def _obfuscate(self, text):
+        if not text: return None
+        try:
+            b = text.encode()
+            for _ in range(20):
+                b = base64.b64encode(b)
+            return b.decode()
+        except: return None
+
+    def _deobfuscate(self, text):
+        if not text: return None
+        try:
+            b = text.encode()
+            for _ in range(20):
+                b = base64.b64decode(b)
+            return b.decode()
+        except: 
+            # If decode fails (e.g. not b64 or not 20 times), assume invalid
+            return None
 
     def get(self, key):
         return self.settings.get(key, DEFAULT_SETTINGS.get(key))

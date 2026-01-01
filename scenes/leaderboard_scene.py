@@ -1,110 +1,175 @@
 import pygame
 from core.scene_manager import Scene
 from core.config import *
+import threading
+from core.localization import get_text
 
 class LeaderboardScene(Scene):
     def __init__(self, game):
         super().__init__(game)
-        self.rankings = []
+        self.leaderboard_data = []
+        self.my_stats = None
+        self.loading = True
+        self.error = None
         self.scroll_y = 0
         self.target_scroll_y = 0
         
     def on_enter(self, params=None):
-        # Refresh rankings
-        self.rankings = self.game.leaderboard_manager.get_rankings()
-        self.target_scroll_y = 0
+        self.loading = True
+        self.error = None
+        self.leaderboard_data = []
+        self.my_stats = None
         self.scroll_y = 0
+        self.target_scroll_y = 0
         
-    def draw(self, surface):
-        r = self.game.renderer
-        theme = r.get_theme()
+        # Fetch data in background
+        threading.Thread(target=self._fetch_data, daemon=True).start()
         
-        # 1. Animated Grid Background
-        t = pygame.time.get_ticks()
-        surface.fill(theme["bg"])
-        grid_offset_y = (t * 0.1) % 40
-        grid_col = theme["grid"]
-        
-        for y in range(0, SCREEN_HEIGHT + 40, 40):
-            line_y = y + grid_offset_y - 40
-            pygame.draw.line(surface, grid_col, (0, line_y), (SCREEN_WIDTH, line_y))
-        for x in range(0, SCREEN_WIDTH, 40):
-            pygame.draw.line(surface, grid_col, (x, 0), (x, SCREEN_HEIGHT))
+    def _fetch_data(self):
+        try:
+            # Fetch global leaderboard
+            self.leaderboard_data = self.game.master_client.get_leaderboard()
             
-        # Draw Main Panel (Standardized dimensions)
-        panel_w, panel_h = 900, 620
-        panel_x = (SCREEN_WIDTH - panel_w) // 2
-        panel_y = (SCREEN_HEIGHT - panel_h) // 2
-        
-        r.draw_panel(surface, panel_x, panel_y, panel_w, panel_h, "GLOBAL LEADERBOARD")
-        
-        # Sub-header (Aligned to panel)
-        r.draw_text(surface, "TOP PLAYERS BY TOTAL SCORE", panel_x + 30, panel_y + 40, theme["secondary"])
-        r.draw_text(surface, "[ESC] BACK", panel_x + panel_w - 120, panel_y + 40, theme["text"])
-        
-        # Rankings List Container
-        start_y = panel_y + 80
-        item_h = 45
-        
-        # Smooth Scroll
-        self.scroll_y += (self.target_scroll_y - self.scroll_y) * 0.2
-        
-        # Column positions (Standardized)
-        col_rank = panel_x + 40
-        col_name = panel_x + 120
-        col_stats = panel_x + 450
-        
-        # Draw items
-        for i, entry in enumerate(self.rankings):
-            y = start_y + i * item_h - self.scroll_y
+            # Fetch own stats if logged in
+            if self.game.master_client.logged_in:
+                self.my_stats = self.game.master_client.get_my_stats()
             
-            # Bounds check
-            if y < panel_y + 75 or y > panel_y + panel_h - 45:
-                continue
-                
-            rank = i + 1
-            name = entry['name']
-            score = entry['score']
-            lvl = entry['level']
-            acc = entry['accuracy']
+            self.loading = False
+        except Exception as e:
+            self.error = str(e)
+            self.loading = False
             
-            # Highlight User
-            is_me = (name == self.game.settings.get("name"))
-            
-            col = theme["text"]
-            if rank == 1: col = (255, 215, 0) # Gold
-            elif rank == 2: col = (192, 192, 192) # Silver
-            elif rank == 3: col = (205, 127, 50) # Bronze
-            elif is_me: col = theme["primary"] # User
-            
-            # Draw Rank (Fixed width)
-            r.draw_text(surface, f"#{rank:02d}", col_rank, y, col, r.big_font)
-            
-            # Draw Name (Truncate if too long)
-            disp_name = name if len(name) <= 16 else name[:14] + ".."
-            r.draw_text(surface, disp_name, col_name, y, col, r.big_font)
-            
-            # Draw Stats (Right aligned group)
-            info = f"LVL {lvl}  |  {score:,} PTS  |  {acc:.1f}%"
-            r.draw_text(surface, info, col_stats, y + 3, theme["secondary"])
-            
-            # Divider
-            pygame.draw.line(surface, theme["grid"], (panel_x + 30, y + 38), (panel_x + panel_w - 30, y + 38))
-
     def handle_input(self, event):
         if event.type == pygame.KEYDOWN:
             if event.key == pygame.K_ESCAPE:
                 self.play_sfx("back")
-                # Return to previous scene? Usually Main Menu or Profile
-                # Since we don't track history strictly, safer to go Title
-                from scenes.menu_scenes import TitleScene
-                self.game.scene_manager.switch_to(TitleScene)
-                
-            elif event.key == pygame.K_DOWN:
-                self.target_scroll_y = min(self.target_scroll_y + 100, max(0, len(self.rankings) * 50 - 400))
+                # Return to Lobby
+                from scenes.lobby_scene import LobbyScene
+                self.game.scene_manager.switch_to(LobbyScene)
             elif event.key == pygame.K_UP:
-                self.target_scroll_y = max(0, self.target_scroll_y - 100)
-            elif event.key == pygame.K_PAGEUP:
-                self.target_scroll_y = max(0, self.target_scroll_y - 400)
-            elif event.key == pygame.K_PAGEDOWN:
-                self.target_scroll_y = min(self.target_scroll_y + 400, max(0, len(self.rankings) * 50 - 400))
+                self.target_scroll_y = max(0, self.target_scroll_y - 80)
+            elif event.key == pygame.K_DOWN:
+                # Cap scroll
+                max_h = max(0, len(self.leaderboard_data) * 40 - 450)
+                self.target_scroll_y = min(max_h, self.target_scroll_y + 80)
+            elif event.key == pygame.K_F5:
+                # Refresh
+                self.on_enter()
+                
+    def draw(self, surface):
+        r = self.game.renderer
+        theme = r.get_theme()
+        
+        # Background
+        surface.fill(theme["bg"])
+        
+        # Header
+        r.draw_text(surface, "◉ GLOBAL LEADERBOARD ◉", 50, 30, theme["primary"], r.big_font)
+        
+        if self.loading:
+            r.draw_centered_text(surface, "LOADING DATA...", SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2, theme["secondary"])
+            return
+            
+        if self.error:
+             r.draw_centered_text(surface, f"ERROR: {self.error}", SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2, theme["error"])
+             r.draw_centered_text(surface, "[F5] Retry  [ESC] Back", SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2 + 40, (150, 150, 150))
+             return
+        
+        # Scroll smoothing
+        self.scroll_y += (self.target_scroll_y - self.scroll_y) * 0.2
+        
+        # My Stats Panel
+        panel_y = 90
+        if self.my_stats and not self.my_stats.get("error"):
+            r.draw_panel(surface, 50, panel_y, 924, 80, "MY STATS")
+            
+            ms = self.my_stats
+            # Level / XP
+            r.draw_text(surface, f"LEVEL {ms.get('level', 1)}", 80, panel_y + 40, theme["primary"], r.big_font)
+            
+            # XP Bar
+            xp = ms.get('xp', 0)
+            r.draw_text(surface, f"XP: {xp:,}", 250, panel_y + 48, theme["text"])
+            
+            r.draw_text(surface, f"TOTAL SCORE: {ms.get('total_score', 0):,}", 500, panel_y + 48, theme["secondary"])
+            r.draw_text(surface, f"PLAYS: {ms.get('plays', 0)}", 750, panel_y + 48, (150, 150, 150))
+        elif not self.game.master_client.logged_in:
+             r.draw_panel(surface, 50, panel_y, 924, 60, "MY STATS")
+             r.draw_centered_text(surface, "Login to track stats!", SCREEN_WIDTH // 2, panel_y + 35, (100, 100, 100))
+            
+        # Leaderboard List
+        list_y = 200
+        list_h = 450
+        list_w = 924
+        list_x = 50
+        
+        r.draw_panel(surface, list_x, list_y, list_w, list_h, "TOP PLAYERS")
+        
+        # Headers
+        header_y = list_y + 40
+        r.draw_text(surface, "#", list_x + 20, header_y, (100, 100, 100))
+        r.draw_text(surface, "PLAYER", list_x + 80, header_y, (100, 100, 100))
+        r.draw_text(surface, "LEVEL", list_x + 400, header_y, (100, 100, 100))
+        r.draw_text(surface, "XP", list_x + 550, header_y, (100, 100, 100))
+        r.draw_text(surface, "SCORE", list_x + 750, header_y, (100, 100, 100))
+        
+        pygame.draw.line(surface, theme["grid"], (list_x + 10, header_y + 25), (list_x + list_w - 10, header_y + 25))
+        
+        # Entries
+        items_area = pygame.Rect(list_x + 10, header_y + 30, list_w - 20, list_h - 80)
+        # Clip to area
+        old_clip = surface.get_clip()
+        
+        # For smooth scrolling with clip, we adjust y directly
+        
+        surface.set_clip(items_area)
+        
+        entry_y = header_y + 30 - self.scroll_y
+        
+        for i, entry in enumerate(self.leaderboard_data):
+            # Visibilty Check
+            if entry_y > items_area.bottom:
+                break
+            if entry_y + 30 < items_area.top:
+                entry_y += 35
+                continue
+                
+            rank = i + 1
+            rank_col = theme["secondary"] if rank <= 3 else theme["text"]
+            if rank == 1: rank_col = (255, 215, 0) # Gold
+            elif rank == 2: rank_col = (192, 192, 192) # Silver
+            elif rank == 3: rank_col = (205, 127, 50) # Bronze
+            
+            # Is me?
+            is_me = self.my_stats and entry['username'] == self.game.settings.get("name")
+            bg = (*theme["primary"], 50) if is_me else None
+            
+            if bg:
+                s = pygame.Surface((list_w - 30, 30), pygame.SRCALPHA)
+                s.fill(bg)
+                surface.blit(s, (list_x + 15, entry_y))
+            
+            r.draw_text(surface, f"#{rank}", list_x + 20, entry_y + 5, rank_col)
+            r.draw_text(surface, entry['username'], list_x + 80, entry_y + 5, theme["text"])
+            r.draw_text(surface, str(entry['level']), list_x + 400, entry_y + 5, theme["secondary"])
+            r.draw_text(surface, f"{entry['xp']:,}", list_x + 550, entry_y + 5, (150, 150, 150))
+            r.draw_text(surface, f"{entry['score']:,}", list_x + 750, entry_y + 5, theme["primary"])
+            
+            entry_y += 35
+            
+        surface.set_clip(old_clip)
+        
+        # Scroll hint
+        if len(self.leaderboard_data) * 35 > list_h - 80:
+             bar_h = list_h - 80
+             pct = self.scroll_y / max(1, (len(self.leaderboard_data) * 35 - bar_h))
+             pct = max(0, min(1, pct))
+             
+             # Scrollbar
+             sb_h = max(20, bar_h * (bar_h / (len(self.leaderboard_data) * 35)))
+             sb_y = header_y + 30 + (bar_h - sb_h) * pct
+             pygame.draw.rect(surface, (50, 50, 50), (list_x + list_w - 8, header_y + 30, 6, bar_h))
+             pygame.draw.rect(surface, theme["secondary"], (list_x + list_w - 8, sb_y, 6, sb_h))
+             
+        # Controls
+        r.draw_text(surface, "[ESC] Back", 50, SCREEN_HEIGHT - 40, theme["secondary"])

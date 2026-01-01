@@ -152,24 +152,33 @@ class BeatmapGenerator:
         
         # Unified Difficulty Handling
         notes = []
+        loaded_diff = difficulty
+        
         if 'difficulties' in data:
             # New Format
-            diff_data = data['difficulties'].get(difficulty, {})
+            diff_data = data['difficulties'].get(difficulty)
             # If requested diff missing, try fallback
             if not diff_data and data['difficulties']:
-                 diff_data = next(iter(data['difficulties'].values()))
-            notes = diff_data.get('notes', [])
-            events = diff_data.get('events', [])
+                 loaded_diff = next(iter(data['difficulties'].keys()))
+                 diff_data = data['difficulties'][loaded_diff]
+            
+            if diff_data:
+                notes = diff_data.get('notes', [])
+                events = diff_data.get('events', [])
+            else:
+                notes = []
+                events = []
         else:
             # Legacy Format
             if data.get('difficulty', 'MEDIUM') == difficulty:
                 notes = data.get('notes', [])
                 events = data.get('events', [])
+                loaded_diff = data.get('difficulty', 'MEDIUM')
             else:
                  # File doesn't have this difficulty
                  notes = []
                  events = []
-
+                 
         # Ensure all notes have required fields
         for note in notes:
             note.setdefault('lane', 0)
@@ -184,7 +193,7 @@ class BeatmapGenerator:
             'events': events,
             'title': data.get('title', ''),
             'artist': data.get('artist', ''),
-            'difficulty': difficulty, # The requested one
+            'difficulty': loaded_diff, # Return ACTUAL loaded difficulty
             'source': data.get('source', 'generated'),  # 'osu!' for imports, 'generated' for MP3
             'audio_path': audio_path or (os.path.join(os.path.dirname(tur_path), data.get('audio')) if data.get('audio') else ''),
             'all_difficulties': list(data.get('difficulties', {}).keys()) if 'difficulties' in data else [data.get('difficulty', 'MEDIUM')]
@@ -430,6 +439,24 @@ class BeatmapGenerator:
             
             return lanes[:max_notes]
         
+        # Helper: check collision with existing notes (including holds)
+        def is_lane_free(check_t, check_lane, notes_list, gap=0.03):
+            for n in notes_list:
+                if n['lane'] != check_lane: continue
+                
+                # Proximity check
+                if abs(n['time'] - check_t) < gap: 
+                    return False
+                    
+                # Hold overlap check
+                if n.get('length', 0) > 0:
+                    start = n['time']
+                    end = start + n['length']
+                    # Don't place INSIDE a hold
+                    if start <= check_t <= end:
+                        return False
+            return True
+
         # Process each onset - ALL onsets become notes
         for idx, t in enumerate(onset_times):
             if t < 0.5:  # Skip first 0.5s (usually silence)
@@ -476,9 +503,8 @@ class BeatmapGenerator:
                 for s in range(1, sub_count):
                     sub_t = beat_t + s * sub_interval
                     
-                    # Check if there's already a note near this time
-                    has_nearby = any(abs(n['time'] - sub_t) < 0.03 for n in notes)
-                    if has_nearby:
+                    # Check safe gap
+                    if not is_lane_free(sub_t, get_lane(sub_t), notes, gap=0.03):
                         continue
                     
                     # Add subdivision note
@@ -509,13 +535,12 @@ class BeatmapGenerator:
                     lane_offset = 0
                     
                     while cur_t < t2 - 0.03:
-                        has_nearby = any(abs(n['time'] - cur_t) < 0.025 for n in notes)
-                        if not has_nearby:
-                            # Alternating lanes for streams
-                            stream_lane = (get_lane(t1) + lane_offset) % 4
+                        # Stream notes collision check
+                        target_lane = (get_lane(t1) + lane_offset) % 4
+                        if is_lane_free(cur_t, target_lane, notes, gap=0.025):
                             stream_notes.append({
                                 'time': cur_t,
-                                'lane': stream_lane,
+                                'lane': target_lane,
                                 'length': 0,
                                 'hit': False
                             })
@@ -571,34 +596,13 @@ class BeatmapGenerator:
             
             # Generate additional notes at beat subdivisions
             additional_notes = []
-            # Helper to check if lane is free (including hold notes)
-            def is_lane_free(check_t, check_lane):
-                # Check occupancy by existing notes
-                for n in notes:
-                    if n['lane'] != check_lane: continue
-                    
-                    # Gap check
-                    if abs(n['time'] - check_t) < 0.03: 
-                        return False
-                        
-                    # Hold note check: is check_t inside a hold?
-                    if n.get('length', 0) > 0:
-                        start = n['time']
-                        end = start + n['length']
-                        if start <= check_t <= end:
-                            return False
-                    
-                    # Reverse check: if we are placing a hold, does it overlap a future note?
-                    # (Not applicable here as we're adding simple notes, but good to keep in mind)
-                    
-                return True
 
             for i, beat_t in enumerate(beat_times):
                 if beat_t < 0.5 or beat_t > duration - 1.0:
                     continue
                     
                 # Add note on the beat itself if no note nearby
-                if is_lane_free(beat_t, get_lane(beat_t)):
+                if is_lane_free(beat_t, get_lane(beat_t), notes):
                     additional_notes.append({
                         'time': beat_t,
                         'lane': get_lane(beat_t),
@@ -615,15 +619,13 @@ class BeatmapGenerator:
                     for s in range(1, subs_per_beat):
                         sub_t = beat_t + s * sub_interval
                         
-                        # Use is_lane_free
-                        
                         # For extreme difficulties, add some chords
                         if difficulty in ["EXTREME", "FUCK YOU"] and s % 2 == 0:
                             lane1 = get_lane(sub_t)
                             lane2 = get_lane(sub_t, offset=50)
                             
-                            valid1 = is_lane_free(sub_t, lane1)
-                            valid2 = is_lane_free(sub_t, lane2)
+                            valid1 = is_lane_free(sub_t, lane1, notes)
+                            valid2 = is_lane_free(sub_t, lane2, notes)
                             
                             if valid1 and valid2 and lane1 != lane2:
                                 additional_notes.append({'time': sub_t, 'lane': lane1, 'length': 0, 'hit': False})
@@ -633,7 +635,7 @@ class BeatmapGenerator:
                         
                         else:
                             lane = get_lane(sub_t)
-                            if is_lane_free(sub_t, lane):
+                            if is_lane_free(sub_t, lane, notes):
                                 additional_notes.append({
                                     'time': sub_t,
                                     'lane': lane,

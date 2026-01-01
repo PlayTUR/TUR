@@ -1,0 +1,37 @@
+name: Deploy Website
+
+on:
+  push:
+    paths:
+      - 'website/**'
+      - 'server/**'
+    branches: [main, master]
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Setup SSH
+      run: |
+        mkdir -p ~/.ssh
+        echo "${{ secrets.VPS_SSH_KEY }}" > ~/.ssh/id_rsa
+        chmod 600 ~/.ssh/id_rsa
+        ssh-keyscan -H 154.53.35.148 >> ~/.ssh/known_hosts
+    
+    - name: Deploy Website to VPS
+      run: |
+        # Sync website files to VPS
+        rsync -avz --delete website/ root@154.53.35.148:/home/tur-server/static/
+        
+    - name: Deploy Server Code
+      run: |
+        # Sync server code (excluding database)
+        rsync -avz --exclude='*.db' --exclude='*.sqlite' server/ root@154.53.35.148:/home/tur-server/
+        
+    - name: Restart Server
+      run: |
+        ssh root@154.53.35.148 'cd /home/tur-server && pkill -f "python3 main.py" || true && nohup python3 main.py > server.log 2>&1 &'

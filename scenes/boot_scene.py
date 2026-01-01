@@ -235,6 +235,11 @@ class BootScene(Scene):
             return
         self.finished = True
         
+        if not self.game.settings.get("eula_accepted"):
+            from scenes.eula_scene import EULAScene
+            self.game.scene_manager.switch_to(EULAScene)
+            return
+
         from scenes.menu_scenes import TitleScene
         if not self.game.settings.get("setup_complete"):
             from scenes.setup_scene import SetupScene

@@ -8,10 +8,38 @@ class GameScene(Scene):
         self.song_name = params['song']
         self.difficulty = params['difficulty']
         self.mode = params.get('mode', 'single')
+        
+        # Replay Init
+        self.max_possible_score = 0
+        self.replay_mode = params.get('replay_mode', False)
+        self.replay_data = params.get('replay_data', None)
+        self.replay_events = []
+        import time
+        self.start_time = time.time()
         self.audio_missing = False
         
         # Spectator mode - read-only watching
         self.is_spectator = getattr(self.game.network, 'is_spectator', False) if hasattr(self.game, 'network') else False
+        
+        # Autoplay mode
+        self.autoplay = params.get('autoplay', False)
+        
+        # Max Score Calc
+        self.max_possible_score = 0
+        # Will calculate after loading beatmap
+        
+        # Replay Init
+        self.replay_mode = params.get('replay_mode', False)
+        self.replay_data = params.get('replay_data', None)
+        self.replay_events = []
+        if self.replay_mode and self.replay_data:
+            self.replay_events = self.replay_data.get('events', [])
+            # Sort just in case
+            self.replay_events.sort(key=lambda x: x[0])
+            self.replay_index = 0
+            
+        import time
+        self.start_time = time.time()
         
         # Store for story continuation
         self.next_scene_class = params.get('next_scene_class')
@@ -43,6 +71,9 @@ class GameScene(Scene):
 
         for note in self.beatmap:
             note['hit'] = False
+            self.max_possible_score += 300
+            if note.get('length', 0) > 0:
+                self.max_possible_score += 150
         
         self.beat_pulse = 0.0
         
@@ -122,13 +153,23 @@ class GameScene(Scene):
 
         # Parse Metadata for RPC/Display
         self.display_artist = "Unknown Artist"
-        self.display_title = self.song_name
-        if " - " in self.song_name:
-            parts = self.song_name.split(" - ", 1)
-            self.display_artist = parts[0]
-            self.display_title = parts[1].rsplit('.', 1)[0]
+        if params.get('song_title'):
+             self.display_title = params.get('song_title')
+             # Parse artist from title if possible, or leave as Unknown
+             if " - " in self.display_title:
+                 parts = self.display_title.split(" - ", 1)
+                 # self.display_title is usually "Song - Artist" or "Artist - Song"?
+                 # User format: "Neon Horizon - Wyind" (Title - Artist? or Song - Creator?)
+                 # Let's assume the whole string is the title for display simplicity, unless split requested.
+                 pass 
         else:
-            self.display_title = self.song_name.rsplit('.', 1)[0]
+            self.display_title = os.path.basename(self.song_name)
+            if " - " in self.display_title:
+                parts = self.display_title.split(" - ", 1)
+                self.display_artist = parts[0]
+                self.display_title = parts[1].rsplit('.', 1)[0]
+            else:
+                self.display_title = self.display_title.rsplit('.', 1)[0]
 
         # Initial RPC Update
         self.game.discord.update(
@@ -143,10 +184,14 @@ class GameScene(Scene):
         self.base_scroll_speed = 500.0  # Base speed in pixels per second
         self.scroll_speed = self.base_scroll_speed
     
-    def _load_sfx(self, path, volume):
+    def _load_sfx(self, path, base_volume):
         if os.path.exists(path):
             snd = pygame.mixer.Sound(path)
-            snd.set_volume(volume)
+            # Calculate final volume: Base Mix * Master * SFX
+            master = self.game.settings.get("volume")
+            sfx = self.game.settings.get("sfx_volume")
+            final_vol = base_volume * master * sfx
+            snd.set_volume(final_vol)
             return snd
         return None
 
@@ -252,6 +297,54 @@ class GameScene(Scene):
         beat_prog = (current_time % spb) / spb
         self.beat_pulse = pow(1.0 - beat_prog, 4)
         
+        self.beat_pulse = pow(1.0 - beat_prog, 4)
+        
+        # Replay Playback Logic
+        if self.replay_mode and not self.paused and not self.finished:
+            # watermark
+            self.game.renderer.draw_text(self.game.screen, "REPLAY MODE", 10, 10, (255, 0, 0))
+            
+            while self.replay_index < len(self.replay_events):
+                evt = self.replay_events[self.replay_index]
+                e_time, lane, state = evt[0], evt[1], evt[2]
+                
+                # Check if it's time (with small offset window)
+                if e_time <= current_time:
+                    # Execute
+                    if state == 1: # Press
+                         self.handle_hit_lane(lane, replay=True)
+                         self.game.renderer.key_states[lane] = True
+                    else: # Release
+                         self.handle_release_lane(lane)
+                         self.game.renderer.key_states[lane] = False
+                    
+                    self.replay_index += 1
+                else:
+                    break
+        
+        # Autoplay Logic
+        if self.autoplay and not self.paused and not self.failed and not self.finished:
+            for note in self.beatmap:
+                if not note['hit']:
+                    diff = note['time'] - current_time
+                    # Hit slightly early for "perfect" feel or just on time
+                    if diff <= 0.0:
+                        self.handle_hit_lane(note['lane'], target_note=note)
+                        # Release holds automatically
+                        if note.get('length', 0) > 0:
+                            # We need to simulate holding key
+                            self.game.renderer.key_states[note['lane']] = True
+        
+        # Autoplay Hold Releases
+        if self.autoplay:
+             current_time = self.game.audio.get_position()
+             offset_ms = self.game.settings.get("audio_offset") or 0
+             current_time += offset_ms / 1000.0
+             for lane, hold in list(self.active_holds.items()):
+                 if current_time >= hold['end_time']:
+                     self.handle_release_lane(lane)
+                     self.game.renderer.key_states[lane] = False
+                     
         # Miss Logic
         for note in self.beatmap:
             if not note['hit'] and (note['time'] - current_time) < -0.15:
@@ -271,6 +364,11 @@ class GameScene(Scene):
                     self.game.renderer.play_sfx("error")
 
     def handle_input(self, event):
+        # Ignore gameplay input if autoplay is on (but allow pause)
+        if self.autoplay and event.type in [pygame.KEYDOWN, pygame.KEYUP]:
+            if event.key not in [pygame.K_ESCAPE, pygame.K_UP, pygame.K_DOWN, pygame.K_RETURN, pygame.K_SPACE]:
+                return
+
         if event.type == pygame.KEYDOWN:
             # Handle pause menu input when paused
             if self.paused:
@@ -349,7 +447,15 @@ class GameScene(Scene):
         vol = self.game.settings.get("volume")
         vol = max(0.0, min(1.0, vol + change))
         self.game.settings.set("volume", vol)
-        self.game.audio.set_volume(vol)
+        
+        # Update Music
+        self.game.audio.update_volumes()
+        
+        # Update SFX immediately
+        sfx_vol = self.game.settings.get("sfx_volume")
+        if self.sfx_hit: self.sfx_hit.set_volume(0.5 * vol * sfx_vol)
+        if self.sfx_perfect: self.sfx_perfect.set_volume(0.4 * vol * sfx_vol)
+        if self.sfx_miss: self.sfx_miss.set_volume(0.3 * vol * sfx_vol)
 
     def update_key(self, key, pressed):
         keys = self.game.settings.get("keybinds")
@@ -358,6 +464,10 @@ class GameScene(Scene):
             self.game.renderer.key_states[lane] = pressed
             # Handle hold note release
             if not pressed:
+                if not self.autoplay and not self.replay_mode:
+                    t = self.game.audio.get_position()
+                    self.replay_events.append([t, lane, 0]) # 0 = Up
+                    
                 self.handle_release_lane(lane)
 
     def handle_hit(self, key):
@@ -367,7 +477,15 @@ class GameScene(Scene):
         lane = keys.index(key)
         self.handle_hit_lane(lane)
 
-    def handle_hit_lane(self, lane, is_autoplay=False):
+    def handle_hit_lane(self, lane, target_note=None, replay=False):
+        # In replay mode, input is already validated by the recording
+        if self.replay_mode and not replay: return
+        
+        if not self.autoplay and not self.replay_mode:
+            # Record Event
+            t = self.game.audio.get_position()
+            self.replay_events.append([t, lane, 1]) # 1 = Down
+            
         self.game.renderer.key_states[lane] = True
         
         current_time = self.game.audio.get_position()
@@ -377,12 +495,16 @@ class GameScene(Scene):
         closest = None
         min_diff = 1.0
         
-        for note in self.beatmap:
-            if note['lane'] == lane and not note['hit']:
-                diff = note['time'] - current_time
-                if abs(diff) < min_diff:
-                    min_diff = abs(diff)
-                    closest = note
+        if target_note:
+            closest = target_note
+            min_diff = 0.0
+        else:
+            for note in self.beatmap:
+                if note['lane'] == lane and not note['hit']:
+                    diff = note['time'] - current_time
+                    if abs(diff) < min_diff:
+                        min_diff = abs(diff)
+                        closest = note
         
         if closest and min_diff < 0.20:
             closest['hit'] = True
@@ -501,6 +623,20 @@ class GameScene(Scene):
 
     def finish_game(self, failed=False):
         self.finished = True
+        
+        # Save Replay
+        if not self.replay_mode and not self.autoplay and not getattr(self, 'is_spectator', False):
+            self.save_replay()
+        
+        # Submit score if valid run
+        if not (failed or self.failed) and not self.autoplay and not getattr(self, 'is_spectator', False) and not self.replay_mode:
+             self.save_replay()
+             if self.game.master_client.logged_in:
+                 import threading
+                 def submit():
+                     self.game.master_client.submit_score(int(self.score), max_score=self.max_possible_score)
+                 threading.Thread(target=submit, daemon=True).start()
+                 
         from scenes.result_scene import ResultScene
         self.game.scene_manager.switch_to(ResultScene, {
             'score': self.score,
@@ -513,16 +649,44 @@ class GameScene(Scene):
             'difficulty': self.difficulty,
             'failed': failed or self.failed,
             'mode': self.mode,
+            'autoplay': self.autoplay,
             'next_scene_class': self.next_scene_class,
             'next_scene_params': self.next_scene_params
         })
 
+    def save_replay(self):
+        import json
+        import datetime
+        
+        if not os.path.exists("replays"):
+            os.makedirs("replays")
+            
+        timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+        filename = f"replays/{self.song_name}_{timestamp}.turr"
+        
+        data = {
+            "version": 1,
+            "song": self.song_name,
+            "difficulty": self.difficulty,
+            "score": self.score,
+            "max_combo": self.max_combo,
+            "timestamp": timestamp,
+            "events": self.replay_events
+        }
+        
+        try:
+            with open(filename, 'w') as f:
+                json.dump(data, f)
+            print(f"Replay saved to {filename}")
+        except Exception as e:
+            print(f"Failed to save replay: {e}") 
+
     def draw(self, surface):
         if self.audio_missing:
             surface.fill((0, 0, 0))
-            self.game.renderer.draw_panel(surface, 300, 300, 400, 150, "SYSTEM ERROR")
-            self.game.renderer.draw_text(surface, "AUDIO FILE NOT FOUND", 320, 340, (255, 50, 50))
-            self.game.renderer.draw_text(surface, "[ESC] TO EXIT", 320, 380, (150, 150, 150))
+            self.game.renderer.draw_panel(surface, 300, 300, 424, 150, "SYSTEM ERROR", color=(50, 0, 0))
+            self.game.renderer.draw_centered_text(surface, "AUDIO FILE NOT FOUND", 512, 360, theme["error"])
+            self.game.renderer.draw_centered_text(surface, "[ESC] TO EXIT", 512, 400, (150, 150, 150))
             return
 
         r = self.game.renderer
@@ -542,36 +706,32 @@ class GameScene(Scene):
             surface.blit(overlay, (0, 0))
             
             # Draw stylized pause menu
-            panel_x = 100
-            panel_y = SCREEN_HEIGHT // 2 - 100
+            panel_w = 300
+            panel_h = len(self.pause_menu) * 50 + 80
+            panel_x = (SCREEN_WIDTH - panel_w) // 2
+            panel_y = (SCREEN_HEIGHT - panel_h) // 2
             
-            # Vertical Accent Bar
-            pygame.draw.rect(surface, theme["primary"], (panel_x - 20, panel_y - 20, 5, 200))
+            r.draw_panel(surface, panel_x, panel_y, panel_w, panel_h, "PAUSED")
             
-            # Title
-            r.draw_text(surface, "PAUSED", panel_x, panel_y - 60, theme["primary"], r.big_font)
-            
-            # Menu Items
-            y = panel_y
+            y = panel_y + 40
             for i, item in enumerate(self.pause_menu):
                 selected = (i == self.pause_selection)
-                
-                if selected:
-                    # Highlight background
-                    rect_surf = pygame.Surface((300, 40))
-                    rect_surf.set_alpha(50)
-                    rect_surf.fill(theme["primary"])
-                    surface.blit(rect_surf, (panel_x - 10, y - 5))
-                    
-                    # Highlight Text
-                    r.draw_text(surface, f"▶ {item}", panel_x, y, theme["primary"], r.font)
-                else:
-                    r.draw_text(surface, item, panel_x, y, (150, 150, 150), r.font)
-                    
+                # Use styled buttons
+                r.draw_button(surface, item, panel_x + 20, y, selected, width=panel_w - 40)
                 y += 50
                 
-            # Info/Help
-            r.draw_text(surface, f"Song: {self.display_title}", panel_x, y + 30, (100, 100, 100))
+            # Info/Help - Draw BELOW the panel to allow proper full-width display
+            # y is currently inside panel logic, let's calculate bottom
+            bottom_y = panel_y + panel_h + 30 
+            
+            # Draw standard "Song:" text
+            # Use full display title, limited only by screen width (which is plenty)
+            # Or truncate loosely if huge
+            d_title = self.display_title
+            if len(d_title) > 60: d_title = d_title[:57] + ".."
+            
+            # Draw with shadow for visibility against game bg
+            r.draw_centered_text(surface, f"Song: {d_title}", SCREEN_WIDTH // 2, bottom_y, (255, 255, 255), r.font)
             return
 
         if self.mode == 'multiplayer' and not self.game.network.connected:
@@ -581,9 +741,9 @@ class GameScene(Scene):
              overlay.set_alpha(200)
              surface.blit(overlay, (0, 0))
              
-             self.game.renderer.draw_panel(surface, 300, 300, 424, 150, "DISCONNECTED")
-             self.game.renderer.draw_text(surface, "Connection to peer lost.", 340, 350, (255, 50, 50))
-             self.game.renderer.draw_text(surface, "[ESC] Return to Menu", 360, 390, (150, 150, 150))
+             self.game.renderer.draw_panel(surface, 300, 300, 424, 150, "DISCONNECTED", color=(50, 0, 0))
+             self.game.renderer.draw_centered_text(surface, "Connection to peer lost.", 512, 350, theme["error"])
+             self.game.renderer.draw_centered_text(surface, "[ESC] Return to Menu", 512, 390, (150, 150, 150))
              return
 
         if self.failed:
@@ -627,12 +787,34 @@ class GameScene(Scene):
             if self.combo >= 50: combo_col = (255, 200, 50)
             if self.combo >= 100: combo_col = (50, 255, 255)
             
-            r.draw_text(surface, f"{self.combo}x", 20, 80 + bounce_y, combo_col, r.big_font)
-            r.draw_text(surface, "COMBO", 20, 115 + bounce_y, (100, 100, 100), r.small_font)
+            if self.combo >= 100: combo_col = (50, 255, 255)
+            
+            # Moved down to Y=150 to avoid overlap with Opponent Score (at Y=80)
+            base_y = 150
+            r.draw_text(surface, f"{self.combo}x", 20, base_y + bounce_y, combo_col, r.big_font)
+            r.draw_text(surface, "COMBO", 20, base_y + 35 + bounce_y, (100, 100, 100), r.small_font)
         
         # Spectator indicator
         if getattr(self, 'is_spectator', False):
             self.game.renderer.draw_text(surface, "◉ SPECTATING ◉", SCREEN_WIDTH - 200, 20, (255, 200, 50), self.game.renderer.font)
+            
+        if self.autoplay:
+             # Semi-transparent watermark
+             txt = "AUTOPLAY MODE"
+             font = self.game.renderer.big_font
+             tw, th = font.size(txt)
+             
+             # Draw with low alpha (requires blitting surface)
+             s = pygame.Surface((tw + 20, th + 10), pygame.SRCALPHA)
+             s.fill((0, 0, 0, 100))
+             pygame.draw.rect(s, (255, 50, 50, 100), (0, 0, tw + 20, th + 10), 2)
+             
+             # Manually render text to surface
+             t_surf = font.render(txt, True, (255, 50, 50))
+             t_surf.set_alpha(150)
+             s.blit(t_surf, (10, 5))
+             
+             surface.blit(s, ((SCREEN_WIDTH - tw)//2, SCREEN_HEIGHT - 150))
         
         # Smooth Health Bar
         bar_w = 400
@@ -693,5 +875,36 @@ class GameScene(Scene):
             self.game.renderer.draw_text(surface, f"OPPONENT: {self.game.network.opponent_score}", 20, 80, TERM_RED)
 
         # Draw Song Info (Bottom Right)
-        self.game.renderer.draw_text(surface, f"{self.display_title}", self.game.renderer.ref_w - 300, self.game.renderer.ref_h - 60, TERM_GREEN)
-        self.game.renderer.draw_text(surface, f"{self.display_artist}", self.game.renderer.ref_w - 300, self.game.renderer.ref_h - 30, (100, 150, 100))
+        # Draw Song Info (Bottom Right - Right Aligned)
+        d_title = self.display_title
+        font = self.game.renderer.font
+        tw, th = font.size(d_title)
+        tx = self.game.renderer.ref_w - 20 - tw # Right align with 20px padding
+        
+        self.game.renderer.draw_text(surface, d_title, tx, self.game.renderer.ref_h - 60, TERM_GREEN)
+    def save_replay(self):
+        import json
+        import datetime
+        
+        if not os.path.exists("replays"):
+            os.makedirs("replays")
+            
+        timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+        filename = f"replays/{self.song_name}_{timestamp}.turr"
+        
+        data = {
+            "version": 1,
+            "song": self.song_name,
+            "difficulty": self.difficulty,
+            "score": self.score,
+            "max_combo": self.max_combo,
+            "timestamp": timestamp,
+            "events": self.replay_events
+        }
+        
+        try:
+            with open(filename, 'w') as f:
+                json.dump(data, f)
+            print(f"Replay saved to {filename}")
+        except Exception as e:
+            print(f"Failed to save replay: {e}") 

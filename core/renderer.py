@@ -129,9 +129,27 @@ class PygameRenderer:
         self.fonts["current_big_font"] = bf
         return f, bf
 
+    def get_screen_size(self):
+        """Get current screen dimensions dynamically"""
+        try:
+            display_surface = pygame.display.get_surface()
+            if display_surface:
+                return display_surface.get_width(), display_surface.get_height()
+        except:
+            pass
+        return self.ref_w, self.ref_h
+    
+    def get_screen_width(self):
+        return self.get_screen_size()[0]
+    
+    def get_screen_height(self):
+        return self.get_screen_size()[1]
+
     def update_dimensions(self):
-        # Window resize logic if needed, simplified for fixed res
-        pass
+        """Update reference dimensions to current window size"""
+        w, h = self.get_screen_size()
+        self.ref_w = w
+        self.ref_h = h
 
     def clear(self):
         # Main loop handles fill
@@ -309,86 +327,146 @@ class PygameRenderer:
         
         return y + len(lines) * line_height
     
-    def draw_panel(self, surface, x, y, w, h, title=None):
-        """Draw a themed window panel with optional title bar"""
+    def draw_panel(self, surface, x, y, w, h, title=None, color=None):
+        """Draw a styled window panel with title bar"""
         theme = self.get_theme()
-        pygame.draw.rect(surface, theme["bg"], (x, y, w, h))
-        pygame.draw.rect(surface, theme["grid"], (x, y, w, h), 2)
-        if title:
-            pygame.draw.rect(surface, theme["grid"], (x, y - 28, w, 28))
-            self.draw_text(surface, title, x + 10, y - 23, theme["text"])
-        return x, y
+        bg_col = color if color else theme["bg"]
         
-        # Main panel background
-        pygame.draw.rect(surface, theme["bg"], (x, y, w, h))
-        # Border
+        # 1. Main Background (Semi-transparent dark fill for depth)
+        s = pygame.Surface((w, h), pygame.SRCALPHA)
+        s.fill((*bg_col, 240)) # 240 alpha
+        surface.blit(s, (x, y))
+        
+        # 2. Border
         pygame.draw.rect(surface, theme["grid"], (x, y, w, h), 2)
         
-        # Title bar
+        # 3. Title Bar
+        content_y = y
         if title:
-            title_h = 28
-            pygame.draw.rect(surface, theme["grid"], (x, y - title_h, w, title_h))
-            pygame.draw.rect(surface, theme["primary"], (x, y - title_h, w, title_h), 1)
-            self.draw_text(surface, title, x + 10, y - title_h + 5, theme["text"])
+            title_h = 32
+            # Title bar bg
+            pygame.draw.rect(surface, theme["grid"], (x, y, w, title_h))
+            # Title text
+            self.draw_text(surface, f" {title}", x + 5, y + 6, theme["text"])
+            # Decoration line
+            pygame.draw.line(surface, theme["primary"], (x, y + title_h), (x + w, y + title_h), 1)
+            content_y += title_h
+            
+        return x, content_y # Return content start position
+
+    def draw_styled_rect(self, surface, x, y, w, h, color, outline_color=None, thickness=1):
+        """Draw a rect with optional alpha and outline"""
+        s = pygame.Surface((w, h), pygame.SRCALPHA)
+        if len(color) == 3: color = (*color, 255)
+        s.fill(color)
+        surface.blit(s, (x, y))
+        if outline_color:
+            pygame.draw.rect(surface, outline_color, (x, y, w, h), thickness)
+
+    def draw_centered_text(self, surface, text, center_x, y, color=None, font=None, shadow=True):
+        """Draw text centered horizontally"""
+        if not font: font = self.font
+        if not color: color = (255, 255, 255)
         
-        return x, y  # Return top-left of content area
-    
-    def draw_button(self, surface, text, x, y, selected=False, width=200):
-        """Draw a styled button/menu item"""
+        surf = font.render(str(text), False, color)
+        w, h = surf.get_size()
+        x = center_x - w // 2
+        
+        if shadow:
+            s_surf = font.render(str(text), False, (0, 0, 0))
+            surface.blit(s_surf, (x + 2, y + 2))
+            
+        surface.blit(surf, (x, y))
+        return h
+
+    def draw_button(self, surface, text, x, y, selected=False, width=200, height=40, disabled=False):
+        """Draw a styled button"""
         theme = self.get_theme()
-        h = 35
-        if selected:
-            pygame.draw.rect(surface, theme["grid"], (x, y, width, h))
-            pygame.draw.rect(surface, theme["primary"], (x, y, width, h), 2)
-            self.draw_text(surface, f"> {text}", x + 10, y + 8, theme["primary"])
-        else:
-            pygame.draw.rect(surface, theme["bg"], (x, y, width, h))
-            pygame.draw.rect(surface, theme["grid"], (x, y, width, h), 1)
-            self.draw_text(surface, f"  {text}", x + 10, y + 8, theme["text"])
-        return h + 5
         
-        h = 35
-        # Background when selected
-        if selected:
-            pygame.draw.rect(surface, theme["grid"], (x, y, width, h))
-            pygame.draw.rect(surface, theme["primary"], (x, y, width, h), 2)
-            prefix = "> "
-            color = theme["primary"]
-        else:
-            pygame.draw.rect(surface, theme["bg"], (x, y, width, h))
-            pygame.draw.rect(surface, theme["grid"], (x, y, width, h), 1)
-            prefix = "  "
-            color = theme["text"]
+        rect = pygame.Rect(x, y, width, height)
         
-        self.draw_text(surface, f"{prefix}{text}", x + 10, y + 8, color)
-        return h + 5  # Return height + margin for stacking
+        # Disabled state
+        if disabled:
+            pygame.draw.rect(surface, (30, 30, 30), rect)
+            pygame.draw.rect(surface, (50, 50, 50), rect, 1)
+            self.draw_text(surface, text, x + 15, y + 10, (100, 100, 100))
+            return height + 5
+        
+        # Dynamic pulse if selected
+        pulse = 0
+        if selected:
+            pulse = (pygame.time.get_ticks() % 1000) / 1000.0 # 0.0 to 1.0
+        
+        # Background
+        if selected:
+            # Gradient-ish or brighter bg
+            bg_col = theme["grid"]
+            # Add pulse to bg
+            bg_col = (
+                min(255, bg_col[0] + int(20 * pulse)),
+                min(255, bg_col[1] + int(20 * pulse)),
+                min(255, bg_col[2] + int(20 * pulse))
+            )
+            pygame.draw.rect(surface, bg_col, rect)
+            # Active Border
+            pygame.draw.rect(surface, theme["primary"], rect, 2)
+            
+            # Indicator triangle
+            self.draw_text(surface, "▶", x + 10, y + 10, theme["primary"])
+            text_x = x + 35
+            text_col = theme["primary"]
+        else:
+            pygame.draw.rect(surface, theme["bg"], rect)
+            pygame.draw.rect(surface, tuple(max(0, c - 50) for c in theme["grid"]), rect, 1)
+            text_x = x + 15
+            text_col = theme["text"]
+            
+        # Draw Text (Clipped)
+        original_clip = surface.get_clip()
+        surface.set_clip(rect)
+        self.draw_text(surface, text, text_x, y + 10, text_col)
+        surface.set_clip(original_clip)
+        
+        return height + 5 # Return height + margin
     
     def draw_input_field(self, surface, label, value, x, y, width=300, focused=False):
         """Draw a text input field"""
         theme = self.get_theme()
-        self.draw_text(surface, label, x, y, theme["secondary"])
-        border = theme["primary"] if focused else theme["grid"]
-        pygame.draw.rect(surface, (20, 20, 20), (x, y + 25, width, 30))
-        pygame.draw.rect(surface, border, (x, y + 25, width, 30), 2)
-        display = value + ("_" if focused else "")
-        self.draw_text(surface, display, x + 8, y + 31, theme["text"])
-        return 60
         
         # Label
         self.draw_text(surface, label, x, y, theme["secondary"])
         
-        # Input box
+        # Box geometry
         box_y = y + 25
         box_h = 30
-        border_color = theme["primary"] if focused else theme["grid"]
-        pygame.draw.rect(surface, (20, 20, 20), (x, box_y, width, box_h))
-        pygame.draw.rect(surface, border_color, (x, box_y, width, box_h), 2)
+        rect = pygame.Rect(x, box_y, width, box_h)
         
-        # Value with cursor
+        # Draw Box
+        border = theme["primary"] if focused else theme["grid"]
+        pygame.draw.rect(surface, (20, 20, 20), rect)
+        pygame.draw.rect(surface, border, rect, 2)
+        
+        # Draw Text (Clipped)
+        original_clip = surface.get_clip()
+        # Clip to inner rect (padding 2px for border)
+        inner_rect = pygame.Rect(x + 2, box_y + 2, width - 4, box_h - 4)
+        surface.set_clip(inner_rect)
+        
         display = value + ("_" if focused else "")
-        self.draw_text(surface, display, x + 8, box_y + 6, theme["text"])
         
-        return 60  # Return total height
+        # Dynamic Vertical Centering
+        font = self.fonts["default"]
+        fh = font.get_height()
+        text_y = box_y + (box_h - fh) // 2
+        
+        # Ensure we don't draw too high if font is weird
+        text_y = max(text_y, box_y + 2)
+        
+        self.draw_text(surface, display, x + 8, text_y, theme["text"])
+        
+        surface.set_clip(original_clip)
+        
+        return 60
 
     def _transform_point(self, x, y):
         """Apply camera zoom and offset to a point"""
@@ -459,7 +537,7 @@ class PygameRenderer:
             if note_shape == "ARROW":
                 # Draw simple outline arrow
                 cx, cy = x + lane_w//2, hit_y
-                size = 28 # Slightly larger than note
+                size = 40 # Increased from 28 to match BAR
                 outline_col = theme["primary"] if self.key_states[i] else grid_col
                 
                 points = []
@@ -474,7 +552,7 @@ class PygameRenderer:
                 
             elif note_shape == "CIRCLE":
                 cx, cy = x + lane_w//2, hit_y
-                radius = 24
+                radius = 42 # Increased from 24 (Diameter 84)
                 outline_col = theme["primary"] if self.key_states[i] else grid_col
                 width = 0 if self.key_states[i] else 2
                 pygame.draw.circle(surface, outline_col, (cx, cy), radius, width)
@@ -599,10 +677,19 @@ class PygameRenderer:
                 
                 # End marker (TAIL) styling
                 if show_ends:
-                    t_h = 10
-                    t_rect = pygame.Rect(x + 15, int(tail_end) - t_h//2, lane_w - 30, t_h)
-                    pygame.draw.rect(surface, dark_color, t_rect)
-                    pygame.draw.rect(surface, color, t_rect, 1)
+                    # Draw the same shape as the head at the tail position
+                    if note_shape == "ARROW":
+                        self._draw_arrow_note(surface, x, int(tail_end), lane_w, color, lane, False)
+                    elif note_shape == "CIRCLE":
+                        self._draw_circle_note(surface, x, int(tail_end), lane_w, color, False)
+                    else:
+                        # BAR style tail
+                        t_h = 24
+                        t_rect = pygame.Rect(x + 10, int(tail_end) - t_h//2, lane_w - 20, t_h)
+                        pygame.draw.rect(surface, dark_color, t_rect)
+                        pygame.draw.rect(surface, color, t_rect, 2)
+                        # Center line
+                        pygame.draw.line(surface, (0, 0, 0), (x+5, int(tail_end)), (x+lane_w-5, int(tail_end)), 2)
             
             # Draw note HEAD 
             # If hit_y is within the hold duration, stick the head to hit_y
@@ -639,7 +726,7 @@ class PygameRenderer:
         """Draw arrow note pointing in lane direction"""
         cx = x + lane_w // 2
         cy = y
-        size = 25
+        size = 40 # Increased from 25
         
         # Directions: 0=Left, 1=Down, 2=Up, 3=Right
         # Points relative to center (0,0)
@@ -662,7 +749,7 @@ class PygameRenderer:
     def _draw_circle_note(self, surface, x, y, lane_w, color, is_long=False):
         """Draw circle style note"""
         cx = x + lane_w // 2
-        radius = 20
+        radius = 42 # Increased from 20
         pygame.draw.circle(surface, color, (cx, int(y)), radius)
         pygame.draw.circle(surface, (255, 255, 255), (cx, int(y)), radius, 2)
         if is_long:

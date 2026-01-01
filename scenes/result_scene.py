@@ -20,6 +20,7 @@ class ResultScene(Scene):
         self.misses = params.get('misses', 0)
         self.song_name = params.get('song', 'Unknown')
         self.difficulty = params.get('difficulty', 'MEDIUM')
+        self.autoplay = params.get('autoplay', False)
         
         # Story mode parameters
         self.mode = params.get('mode', 'single')
@@ -85,20 +86,22 @@ class ResultScene(Scene):
         r.draw_text(surface, f"TARGET: {song_display}", 100, 120, theme["text"])
         
         # Grade panel
-        r.draw_panel(surface, 600, 130, 300, 150, "RATING")
+        # Moved down to 180 to avoid clipping with Header/Target text
+        r.draw_panel(surface, 600, 180, 300, 150, "RATING")
         grade_color = theme["secondary"] if self.grade != "F" else theme["error"]
         
         # Center grade
         grade_w = r.big_font.size(self.grade)[0]
-        r.draw_text(surface, self.grade, 600 + (300 - grade_w) // 2, 170, grade_color, r.big_font)
+        r.draw_text(surface, self.grade, 600 + (300 - grade_w) // 2, 220, grade_color, r.big_font)
         
         # Center accuracy
         acc_text = f"{self.accuracy:.1f}%"
         acc_w = r.font.size(acc_text)[0]
-        r.draw_text(surface, acc_text, 600 + (300 - acc_w) // 2, 230, (150, 150, 150))
+        r.draw_text(surface, acc_text, 600 + (300 - acc_w) // 2, 280, (150, 150, 150))
         
         # Stats panel
-        r.draw_panel(surface, 80, 180, 450, 280, "STATISTICS")
+        # Increased height from 280 to 300 to prevent text clipping
+        r.draw_panel(surface, 80, 180, 450, 300, "STATISTICS")
         
         stats = [
             (f"SCORE: {self.score:,}", theme["text"]),
@@ -110,7 +113,9 @@ class ResultScene(Scene):
             (f"MISS: {self.misses}", (255, 50, 50))
         ]
         
-        y = 200
+
+        
+        y = 230 # Increased to clear title bar (180+32=212) + padding
         for txt, col in stats:
             if txt and col:
                 r.draw_text(surface, txt, 100, y, col)
@@ -124,6 +129,9 @@ class ResultScene(Scene):
         # Mode indicator
         if self.mode == 'story':
             r.draw_text(surface, "STORY MODE", 50, 700, theme["secondary"])
+            
+        if self.autoplay:
+            r.draw_text(surface, "AUTOPLAY (UNRANKED)", 50, 670, (255, 100, 100))
 
     def handle_input(self, event):
         if event.type != pygame.KEYDOWN:

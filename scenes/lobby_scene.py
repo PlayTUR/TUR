@@ -16,14 +16,23 @@ class LobbyScene(Scene):
         
         # Navigation - main menu items
         self.menu_index = 0
-        self.menu_items = ["LAN", "DIRECT CONNECT", "ONLINE", "BACK"]
+        self.menu_items = ["LAN", "ONLINE", "LEADERBOARD", "BACK"]
+        
+        # Server Status
+        self.server_online = False
+        self.checking_status = True
+        self.last_status_check = 0
+        
+        # Check initially
+        self._check_server_status()
         
         # Input buffers
         self.code_buffer = ""
         self.ip_buffer = ""
         self.password_buffer = ""
-        self.room_name_buffer = "TUR ROOM"
-        self.input_focus = 0
+        self.room_name_buffer = "TUR Room"
+        self.max_players_buffer = "2"
+        self.input_focus = 0 # 0=Name, 1=Password, 2=MaxPlayers
         
         # Server browser
         self.servers = []
@@ -51,6 +60,14 @@ class LobbyScene(Scene):
         
         # Reset network state
         self.game.network.reset()
+
+    def _check_server_status(self):
+        """Check if master server is online"""
+        def check():
+            self.server_online = self.game.master_client.get_status()
+            self.checking_status = False
+        import threading
+        threading.Thread(target=check, daemon=True).start()
         
     def update(self):
         self.blink_timer = (self.blink_timer + 1) % 60
@@ -102,10 +119,13 @@ class LobbyScene(Scene):
         elif self.state == "ONLINE_DEV_POPUP":
             self._draw_menu(surface, r, theme)
             self._draw_online_dev_popup(surface, r, theme)
-        elif self.state == "TAILSCALE_SETUP":
-            self._draw_tailscale_setup(surface, r, theme)
-        elif self.state == "TAILSCALE_HOSTING":
-            self._draw_tailscale_hosting(surface, r, theme)
+
+        elif self.state == "ONLINE_BROWSER":
+            self._draw_online_browser(surface, r, theme)
+        elif self.state == "ONLINE_HOST_SETUP":
+            self._draw_online_host_setup(surface, r, theme)
+        elif self.state == "PASSWORD_PROMPT":
+            self._draw_password_prompt(surface, r, theme)
 
     def _draw_mode_select(self, surface, r, theme):
         """Draw mode selection overlay"""
@@ -126,31 +146,41 @@ class LobbyScene(Scene):
 
     def _draw_menu(self, surface, r, theme):
         """Main menu"""
-        r.draw_panel(surface, 100, 150, 400, 350, "SELECT_MODE")
+        r.draw_panel(surface, 100, 180, 400, 280, "SELECT_MODE")
         
-        y = 170
+        """Main menu"""
+        r.draw_panel(surface, 100, 180, 400, 280, "SELECT_MODE")
+        
+        y = 225 # Increased from 210 to clear title bar (180+32+padding)
         for i, item in enumerate(self.menu_items):
-            r.draw_button(surface, item, 120, y, i == self.menu_index, 360)
+            # Disable ONLINE if server is offline
+            disabled = (item == "ONLINE" and not self.server_online)
+            r.draw_button(surface, item, 120, y, i == self.menu_index, 360, disabled=disabled)
             y += 50
         
+        # Server Status
+        status_text = "CHECKING..." if self.checking_status else ("ONLINE" if self.server_online else "OFFLINE")
+        status_color = (150, 150, 150) if self.checking_status else ((100, 255, 100) if self.server_online else theme["error"])
+        r.draw_text(surface, f"SERVER: {status_text}", 120, y + 20, status_color)
+
         # How it works panel
-        r.draw_panel(surface, 550, 150, 400, 200, "HOW_IT_WORKS")
-        r.draw_text(surface, "HOST:", 570, 180, theme["secondary"])
-        r.draw_text(surface, "Create room, share code.", 570, 205, (150, 150, 150))
-        r.draw_text(surface, "JOIN:", 570, 245, theme["secondary"])
-        r.draw_text(surface, "Enter host's room code.", 570, 270, (150, 150, 150))
-        r.draw_text(surface, "No port forwarding needed!", 570, 310, theme["primary"])
+        r.draw_panel(surface, 550, 180, 400, 180, "HOW_IT_WORKS")
+        r.draw_text(surface, "HOST:", 570, 220, theme["secondary"]) # Increased from 210 (180+32=212)
+        r.draw_text(surface, "Create room, share code.", 570, 245, (150, 150, 150))
+        r.draw_text(surface, "JOIN:", 570, 285, theme["secondary"])
+        r.draw_text(surface, "Enter host's room code.", 570, 300, (150, 150, 150))
+        r.draw_text(surface, "No port forwarding needed!", 570, 330, theme["primary"])
         
         # NAT Type display
-        r.draw_panel(surface, 550, 380, 400, 80, "CONNECTIVITY")
+        r.draw_panel(surface, 550, 390, 400, 80, "CONNECTIVITY")
         if hasattr(self, 'nat_status'):
             msg, color = self.nat_status
-            r.draw_text(surface, msg, 570, 410, color)
+            r.draw_text(surface, msg, 570, 430, color) # Increased from 420 (390+32=422)
         else:
-            r.draw_text(surface, "Checking NAT type...", 570, 410, (100, 100, 100))
+            r.draw_text(surface, "Checking NAT type...", 570, 420, (100, 100, 100))
             self._check_nat_type()
         
-        r.draw_text(surface, "[↑/↓] Navigate  [ENTER] Select  [ESC] Back", 100, 550, (80, 80, 80))
+        r.draw_text(surface, "[↑/↓] Navigate  [ENTER] Select  [ESC] Back", 100, 580, (80, 80, 80))
     
     def _check_nat_type(self):
         """NAT check - no longer uses STUN"""
@@ -170,30 +200,23 @@ class LobbyScene(Scene):
         r.draw_text(surface, "[TAB] Switch  [ENTER] Create  [ESC] Back", 150, 500, (80, 80, 80))
 
     def _draw_hosting(self, surface, r, theme):
-        """Hosting - show room code prominently"""
-        r.draw_panel(surface, 200, 100, 600, 150, "YOUR_ROOM_CODE")
+        """Hosting - simplified for server browser"""
+        # Show Room Info
+        r.draw_panel(surface, 200, 150, 600, 400, "LOBBY_STATUS")
         
-        code = self.game.network.room_code or "Generating..."
-        if code and code != "LAN-ONLY":
-            r.draw_text(surface, code, 350, 150, theme["primary"], r.big_font)
-            
-            if self.selected_mode == "DIRECT":
-                 r.draw_text(surface, "Share this code with friends.", 330, 190, (150, 150, 150))
-                 r.draw_text(surface, "Remember to port-forward 1337!", 310, 215, theme["error"])
-            else:
-                 r.draw_text(surface, "Share this code with friends to play!", 260, 200, (150, 150, 150))
-        else:
-             r.draw_text(surface, "Generating..." if not code else "LAN MODE - No Internet", 300, 150, (150, 150, 150))
-             if self.selected_mode == "DIRECT":
-                 r.draw_text(surface, "STUN Failed. Use LAN or Manual IP.", 300, 200, theme["error"])
-
-        r.draw_panel(surface, 200, 280, 600, 250, "ROOM_STATUS")
-        y = 300
-        r.draw_text(surface, f"ROOM: {self.room_name_buffer}", 230, y, theme["secondary"])
+        y = 200
+        r.draw_text(surface, f"ROOM: {self.room_name_buffer}", 230, y, theme["primary"])
         y += 40
+        # Replace Port display with Password Toggle
+        show_pw = getattr(self, 'show_password', False)
+        pw_str = self.password_buffer if show_pw else ("****" if self.password_buffer else "NONE")
+        pw_col = theme["secondary"] if not show_pw else theme["primary"]
+        
+        r.draw_text(surface, f"PASSWORD: {pw_str}", 230, y, pw_col)
+        y += 60
         
         r.draw_text(surface, "PLAYERS:", 230, y, theme["text"])
-        y += 30
+        y += 35
         r.draw_text(surface, "  1. You (HOST)", 230, y, theme["primary"])
         y += 30
         
@@ -207,7 +230,11 @@ class LobbyScene(Scene):
             blink = "●" if self.blink_timer < 30 else "○"
             r.draw_text(surface, f"  2. Waiting for player... {blink}", 230, y, (100, 100, 100))
         
-        r.draw_text(surface, "[ESC] Close Room", 50, 650, (150, 100, 100))
+        r.draw_text(surface, "[ESC] Close Room  [F1] Show/Hide Password", 50, 650, (150, 100, 100))
+        
+        # Server Status at Bottom Right (replacing old room code location)
+        sw, sh = surface.get_width(), surface.get_height()
+        r.draw_text(surface, "STATUS: ONLINE (HOSTING)", sw - 280, sh - 40, (100, 255, 100))
 
     def _draw_lan_join(self, surface, r, theme):
         """LAN game browser - shows games on same network"""
@@ -257,7 +284,10 @@ class LobbyScene(Scene):
         """Client waiting room"""
         r.draw_panel(surface, 200, 150, 600, 350, "CONNECTED")
         
-        y = 180
+        """Client waiting room"""
+        r.draw_panel(surface, 200, 150, 600, 350, "CONNECTED")
+        
+        y = 200 # Increased from 180 to clear title bar
         r.draw_text(surface, "✓ CONNECTED TO HOST", 350, y, (100, 255, 100), r.big_font)
         y += 60
         
@@ -359,10 +389,13 @@ class LobbyScene(Scene):
             self._handle_client_lobby(key)
         elif self.state == "ONLINE_DEV_POPUP":
             self._handle_online_dev_popup(key)
-        elif self.state == "TAILSCALE_SETUP":
-            self._handle_tailscale_setup(key)
-        elif self.state == "TAILSCALE_HOSTING":
-            self._handle_tailscale_hosting(key)
+
+        elif self.state == "ONLINE_BROWSER":
+            self._handle_online_browser(key)
+        elif self.state == "ONLINE_HOST_SETUP":
+            self._handle_online_host_setup(key, event)
+        elif self.state == "PASSWORD_PROMPT":
+            self._handle_password_prompt(key, event)
 
     def _handle_back(self):
         self.play_sfx("back")
@@ -398,12 +431,11 @@ class LobbyScene(Scene):
             if self.code_buffer:
                 self.play_sfx("accept")
                 # Try to determine if it's a code or IP
-                if '-' in self.code_buffer or len(self.code_buffer) == 12:
-                    # Assume Code
-                    self.game.network.join_with_code(self.code_buffer)
-                else:
-                    # Assume IP
+                # Only assume IP if it looks like one (has dots)
+                if '.' in self.code_buffer or ':' in self.code_buffer:
                     self.game.network.join_game(self.code_buffer)
+                else:
+                    self.game.network.join_with_code(self.code_buffer)
                 
                 self.state = "JOINING"
         
@@ -437,14 +469,19 @@ class LobbyScene(Scene):
                 self.mode_menu_items = ["HOST GAME", "JOIN GAME", "BACK"]
                 self.mode_menu_index = 0
                 self.state = "MODE_SELECT"
-            elif item == "DIRECT CONNECT":
-                self.selected_mode = "DIRECT"
-                self.mode_menu_items = ["HOST GAME", "JOIN GAME", "BACK"]
-                self.mode_menu_index = 0
-                self.state = "MODE_SELECT"
+                
             elif item == "ONLINE":
-                # Check Tailscale and show appropriate UI
+                if not self.server_online:
+                     self.play_sfx("back")
+                     return
+                
+                self.selected_mode = "ONLINE"
                 self._start_online_mode()
+            
+            elif item == "LEADERBOARD":
+                 from scenes.leaderboard_scene import LeaderboardScene
+                 self.game.scene_manager.switch_to(LeaderboardScene)
+                    
             elif item == "BACK":
                 self.game.scene_manager.pop_scene()
 
@@ -483,22 +520,21 @@ class LobbyScene(Scene):
                     self.input_focus = 0
             
             elif self.selected_mode == "ONLINE":
-                # Use Tailscale for online hosting
-                if item == "HOST GAME":
-                    # Start LAN server - Tailscale makes it accessible to tailnet peers
-                    room_name = self.room_name_buffer or "TUR Room"
-                    self.game.network.host_game(room_name, "")
-                    self.state = "TAILSCALE_HOSTING"
+                if item == "BROWSE SERVERS":
+                    self.state = "ONLINE_BROWSER"
+                    self.server_index = 0
+                    self._refresh_online_servers()
                     
-                elif item == "JOIN GAME":
-                    # Use Direct Connect - friend gives their Tailscale IP
+                elif item == "HOST GAME":
+                    # Go to setup screen first for room name and password
+                    self.state = "ONLINE_HOST_SETUP"
+                    self.input_focus = 0
+                    
+                elif item == "DIRECT JOIN":
                     self.code_buffer = ""
                     self.state = "DIRECT_JOIN"
                     self.input_focus = 0
-                
-                elif item == "HOW IT WORKS":
-                    # Show help/instructions screen
-                    self.state = "TAILSCALE_SETUP"
+
 
     def _handle_host_setup(self, key, event):
         ctrl = (pygame.key.get_mods() & pygame.KMOD_CTRL)
@@ -543,6 +579,10 @@ class LobbyScene(Scene):
             self.play_sfx("accept")
             from scenes.menu_scenes import SongSelectScene
             self.game.scene_manager.switch_to(SongSelectScene, {'mode': 'multiplayer'})
+             
+        elif key == pygame.K_F1:
+            self.show_password = not getattr(self, 'show_password', False)
+            self.play_sfx("blip")
 
 
 
@@ -782,52 +822,36 @@ class LobbyScene(Scene):
             self.state = "MENU"
 
     def _start_online_mode(self):
-        """Show online mode options directly"""
+        """Show online mode options with server browser"""
         self.selected_mode = "ONLINE"
-        self.mode_menu_items = ["HOST GAME", "JOIN GAME", "HOW IT WORKS", "BACK"]
+    def _start_online_mode(self):
+        """Show online mode options with server browser"""
+        self.selected_mode = "ONLINE"
+        self.mode_menu_items = ["BROWSE SERVERS", "HOST GAME", "BACK"]
         self.mode_menu_index = 0
         self.state = "MODE_SELECT"
 
-        # Pre-cache IP to avoid lag later
-        from core.tailscale_manager import get_tailscale_manager
-        self.tailscale = get_tailscale_manager()
-        self.cached_tailscale_ip = self.tailscale.get_ip()
+        # Initialize master client
+        from core.master_client import get_master_client
+        self.master_client = get_master_client()
+        
+        # Start fetching servers in background
+        self.online_servers = []
+        self.online_refreshing = False
+        self._refresh_online_servers()
     
-    def _draw_tailscale_setup(self, surface, r, theme):
-        """Draw simple online help screen"""
-        r.draw_panel(surface, 80, 80, 864, 560, "HOW_ONLINE_WORKS")
+    def _refresh_online_servers(self):
+        """Fetch servers from master server"""
+        self.online_refreshing = True
         
-        r.draw_text(surface, "ONLINE MULTIPLAYER", 350, 120, theme["primary"], r.big_font)
+        def callback(servers):
+            self.online_servers = servers or []
+            self.online_refreshing = False
         
-        # Simple explanation
-        r.draw_text(surface, "Play with friends anywhere using Tailscale (free VPN)", 220, 180, theme["text"])
-        
-        # Setup steps
-        r.draw_text(surface, "SETUP (one-time):", 150, 230, theme["secondary"])
-        r.draw_text(surface, "1. Both players download Tailscale: tailscale.com", 170, 265, theme["text"])
-        r.draw_text(surface, "2. Create a free account and sign in", 170, 295, theme["text"])
-        r.draw_text(surface, "3. Invite your friend to your network (Tailnet)", 170, 325, theme["text"])
-        
-        # How to play
-        r.draw_text(surface, "TO PLAY:", 150, 380, theme["secondary"])
-        r.draw_text(surface, "HOST: Click 'Host Game' - share your IP with friend", 170, 415, theme["text"])
-        r.draw_text(surface, "JOIN: Click 'Join Game' - enter friend's IP", 170, 445, theme["text"])
-        
-        # Tip
-        r.draw_text(surface, "TIP: Same Tailnet? Just use the Tailscale IP!", 280, 500, (120, 120, 120))
-        r.draw_text(surface, "It works just like a local LAN IP.", 350, 530, (100, 100, 100))
-        
-        r.draw_text(surface, "[D] Download Tailscale  [ENTER/ESC] Back", 280, 590, (80, 80, 80))
+        self.master_client.get_servers_async(callback)
     
-    def _handle_tailscale_setup(self, key):
-        """Handle input on help screen"""
-        if key in (pygame.K_ESCAPE, pygame.K_RETURN):
-            self.play_sfx("back")
-            self.state = "MODE_SELECT"
-        elif key == pygame.K_d:
-            self.play_sfx("accept")
-            import webbrowser
-            webbrowser.open("https://tailscale.com/download")
+    # Tailscale Setup Removed
+
     
     def _draw_tailscale_hosting(self, surface, r, theme):
         """Draw hosting screen with cached IP display"""
@@ -840,28 +864,14 @@ class LobbyScene(Scene):
         from core.network_manager import get_local_ip
         local_ip = get_local_ip()
         port = self.game.network.port
-        tailscale_ip = getattr(self, 'cached_tailscale_ip', None)
+        # tailscale_ip removed
+
         
-        r.draw_text(surface, "Share one of these addresses with your friend:", 260, 150, theme["secondary"])
+        r.draw_text(surface, "Share this address with your friend:", 260, 150, theme["secondary"])
         
         # Display connection info
         y = 200
-        if tailscale_ip:
-            # Tailscale Panel
-            # Title bar draws at y-28. Body 110px. Total visual height ~140px.
-            r.draw_panel(surface, 150, y, 724, 110, "TAILSCALE (ONLINE)")
-            
-            # Center text estimation
-            addr = f"{tailscale_ip}:{port}"
-            # 512 is screen center. rough char width 15px for big font
-            text_x = 512 - (len(addr) * 9) 
-            r.draw_text(surface, addr, text_x, y + 35, theme["primary"], r.big_font)
-            r.draw_text(surface, "Use this if your friend is on your Tailnet (VPN)", 330, y + 80, (100, 100, 100))
-            
-            y += 180 # 110 (body) + 70px gap
-        else:
-             # Try refreshing cache if missing
-             self.cached_tailscale_ip = self.tailscale.get_ip()
+
         
         # Local IP Panel
         r.draw_panel(surface, 150, y, 724, 110, "LOCAL WIFI (LAN)")
@@ -887,13 +897,243 @@ class LobbyScene(Scene):
         
         r.draw_text(surface, "[ESC] Cancel", 450, 690, (80, 80, 80))
     
-    def _handle_tailscale_hosting(self, key):
-        """Handle input while hosting"""
+
+
+    def _draw_online_browser(self, surface, r, theme):
+        """Draw online server browser"""
+        r.draw_panel(surface, 80, 100, 864, 500, "ONLINE_SERVERS")
+        
+        r.draw_text(surface, "PUBLIC GAME SERVERS", 350, 140, theme["primary"], r.big_font)
+        
+        # Server list
+        servers = getattr(self, 'online_servers', [])
+        refreshing = getattr(self, 'online_refreshing', False)
+        
+        if refreshing:
+            dots = "." * ((self.blink_timer // 10) % 4)
+            r.draw_text(surface, f"Loading servers{dots}", 400, 320, (150, 150, 150))
+        elif not servers:
+            r.draw_text(surface, "No servers online.", 420, 280, (150, 150, 150))
+            r.draw_text(surface, "Be the first to host!", 400, 320, theme["secondary"])
+        else:
+            # Header row
+            r.draw_text(surface, "NAME", 120, 190, theme["secondary"])
+            r.draw_text(surface, "HOST", 450, 190, theme["secondary"])
+            r.draw_text(surface, "PLAYERS", 700, 190, theme["secondary"])
+            
+            y = 220
+            visible_count = 8
+            start_idx = max(0, getattr(self, 'server_index', 0) - 4)
+            if start_idx + visible_count > len(servers):
+                start_idx = max(0, len(servers) - visible_count)
+            
+            for i in range(start_idx, min(start_idx + visible_count, len(servers))):
+                srv = servers[i]
+                selected = (i == getattr(self, 'server_index', 0))
+                
+                if selected:
+                    pygame.draw.rect(surface, theme["grid"], (90, y - 3, 840, 32))
+                
+                name = srv.get("name", "TUR Room")[:25]
+                host_name = srv.get("host_name", "Anonymous")[:15]
+                players = f"{srv.get('player_count', 1)}/{srv.get('max_players', 2)}"
+                
+                color = theme["primary"] if selected else theme["text"]
+                r.draw_text(surface, name, 120, y, color)
+                r.draw_text(surface, host_name, 450, y, (150, 150, 150))
+                r.draw_text(surface, players, 720, y, (150, 150, 150))
+                
+                if srv.get("password_protected"):
+                    r.draw_text(surface, "🔒", 850, y, (255, 100, 100))
+                
+                y += 35
+        
+        # Controls
+        r.draw_text(surface, "[↑/↓] Select  [ENTER] Join  [R] Refresh  [ESC] Back", 250, 560, (80, 80, 80))
+        
+        # Master server status
+        mc = getattr(self, 'master_client', None)
+        if mc and mc.error:
+            r.draw_text(surface, f"⚠ {mc.error}", 100, 620, theme["error"])
+
+    def _handle_online_browser(self, key):
+        """Handle input in online server browser"""
+        servers = getattr(self, 'online_servers', [])
+        
+        if key == pygame.K_UP and servers:
+            self.server_index = (self.server_index - 1) % len(servers)
+            self.play_sfx("blip")
+        elif key == pygame.K_DOWN and servers:
+            self.server_index = (self.server_index + 1) % len(servers)
+            self.play_sfx("blip")
+        elif key == pygame.K_r:
+            self.play_sfx("accept")
+            self._refresh_online_servers()
+        elif key == pygame.K_RETURN and servers:
+            self.play_sfx("accept")
+            srv = servers[self.server_index]
+            ip = srv.get("host_ip", "")
+            port = srv.get("port", 1337)
+            
+            if ip and ip != "0.0.0.0":
+                # Check if password protected
+                if srv.get("password_protected"):
+                    # Store server info and prompt for password
+                    self.pending_server = srv
+                    self.join_password_buffer = ""
+                    self.state = "PASSWORD_PROMPT"
+                else:
+                    # Join directly
+                    self.game.network.join_game(f"{ip}:{port}")
+                    self.state = "JOINING"
+            else:
+                self.game.network.error_message = "Server has invalid address"
+        elif key == pygame.K_ESCAPE:
+            self.play_sfx("back")
+            self.state = "MENU"
+
+    def _draw_online_host_setup(self, surface, r, theme):
+        """Online host setup screen with room name and password"""
+        r.draw_panel(surface, 150, 120, 700, 300, "HOST_ONLINE_GAME")
+        
+        r.draw_text(surface, "Configure your game server:", 280, 160, theme["secondary"])
+        
+        y = 200
+        r.draw_input_field(surface, "ROOM NAME:", self.room_name_buffer, 180, y, 500, self.input_focus == 0)
+        y += 80
+        # Show password as asterisks
+        pw_display = "*" * len(self.password_buffer) if self.password_buffer else ""
+        r.draw_input_field(surface, "PASSWORD (optional):", pw_display, 180, y, 500, self.input_focus == 1)
+        
+        y += 80
+        r.draw_input_field(surface, "MAX PLAYERS (2-16):", self.max_players_buffer, 180, y, 300, self.input_focus == 2)
+        
+        y += 80
+        r.draw_button(surface, "START HOSTING", 350, y, True, 250)
+        
+        r.draw_text(surface, "[TAB] Switch  [ENTER] Start  [ESC] Back", 150, 600, (80, 80, 80))
+        if self.password_buffer:
+            r.draw_text(surface, "🔒 Password protected - players must enter password to join", 200, 560, (150, 200, 150))
+
+    def _handle_online_host_setup(self, key, event):
+        """Handle input for online host setup"""
+        ctrl = (pygame.key.get_mods() & pygame.KMOD_CTRL)
+        
+        if key == pygame.K_TAB:
+            self.input_focus = (self.input_focus + 1) % 3
+            self.play_sfx("blip")
+        
+        elif key == pygame.K_v and ctrl:
+            text = self._get_clipboard()
+            if text:
+                if self.input_focus == 0:
+                    self.room_name_buffer += text
+                elif self.input_focus == 1:
+                    self.password_buffer += text
+                    # No paste for max players
+                    
+        elif key == pygame.K_RETURN:
+            room_name = self.room_name_buffer or "TUR Room"
+            password = self.password_buffer
+            
+            # Validate max players
+            try:
+                max_players = int(self.max_players_buffer)
+            except:
+                max_players = 2
+            
+            if max_players > 16:
+                self.game.network.error_message = "Limit is 16 players!"
+                self.play_sfx("miss")
+                return
+            
+            if max_players < 2:
+                # User requested "let it not go under 2" - auto fix or block?
+                # "let it not go under 2 players" implies enforcement
+                max_players = 2
+                self.max_players_buffer = "2"
+            
+            # Start hosting with password
+            self.game.network.host_game(room_name, password) 
+            
+            # Register with master server
+            from core.master_client import get_master_client
+            mc = get_master_client()
+            mc.register_server(
+                name=room_name,
+                port=self.game.network.port,
+                password_protected=bool(password),
+                max_players=max_players
+            )
+            
+            self.play_sfx("accept")
+            self.show_password = False # Init toggle state
+            self.state = "HOSTING"
+            
+        elif key == pygame.K_ESCAPE:
+            self.play_sfx("back")
+            self.state = "MODE_SELECT"
+            
+        elif key == pygame.K_BACKSPACE:
+            if self.input_focus == 0 and self.room_name_buffer:
+                self.room_name_buffer = self.room_name_buffer[:-1]
+            elif self.input_focus == 1 and self.password_buffer:
+                self.password_buffer = self.password_buffer[:-1]
+            elif self.input_focus == 2 and self.max_players_buffer:
+                self.max_players_buffer = self.max_players_buffer[:-1]
+                
+        elif event.unicode.isprintable() and len(event.unicode) > 0:
+            if self.input_focus == 0:
+                if len(self.room_name_buffer) < 20:
+                    self.room_name_buffer += event.unicode
+            elif self.input_focus == 1:
+                if len(self.password_buffer) < 16:
+                    self.password_buffer += event.unicode
+            elif self.input_focus == 2:
+                if event.unicode.isdigit() and len(self.max_players_buffer) < 2:
+                    self.max_players_buffer += event.unicode
+
+    def _draw_password_prompt(self, surface, r, theme):
+        """Draw password entry prompt for joining protected server"""
+        r.draw_panel(surface, 200, 180, 600, 200, "ENTER_PASSWORD")
+        
+        srv = getattr(self, 'pending_server', {})
+        srv_name = srv.get("name", "Server")[:25]
+        
+        r.draw_text(surface, f"Joining: {srv_name}", 350, 220, theme["secondary"])
+        r.draw_text(surface, "This server requires a password", 320, 250, (150, 150, 150))
+        
+        # Password input
+        pw = getattr(self, 'join_password_buffer', '')
+        pw_display = "*" * len(pw) if pw else ""
+        r.draw_input_field(surface, "PASSWORD:", pw_display, 230, 290, 400, True)
+        
+        r.draw_text(surface, "[ENTER] Join  [ESC] Cancel", 340, 360, (80, 80, 80))
+
+    def _handle_password_prompt(self, key, event):
+        """Handle input for password prompt"""
         if key == pygame.K_ESCAPE:
             self.play_sfx("back")
-            self.game.network.close()
-            self.state = "MENU"
-        
-        # Auto-transition when connected
-        if self.game.network.connected:
-            self.state = "HOSTING"
+            self.pending_server = None
+            self.state = "ONLINE_BROWSER"
+            
+        elif key == pygame.K_RETURN:
+            srv = getattr(self, 'pending_server', {})
+            ip = srv.get("host_ip", "")
+            port = srv.get("port", 1337)
+            pw = getattr(self, 'join_password_buffer', '')
+            
+            if ip:
+                self.play_sfx("accept")
+                self.game.network.join_game(f"{ip}:{port}", pw)
+                self.state = "JOINING"
+            
+        elif key == pygame.K_BACKSPACE:
+            if hasattr(self, 'join_password_buffer') and self.join_password_buffer:
+                self.join_password_buffer = self.join_password_buffer[:-1]
+                
+        elif event.unicode.isprintable() and len(event.unicode) > 0:
+            if not hasattr(self, 'join_password_buffer'):
+                self.join_password_buffer = ""
+            if len(self.join_password_buffer) < 16:
+                self.join_password_buffer += event.unicode

@@ -1,0 +1,35 @@
+name: Deploy to VPS
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:  # Manual trigger
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Download Release Artifact
+        uses: robinraju/release-downloader@v1
+        with:
+          latest: true
+          fileName: "TUR-*.zip"
+          out-file-path: "dist/"
+      
+      - name: Setup SSH Key
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.VPS_SSH_KEY }}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          ssh-keyscan -H 154.53.35.148 >> ~/.ssh/known_hosts
+      
+      - name: Upload to VPS
+        run: |
+          scp dist/TUR-*.zip root@154.53.35.148:/home/tur-server/static/download/
+          
+      - name: Update Server Code
+        run: |
+          scp -r server/* root@154.53.35.148:/home/tur-server/
+          ssh root@154.53.35.148 'cd /home/tur-server && pkill -f main.py || true && nohup python3 main.py > server.log 2>&1 &'

@@ -12,11 +12,15 @@ import threading
 import time
 import urllib.request
 import urllib.error
+import hashlib
 from datetime import datetime
 
 # Configuration - Update these for your repository
-GITHUB_OWNER = "PlayTUR"  # Your GitHub username
-GITHUB_REPO = "TUR"     # Your repository name
+GITHUB_OWNER = "PlayTUR"      # Organization
+GITHUB_REPO = "RELEASES"      # Releases repository
+
+# Direct update server (for hash-verified updates)
+UPDATE_SERVER_URL = "http://154.53.35.148/updates/"
 
 # Update source options
 UPDATE_SOURCE_GITHUB = "github"
@@ -93,6 +97,101 @@ class Updater:
         else:
             return None
     
+    def _get_binary_filename(self):
+        """Get the expected binary filename for current platform"""
+        system = platform.system()
+        if system == "Windows":
+            return "TUR.exe"
+        elif system == "Linux":
+            return "TUR"
+        else:
+            return None
+    
+    def _get_file_hash(self, filepath):
+        """Calculate SHA256 hash of a file"""
+        sha256_hash = hashlib.sha256()
+        with open(filepath, "rb") as f:
+            for byte_block in iter(lambda: f.read(4096), b""):
+                sha256_hash.update(byte_block)
+        return sha256_hash.hexdigest()
+    
+    def _verify_and_download(self, filename, progress_callback=None):
+        """
+        Download file with SHA256 verification.
+        Returns path to verified file, or None if verification fails.
+        """
+        # 1. Download the expected hash from the server
+        if progress_callback:
+            progress_callback("status", "Fetching integrity signature...")
+        
+        try:
+            hash_url = f"{UPDATE_SERVER_URL}{filename}.sha256"
+            hash_req = urllib.request.Request(hash_url)
+            hash_req.add_header("User-Agent", "TUR-Game-Updater")
+            
+            with urllib.request.urlopen(hash_req, timeout=15) as response:
+                hash_content = response.read().decode().strip()
+                expected_hash = hash_content.split()[0]  # Get just the hash string
+        except urllib.error.HTTPError as e:
+            if e.code == 404:
+                self.error_message = "Security Error: Hash signature not found"
+            else:
+                self.error_message = f"Hash fetch failed: HTTP {e.code}"
+            return None
+        except Exception as e:
+            self.error_message = f"Hash fetch failed: {str(e)[:30]}"
+            return None
+        
+        # 2. Download the actual binary
+        if progress_callback:
+            progress_callback("status", "Downloading update...")
+        
+        try:
+            binary_url = f"{UPDATE_SERVER_URL}{filename}"
+            binary_req = urllib.request.Request(binary_url)
+            binary_req.add_header("User-Agent", "TUR-Game-Updater")
+            
+            # Create update directory
+            os.makedirs(self.update_dir, exist_ok=True)
+            temp_file = os.path.join(self.update_dir, filename + ".tmp")
+            
+            with urllib.request.urlopen(binary_req, timeout=120) as response:
+                total_size = int(response.headers.get('Content-Length', 0))
+                downloaded = 0
+                
+                with open(temp_file, 'wb') as f:
+                    while True:
+                        chunk = response.read(8192)
+                        if not chunk:
+                            break
+                        f.write(chunk)
+                        downloaded += len(chunk)
+                        
+                        if total_size > 0 and progress_callback:
+                            pct = int(downloaded * 100 / total_size)
+                            progress_callback("progress", pct)
+                            
+        except Exception as e:
+            self.error_message = f"Download failed: {str(e)[:30]}"
+            if os.path.exists(temp_file):
+                os.remove(temp_file)
+            return None
+        
+        # 3. Verify the hash
+        if progress_callback:
+            progress_callback("status", "Verifying integrity...")
+        
+        actual_hash = self._get_file_hash(temp_file)
+        
+        if actual_hash == expected_hash:
+            if progress_callback:
+                progress_callback("status", "Signature verified!")
+            return temp_file
+        else:
+            self.error_message = "SECURITY ALERT: Hash mismatch! Update rejected."
+            os.remove(temp_file)
+            return None
+    
     def check_for_updates(self, callback=None):
         """
         Check for updates based on configured source.
@@ -134,7 +233,7 @@ class Updater:
     
     def _check_github(self, callback=None):
         """
-        Check GitHub Actions for newer builds.
+        Check GitHub Releases for newer versions.
         Returns True if update available, False otherwise.
         """
         if self.is_checking:
@@ -142,11 +241,11 @@ class Updater:
             
         self.is_checking = True
         self.error_message = ""
-        self.status_message = "Checking GitHub..."
+        self.status_message = "Checking for updates..."
         
         try:
-            # Get latest successful workflow run
-            api_url = f"https://api.github.com/repos/{GITHUB_OWNER}/{GITHUB_REPO}/actions/runs?status=success&per_page=1"
+            # Get latest release from PlayTUR/RELEASES
+            api_url = f"https://api.github.com/repos/{GITHUB_OWNER}/{GITHUB_REPO}/releases/latest"
             
             req = urllib.request.Request(api_url)
             req.add_header("Accept", "application/vnd.github.v3+json")
@@ -154,42 +253,36 @@ class Updater:
             
             with urllib.request.urlopen(req, timeout=10) as response:
                 data = json.loads(response.read().decode())
-                
-            if not data.get("workflow_runs"):
-                self.status_message = "No builds found"
-                self.is_checking = False
-                return False
             
-            latest_run = data["workflow_runs"][0]
-            remote_time = latest_run.get("created_at", "")
-            run_id = latest_run.get("id")
+            remote_tag = data.get("tag_name", "")
+            remote_time = data.get("published_at", "")
             
-            self.remote_version = remote_time
+            # Find Windows asset
+            download_url = None
+            for asset in data.get("assets", []):
+                if "Windows" in asset["name"] or asset["name"].endswith(".zip"):
+                    download_url = asset["browser_download_url"]
+                    break
+            
+            self.remote_version = remote_tag
             self.remote_build_info = {
                 "source": "github",
-                "run_id": run_id,
-                "created_at": remote_time,
-                "html_url": latest_run.get("html_url", ""),
-                "head_sha": latest_run.get("head_sha", "")[:7]
+                "tag": remote_tag,
+                "published_at": remote_time,
+                "html_url": data.get("html_url", ""),
+                "download_url": download_url,
+                "body": data.get("body", "")[:200]
             }
             
-            # Compare versions
-            if self.current_version == "unknown":
+            # Compare versions - check if remote tag differs from local
+            local_version = self._get_local_tag()
+            
+            if local_version == "unknown" or local_version != remote_tag:
                 self.update_available = True
-                self.status_message = "New version available!"
+                self.status_message = f"New version: {remote_tag}"
             else:
-                try:
-                    local_dt = datetime.fromisoformat(self.current_version.replace("Z", "+00:00"))
-                    remote_dt = datetime.fromisoformat(remote_time.replace("Z", "+00:00"))
-                    self.update_available = remote_dt > local_dt
-                    
-                    if self.update_available:
-                        self.status_message = "New version available!"
-                    else:
-                        self.status_message = "You have the latest version"
-                except:
-                    self.update_available = self.current_version != remote_time
-                    self.status_message = "New version available!" if self.update_available else "Up to date"
+                self.update_available = False
+                self.status_message = "You have the latest version"
             
             if callback:
                 callback(self.update_available)
@@ -198,7 +291,7 @@ class Updater:
             
         except urllib.error.HTTPError as e:
             if e.code == 404:
-                self.error_message = "Repository not found"
+                self.error_message = "No releases found"
             elif e.code == 403:
                 self.error_message = "API rate limited - try later"
             else:
@@ -211,6 +304,18 @@ class Updater:
             self.is_checking = False
             
         return False
+    
+    def _get_local_tag(self):
+        """Get local version tag from .build_version"""
+        version_file = self._get_version_file_path()
+        try:
+            if os.path.exists(version_file):
+                with open(version_file, 'r') as f:
+                    data = json.loads(f.read().strip())
+                    return data.get("version", "unknown")
+        except:
+            pass
+        return "unknown"
     
     def check_for_updates_async(self, callback=None):
         """Check for updates in background thread"""
@@ -241,62 +346,100 @@ class Updater:
     
     def perform_update(self):
         """
-        Download and install update.
+        Download and install update from GitHub releases with hash verification.
         Yields progress 0-100.
         """
         if self.source == UPDATE_SOURCE_ITCHIO:
-            # Itch.io is dummy - just simulate
             self.status_message = "Itch.io updates coming soon!"
             for i in range(0, 101, 10):
                 time.sleep(0.1)
                 yield i
             return
         
-        if not self.remote_build_info:
-            self.error_message = "No update info available"
-            yield 0
-            return
-            
         self.is_downloading = True
         self.download_progress = 0
         
         try:
-            run_id = self.remote_build_info.get("run_id")
-            artifact_name = self._get_platform_artifact_name()
-            
-            if not artifact_name:
-                self.error_message = "Unsupported platform"
+            if not self.remote_build_info or not self.remote_build_info.get("download_url"):
+                self.error_message = "No download URL available"
                 yield 0
                 return
             
-            self.status_message = "Fetching artifact info..."
+            download_url = self.remote_build_info["download_url"]
+            filename = download_url.split("/")[-1]  # e.g., TUR-Windows-private-beta-1.zip
+            hash_url = download_url + ".sha256"
+            
+            os.makedirs(self.update_dir, exist_ok=True)
+            temp_file = os.path.join(self.update_dir, filename + ".tmp")
+            
             yield 5
+            self.status_message = "Fetching integrity signature..."
             
-            # Get artifacts list
-            artifacts = self.get_artifacts(run_id)
-            
-            # Find matching artifact
-            target_artifact = None
-            for artifact in artifacts:
-                if artifact.get("name") == artifact_name:
-                    target_artifact = artifact
-                    break
-            
-            if not target_artifact:
-                self.error_message = f"Artifact '{artifact_name}' not found"
+            # 1. Download SHA256 hash
+            try:
+                req = urllib.request.Request(hash_url)
+                req.add_header("User-Agent", "TUR-Game-Updater")
+                with urllib.request.urlopen(req, timeout=15) as response:
+                    hash_content = response.read().decode().strip()
+                    expected_hash = hash_content.split()[0].lower()
+            except Exception as e:
+                self.error_message = f"Hash not found: {str(e)[:30]}"
                 yield 0
                 return
             
-            self.status_message = "Download from GitHub Actions page"
             yield 10
+            self.status_message = "Downloading update..."
             
-            # Simulate progress (actual download requires auth)
-            for i in range(10, 100, 5):
-                time.sleep(0.05)
-                self.download_progress = i
-                yield i
+            # 2. Download the ZIP
+            try:
+                req = urllib.request.Request(download_url)
+                req.add_header("User-Agent", "TUR-Game-Updater")
+                
+                with urllib.request.urlopen(req, timeout=300) as response:
+                    total_size = int(response.headers.get('Content-Length', 0))
+                    downloaded = 0
+                    
+                    with open(temp_file, 'wb') as f:
+                        while True:
+                            chunk = response.read(8192)
+                            if not chunk:
+                                break
+                            f.write(chunk)
+                            downloaded += len(chunk)
+                            
+                            if total_size > 0:
+                                pct = 10 + int(downloaded * 70 / total_size)
+                                self.download_progress = pct
+                                yield pct
+            except Exception as e:
+                self.error_message = f"Download failed: {str(e)[:30]}"
+                if os.path.exists(temp_file):
+                    os.remove(temp_file)
+                yield 0
+                return
             
-            self.status_message = "Open GitHub to download manually"
+            yield 85
+            self.status_message = "Verifying integrity..."
+            
+            # 3. Verify hash
+            actual_hash = self._get_file_hash(temp_file)
+            
+            if actual_hash.lower() != expected_hash:
+                self.error_message = "SECURITY ALERT: Hash mismatch! Update rejected."
+                os.remove(temp_file)
+                yield 0
+                return
+            
+            yield 90
+            self.status_message = "Signature verified!"
+            
+            # 4. Rename to final
+            final_path = os.path.join(self.update_dir, filename)
+            if os.path.exists(final_path):
+                os.remove(final_path)
+            os.rename(temp_file, final_path)
+            
+            self.status_message = f"Update downloaded! Extract: {final_path}"
             yield 100
             
         except Exception as e:

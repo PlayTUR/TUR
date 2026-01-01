@@ -6,6 +6,8 @@ import math
 import webbrowser
 from core.localization import get_text
 
+VERSION = "Private Beta 1"
+
 class TitleScene(Scene):
     def __init__(self, game):
         super().__init__(game)
@@ -28,7 +30,7 @@ class TitleScene(Scene):
         self.quote = random.choice(self.quotes)
         
         # Menu Options
-        self.menu_items = ["SINGLE PLAYER", "STORY CAMPAIGN", "MULTIPLAYER", "OPTIONS", "CREDITS", "SYSTEM UPDATE"]
+        self.menu_items = ["PLAY", "MULTIPLAYER", "REPLAYS", "OPTIONS", "CREDITS", "HOW TO PLAY"]
         if pygame.joystick.get_count() > 0:
             self.menu_items.insert(5, "CONTROLLER CONFIG")
         self.menu_items.append("SUPPORT")
@@ -39,8 +41,8 @@ class TitleScene(Scene):
         self.show_donate_confirm = False
         
         # Update notification
-        self.update_available = False
-        self.update_checked = False
+        # Uses self.game.updater.update_available instead of local state
+
         
         # Auto-convert counter
         self.converting = False
@@ -59,10 +61,8 @@ class TitleScene(Scene):
         if not pygame.mixer.music.get_busy():
             self.game.play_menu_bgm()
         
-        # Check for updates in background (once per session)
-        if not self.update_checked:
-            self.update_checked = True
-            self._check_for_updates()
+        # Check for updates logic moved to main.py global updater
+
         
         # Auto-convert MP3s to TUR on title screen entry
         self._start_auto_convert()
@@ -92,27 +92,31 @@ class TitleScene(Scene):
         
         threading.Thread(target=convert_thread, daemon=True).start()
 
-    def _check_for_updates(self):
-        """Check for game updates in background"""
-        def update_callback(available):
-            self.update_available = available
-            if available:
-                print("[Updater] New version available!")
+    def update(self):
+        super().update()
         
-        try:
-            from core.updater import get_updater
-            # Get update source from settings (default to github)
-            source = self.game.settings.get("update_source") or "github"
-            updater = get_updater(source)
-            updater.check_for_updates_async(callback=update_callback)
-        except Exception as e:
-            print(f"Update check error: {e}")
+        # Check global updater status
+        if hasattr(self.game, 'updater') and self.game.updater.update_available:
+            # Add option if missing
+            if "SYSTEM UPDATE" not in self.menu_items:
+                # Insert before "SUPPORT" if present, else append before EXIT
+                if "SUPPORT" in self.menu_items:
+                    idx = self.menu_items.index("SUPPORT")
+                    self.menu_items.insert(idx, "SYSTEM UPDATE")
+                else:
+                    # Insert before EXIT (last item)
+                    self.menu_items.insert(len(self.menu_items)-1, "SYSTEM UPDATE")
+
 
     def draw(self, surface):
         theme = self.game.renderer.get_theme()
         
         # 1. Background Grid Effect
         t = pygame.time.get_ticks()
+        
+        # Get actual screen dimensions
+        sw = surface.get_width()
+        sh = surface.get_height()
         
         # Draw BG
         surface.fill(theme["bg"])
@@ -121,13 +125,13 @@ class TitleScene(Scene):
         grid_col = theme["grid"]
         
         # Horizontal
-        for y in range(0, SCREEN_HEIGHT + 40, 40):
+        for y in range(0, sh + 40, 40):
             line_y = y + grid_offset_y - 40
-            pygame.draw.line(surface, grid_col, (0, line_y), (SCREEN_WIDTH, line_y))
+            pygame.draw.line(surface, grid_col, (0, line_y), (sw, line_y))
             
         # Vertical
-        for x in range(0, SCREEN_WIDTH, 40):
-            pygame.draw.line(surface, grid_col, (x, 0), (x, SCREEN_HEIGHT))
+        for x in range(0, sw, 40):
+            pygame.draw.line(surface, grid_col, (x, 0), (x, sh))
 
         # 2. Main Title (ASCII TUR)
         # Menu Music is 100 BPM -> 600ms per beat
@@ -174,7 +178,7 @@ class TitleScene(Scene):
         quote_color = theme["secondary"] if not self.game.settings.get("vim_mode") else theme["primary"]
         quote_text = f"> {self.quote} <" if not self.game.settings.get("vim_mode") else self.quote
         q_surf = self.game.renderer.font.render(quote_text, False, quote_color)
-        q_rect = q_surf.get_rect(center=(SCREEN_WIDTH//2, 280))
+        q_rect = q_surf.get_rect(center=(sw//2, 280))
         surface.blit(q_surf, q_rect)
         
         # Controller Detection UI
@@ -194,144 +198,127 @@ class TitleScene(Scene):
             pygame.draw.rect(surface, theme["secondary"], (SCREEN_WIDTH - c_w - 40, 10, c_w + 30, 40), 1)
             self.game.renderer.draw_text(surface, c_text, SCREEN_WIDTH - c_w - 25, 20, theme["secondary"])
 
-        # 3. Interactive Menu Box
-        menu_start_y = 350
-        menu_h = len(self.menu_items) * 40 + 40 # Compact spacing
-        menu_w = 400 # Smaller width
-        menu_x = (SCREEN_WIDTH - menu_w) // 2
+        # 3. Interactive Menu Box - responsive to screen height
+        # Calculate available space for menu
+        menu_top_margin = 310
+        menu_bottom_margin = 50
+        available_h = sh - menu_top_margin - menu_bottom_margin
         
-        # Draw Window Border
-        pygame.draw.rect(surface, theme["bg"], (menu_x, menu_start_y, menu_w, menu_h))
-        pygame.draw.rect(surface, theme["grid"], (menu_x, menu_start_y, menu_w, menu_h), 2)
-        pygame.draw.rect(surface, theme["grid"], (menu_x, menu_start_y-30, menu_w, 30))
-        self.game.renderer.draw_text(surface, "SYSTEM//MENU", menu_x + 10, menu_start_y - 25, theme["text"])
+        # Calculate button height to fit all items
+        num_items = len(self.menu_items)
+        header_h = 35
+        btn_spacing = min(38, (available_h - header_h) // num_items)  # Cap at 38, shrink if needed
         
+        menu_w = 380
+        menu_h = num_items * btn_spacing + header_h + 10
+        menu_x = (sw - menu_w) // 2
+        menu_start_y = menu_top_margin
+        
+        # Use new styled panel
+        self.game.renderer.draw_panel(surface, menu_x, menu_start_y, menu_w, menu_h, "MENU")
+        
+        current_y = menu_start_y + 45 # Increased padding from 40
         for i, item in enumerate(self.menu_items):
-            color = theme["primary"] if i == self.selected_index else theme["text"]
-            
-            # Special color for Support
-            if item == "SUPPORT":
-                color = (255, 200, 0) if i == self.selected_index else (200, 150, 0)
-            
-            # Flashing effect for SYSTEM UPDATE when update available
-            if item == "SYSTEM UPDATE" and self.update_available:
-                # Pulse between bright green and normal
-                pulse = (pygame.time.get_ticks() // 300) % 2
-                if pulse == 0:
-                    color = (50, 255, 50)  # Bright green flash
-                else:
-                    color = (0, 200, 100) if i == self.selected_index else (0, 150, 80)
-                
-            prefix = " > " if i == self.selected_index else "   "
-            
-            # Translate item
-            display_item = get_text(self.game, item)
-            
-            # Add NEW badge for update available
-            if item == "SYSTEM UPDATE" and self.update_available:
-                display_item += " [NEW!]"
-            
-            txt = f"{prefix}{display_item}"
-            x = menu_x + 40
-            # Use normal font instead of big_font for smaller look
-            self.game.renderer.draw_text(surface, txt, x, menu_start_y + 20 + i * 40, color, self.game.renderer.font)
+             is_selected = (i == self.selected_index)
+             
+             # Special handling for "NEW" badge on update
+             display_text = get_text(self.game, item)
+             if item == "SYSTEM UPDATE" and self.game.updater.update_available:
+                 display_text += " [NEW!]"
+             
+             # Draw using new button style with reduced height
+             h = self.game.renderer.draw_button(surface, display_text, menu_x + 15, current_y, is_selected, width=menu_w - 30, height=btn_spacing - 4)
+             current_y += btn_spacing
             
         # 4. User Info / Auth UI (Simple bottom text - no panel)
         name = self.game.settings.get('name')
         account_type = self.game.settings.get('account_type')
         
         if account_type == "GUEST":
-            self.game.renderer.draw_text(surface, "GUEST MODE  |  [L] LOGIN  [R] REGISTER  [P] PROFILE", 20, SCREEN_HEIGHT - 30, theme["secondary"])
+            self.game.renderer.draw_text(surface, f"GUEST  |  [L] Login  [R] Register  |  {VERSION}", 20, sh - 30, theme["secondary"])
         else:
-            self.game.renderer.draw_text(surface, f"◉ {name}  |  [L] LOGOUT  [P] PROFILE", 20, SCREEN_HEIGHT - 30, theme["primary"])
+            self.game.renderer.draw_text(surface, f"◉ {name}  |  [L] Logout  |  {VERSION}", 20, sh - 30, theme["primary"])
         
         if hasattr(self.game, 'current_bgm_title') and self.game.current_bgm_title:
              r_text = f"NOW PLAYING: {self.game.current_bgm_title}"
-             max_w = 400
-             lines = self.game.renderer.wrap_text(r_text, 40)
+             lines = self.game.renderer.wrap_text(r_text, 35)
              
              start_y = 60
              for i, line in enumerate(lines):
                  lw, lh = self.game.renderer.font.size(line)
-                 self.game.renderer.draw_text(surface, line, SCREEN_WIDTH - lw - 20, start_y + i * 20, theme["secondary"], self.game.renderer.font)
+                 self.game.renderer.draw_text(surface, line, sw - lw - 20, start_y + i * 20, theme["secondary"], self.game.renderer.font)
              
              # Control hints
              ctrl_msg = "[S] SHUFFLE  [TAB] NEXT"
              cw, ch = self.game.renderer.font.size(ctrl_msg)
-             self.game.renderer.draw_text(surface, ctrl_msg, SCREEN_WIDTH - cw - 20, start_y + (len(lines)) * 20 + 5, (100, 100, 100), self.game.renderer.font)
+             self.game.renderer.draw_text(surface, ctrl_msg, sw - cw - 20, start_y + (len(lines)) * 20 + 5, (100, 100, 100), self.game.renderer.font)
 
         # 5. Exit Confirmation Overlay
         if self.show_exit_confirm:
-            overlay = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT))
+            overlay = pygame.Surface((sw, sh))
             overlay.set_alpha(200)
             overlay.fill((0,0,0))
             surface.blit(overlay, (0,0))
-            w, h = 600, 250
-            x, y = (SCREEN_WIDTH - w)//2, (SCREEN_HEIGHT - h)//2
+            w, h = 500, 200
+            x, y = (sw - w)//2, (sh - h)//2
             pygame.draw.rect(surface, theme["bg"], (x, y, w, h))
             pygame.draw.rect(surface, theme["error"], (x, y, w, h), 2)
             title = "TERMINATE SYSTEM?"
-            sub = "CONFIRM SHUTDOWN [Y/N]"
+            sub = "[Y] Confirm  [N] Cancel"
             font = self.game.renderer.big_font
             tw, th = font.size(title)
-            self.game.renderer.draw_text(surface, title, x + (w-tw)//2, y + 60, theme["error"], font)
+            self.game.renderer.draw_text(surface, title, x + (w-tw)//2, y + 50, theme["error"], font)
             font_small = self.game.renderer.font
-            sw, sh = font_small.size(sub)
-            self.game.renderer.draw_text(surface, sub, x + (w-sw)//2, y + 140, theme["text"], font_small)
+            sub_w, sub_h = font_small.size(sub)
+            self.game.renderer.draw_text(surface, sub, x + (w-sub_w)//2, y + 120, theme["text"], font_small)
 
         # 6. Donate Confirmation
         if self.show_donate_confirm:
-            overlay = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT))
+            overlay = pygame.Surface((sw, sh))
             overlay.fill((0,0,0))
             overlay.set_alpha(200)
             surface.blit(overlay, (0,0))
-            w, h = 700, 300
-            x, y = (SCREEN_WIDTH - w)//2, (SCREEN_HEIGHT - h)//2
+            w, h = min(650, sw - 50), 280
+            x, y = (sw - w)//2, (sh - h)//2
             pygame.draw.rect(surface, theme["bg"], (x, y, w, h))
             pygame.draw.rect(surface, (255, 200, 0), (x, y, w, h), 2)
-            title = "EXTERNAL LINK WARNING"
-            url = "https://ko-fi.com/wyind"
-            msg1 = "This will open a web browser to:"
-            msg2 = url
-            confirm = "Proceed? [Y] Yes   [N] No"
+            title = "EXTERNAL LINK"
+            url = "ko-fi.com/wyind"
+            confirm = "[Y] Open  [N] Cancel"
             r = self.game.renderer
             
-            # Helper for centering
             def draw_centered(text, y_offset, color, font=r.font):
                 tw, th = font.size(text)
                 r.draw_text(surface, text, x + (w - tw)//2, y + y_offset, color, font)
 
             draw_centered(title, 30, (255, 200, 0), r.big_font)
-            draw_centered(msg1, 100, theme["text"])
-            draw_centered(msg2, 140, (0, 255, 255), r.big_font)
-            draw_centered(confirm, 220, theme["secondary"])
+            draw_centered("Open browser to:", 90, theme["text"])
+            draw_centered(url, 125, (0, 255, 255), r.font)
+            draw_centered(confirm, 200, theme["secondary"])
 
         # 7. Show converting status (FINAL LAYER - TOP PRIORITY)
         if self.converting:
             r = self.game.renderer
-            overlay = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT))
+            overlay = pygame.Surface((sw, sh))
             overlay.set_alpha(200)
             overlay.fill((5, 5, 10))
             surface.blit(overlay, (0,0))
             
-            box_w, box_h = 640, 120
-            bx, by = (SCREEN_WIDTH - box_w)//2, (SCREEN_HEIGHT - box_h)//2 + 50
+            box_w, box_h = min(600, sw - 40), 120
+            bx, by = (sw - box_w)//2, (sh - box_h)//2 + 50
             
             pygame.draw.rect(surface, theme["bg"], (bx, by, box_w, box_h))
             pygame.draw.rect(surface, theme["primary"], (bx, by, box_w, box_h), 2)
             
-            r.draw_text(surface, "SYSTEM INITIALIZING DATA...", bx + 20, by + 15, theme["primary"])
-            status_text = f"SYS//INIT: {self.convert_status}"
-            if len(status_text) > 55: status_text = status_text[:52] + "..."
+            r.draw_text(surface, "INITIALIZING...", bx + 20, by + 15, theme["primary"])
+            status_text = f"{self.convert_status}"
+            if len(status_text) > 45: status_text = status_text[:42] + "..."
             r.draw_text(surface, status_text, bx + 20, by + 45, (255, 255, 255))
             
             bar_w = int((box_w - 40) * (self.convert_pct / 100))
             pygame.draw.rect(surface, (40, 40, 40), (bx + 20, by + 85, box_w - 40, 15))
             if bar_w > 0:
                 pygame.draw.rect(surface, theme["secondary"], (bx + 20, by + 85, bar_w, 15))
-                glow = pygame.Surface((bar_w, 15), pygame.SRCALPHA)
-                glow.fill((*theme["secondary"], 100))
-                surface.blit(glow, (bx + 20, by + 85))
 
     def handle_input(self, event):
         if self.converting: return # BLOCK ALL INPUT
@@ -370,14 +357,27 @@ class TitleScene(Scene):
             elif event.key == pygame.K_RETURN:
                 self.play_sfx("accept")
                 choice = self.menu_items[self.selected_index]
-                if choice == "SINGLE PLAYER":
-                    self.game.scene_manager.switch_to(SongSelectScene)
+                if choice == "PLAY":
+                    # Redirect to mode select
+                    self.game.scene_manager.switch_to(PlayModeSelectScene)
                 elif choice == "STORY CAMPAIGN":
                     from scenes.story_scene import StoryScene
                     self.game.scene_manager.switch_to(StoryScene)
+                elif choice == "REPLAYS":
+                    # ReplaySelectScene is defined in this file
+                    self.game.scene_manager.switch_to(ReplaySelectScene)
                 elif choice == "MULTIPLAYER":
-                    from scenes.lobby_scene import LobbyScene
-                    self.game.scene_manager.switch_to(LobbyScene)
+                    # Require login for multiplayer
+                    if self.game.settings.get("account_type") != "REGISTERED":
+                        # Show login required message and redirect
+                        self.play_sfx("error")
+                        from scenes.auth_scene import AuthScene
+                        self.game.scene_manager.switch_to(AuthScene)
+                    else:
+                        from scenes.lobby_scene import LobbyScene
+                        self.game.scene_manager.switch_to(LobbyScene)
+                elif choice == "HOW TO PLAY":
+                    self.game.scene_manager.switch_to(HowToPlayScene)
                 elif choice == "OPTIONS": 
                     self.game.scene_manager.switch_to(SettingsScene)
                 elif choice == "CREDITS":
@@ -403,23 +403,16 @@ class TitleScene(Scene):
                 else:
                     # Login
                     from scenes.auth_scene import AuthScene
-                    self.game.scene_manager.switch_to(AuthScene, {'mode': 'LOGIN'})
+                    self.game.scene_manager.switch_to(AuthScene)
             
             elif event.key == pygame.K_r:
-                # Register (Check Cooldown)
-                import time
-                last_change = self.game.settings.get("last_name_change") or 0
-                now = time.time()
-                days_passed = (now - last_change) / (60 * 60 * 24) if last_change > 0 else 999
-                
-                # Allow register if guest OR enough time passed
-                if self.game.settings.get("account_type") == "GUEST" or days_passed >= 3:
-                     from scenes.auth_scene import AuthScene
-                     self.game.scene_manager.switch_to(AuthScene, {'mode': 'REGISTER'})
-                else:
-                     # Deny with SFX
-                     self.play_sfx("error")
-                     print(f"Cannot register yet. Wait {3-days_passed:.1f} more days.")
+                # Open register website
+                import webbrowser
+                self.play_sfx("accept")
+                try:
+                    webbrowser.open("https://tur.wyind.dev/register")
+                except:
+                    pass
             
             elif event.key == pygame.K_p:
                  # Profile Shortcut
@@ -437,6 +430,77 @@ class TitleScene(Scene):
 
 
 
+class PlayModeSelectScene(Scene):
+    def __init__(self, game):
+        super().__init__(game)
+        self.menu_items = ["FREEPLAY", "STORY CAMPAIGN", "BACK"]
+        self.selected_index = 0
+
+    def on_enter(self, params=None):
+        self.game.discord.update("Choosing Mode", "In Menu")
+        self.play_sfx("type")
+
+    def handle_input(self, event):
+        if event.type == pygame.KEYDOWN:
+            if event.key == pygame.K_UP:
+                self.selected_index = (self.selected_index - 1) % len(self.menu_items)
+                self.play_sfx("blip")
+            elif event.key == pygame.K_DOWN:
+                self.selected_index = (self.selected_index + 1) % len(self.menu_items)
+                self.play_sfx("blip")
+            elif event.key == pygame.K_ESCAPE:
+                self.play_sfx("back")
+                # Return to title
+                self.game.scene_manager.switch_to(TitleScene)
+            elif event.key == pygame.K_RETURN:
+                self.play_sfx("accept")
+                choice = self.menu_items[self.selected_index]
+                if choice == "FREEPLAY":
+                    self.game.scene_manager.switch_to(SongSelectScene, {'mode': 'single'})
+                elif choice == "STORY CAMPAIGN":
+                    from scenes.story_scene import StoryScene
+                    self.game.scene_manager.switch_to(StoryScene)
+                elif choice == "BACK":
+                     self.game.scene_manager.switch_to(TitleScene)
+
+    def draw(self, surface):
+        r = self.game.renderer
+        theme = r.get_theme()
+        
+        # Draw BG
+        surface.fill(theme["bg"])
+        
+        # Draw Background Grid (reuse logic or simplify)
+        self._draw_grid(surface, theme)
+        
+        # Center Panel
+        sw, sh = surface.get_width(), surface.get_height()
+        panel_w, panel_h = 400, 320
+        px = (sw - panel_w) // 2
+        py = (sh - panel_h) // 2
+        
+        r.draw_panel(surface, px, py, panel_w, panel_h, "SELECT_MODE")
+        
+        r.draw_text(surface, "Choose your path:", px + 20, py + 50, theme["secondary"])
+        
+        y = py + 100
+        for i, item in enumerate(self.menu_items):
+            selected = (i == self.selected_index)
+            r.draw_button(surface, item, px + 40, y, selected, width=panel_w - 80)
+            y += 60
+            
+        r.draw_text(surface, "[ENTER] Select  [ESC] Back", 50, sh - 50, (100, 100, 100))
+
+    def _draw_grid(self, surface, theme):
+        t = pygame.time.get_ticks()
+        sw, sh = surface.get_width(), surface.get_height()
+        grid_offset_y = (t * 0.1) % 40
+        grid_col = theme["grid"]
+        for y in range(0, sh + 40, 40):
+            line_y = y + grid_offset_y - 40
+            pygame.draw.line(surface, grid_col, (0, line_y), (sw, line_y))
+        for x in range(0, sw, 40):
+            pygame.draw.line(surface, grid_col, (x, 0), (x, sh))
 class SongSelectScene(Scene):
     def __init__(self, game):
         super().__init__(game)
@@ -444,6 +508,7 @@ class SongSelectScene(Scene):
         self.selected_index = 0
         self.difficulties = DIFFICULTIES
         self.diff_index = 1
+        self.autoplay_enabled = False
         self.load_songs()
 
     def on_enter(self, params=None):
@@ -502,45 +567,59 @@ class SongSelectScene(Scene):
         r.draw_text(surface, f"{len(self.songs)} songs", 900, 35, (80, 80, 80))
         
         # Song list panel - wider for song names
-        r.draw_panel(surface, 40, 100, 550, 480, "AVAILABLE_SONGS")
+        # Use new styled panel with calculated height based on items
+        panel_x = 40
+        panel_y = 130
+        panel_w = 550
+        panel_h = 450
+        
+        r.draw_panel(surface, panel_x, panel_y, panel_w, panel_h, "AVAILABLE_SONGS")
         
         if not self.songs:
-            r.draw_text(surface, "No songs found!", 60, 130, theme["error"])
-            r.draw_text(surface, "Add .mp3/.wav/.ogg/.osz or .tur files to 'songs' folder", 60, 165, (120, 120, 120))
+            r.draw_centered_text(surface, "No songs found!", panel_x + panel_w//2, panel_y + 100, theme["error"])
+            r.draw_centered_text(surface, "Add .mp3/.wav/.ogg/.osz or .tur", panel_x + panel_w//2, panel_y + 130, (120, 120, 120))
+            r.draw_centered_text(surface, "files to 'songs' folder", panel_x + panel_w//2, panel_y + 155, (120, 120, 120))
         else:
-            visible_count = 10
-            start_idx = max(0, self.selected_index - 5)
+            visible_count = 8 # Reduced to fit panel (450h - 40header) / 44 = ~9.xx -> safe 8 or 9
+            start_idx = max(0, self.selected_index - 4)
+            # Ensure we don't restart too loosely
+            if start_idx + visible_count > len(self.songs):
+                 start_idx = max(0, len(self.songs) - visible_count)
+            
             end_idx = min(len(self.songs), start_idx + visible_count)
+            
+            list_y = panel_y + 43 # Adjusted up 2px to prevent clipping
             
             for i in range(start_idx, end_idx):
                 song = self.songs[i]
-                y_pos = 125 + (i - start_idx) * 44
                 
-                # Get song name without extension (cleaner display)
+                # Get song name without extension
                 name = os.path.splitext(song)[0]
+                is_selected = (i == self.selected_index)
                 
-                if i == self.selected_index:
+                suffix = ""
+                if is_selected:
                     score_data = self.game.score_manager.get_score(song, self.difficulties[self.diff_index])
                     suffix = f" [{score_data['rank']}]" if score_data else ""
-                    
-                    # Truncate to fit panel
-                    max_len = 40 - len(suffix)
-                    display = name[:max_len] + "..." if len(name) > max_len else name
-                    
-                    pygame.draw.rect(surface, theme["grid"], (45, y_pos - 3, 540, 40))
-                    r.draw_text(surface, f"> {display}{suffix}", 55, y_pos + 5, theme["primary"])
-                else:
-                    display = name[:42] + "..." if len(name) > 42 else name
-                    r.draw_text(surface, f"  {display}", 55, y_pos + 5, theme["text"])
+                
+                # Truncate
+                max_len = 38 # Reduced to prevent horizontal clipping
+                display = name[:max_len] + "..." if len(name) > max_len else name
+                display += suffix
+                
+                # Use Draw Button for song items too!
+                # Adjust button Y slightly to center text vertically better
+                r.draw_button(surface, display, panel_x + 20, list_y, is_selected, width=panel_w - 40)
+                list_y += 44 # Button height + spacing
             
             # Scroll indicators
             if start_idx > 0:
-                r.draw_text(surface, "↑ more", 280, 108, (80, 80, 80))
+                r.draw_text(surface, "↑", panel_x + panel_w - 30, panel_y + 10, theme["primary"])
             if end_idx < len(self.songs):
-                r.draw_text(surface, "↓ more", 280, 555, (80, 80, 80))
+                r.draw_text(surface, "↓", panel_x + panel_w - 30, panel_y + panel_h - 25, theme["primary"])
         
         # Difficulty panel
-        r.draw_panel(surface, 620, 100, 340, 140, "DIFFICULTY")
+        r.draw_panel(surface, 620, 130, 340, 140, "DIFFICULTY")
         
         # Difficulty
         diff = self.difficulties[self.diff_index]
@@ -549,11 +628,12 @@ class SongSelectScene(Scene):
         # Center difficulty
         diff_text = f"< {diff} >"
         diff_w = r.big_font.size(diff_text)[0]
-        r.draw_text(surface, diff_text, 620 + (340 - diff_w) // 2, 145, diff_color, r.big_font)
-        r.draw_text(surface, "[←/→] to change", 720, 205, (80, 80, 80))
+        r.draw_text(surface, diff_text, 620 + (340 - diff_w) // 2, 175, diff_color, r.big_font)
+        r.draw_text(surface, "[←/→] to change", 720, 235, (80, 80, 80))
         
         # Controls panel
-        r.draw_panel(surface, 620, 250, 340, 240, "CONTROLS")
+        # Increased height to 240 to prevent bottom text clipping
+        r.draw_panel(surface, 620, 280, 340, 240, "CONTROLS")
         controls = [
             ("[↑/↓]", "Select Song"),
             ("[ENTER]", "Play"),
@@ -561,18 +641,22 @@ class SongSelectScene(Scene):
             ("[S]", "Shuffle List"),
             ("[R]", "Random Song"),
             ("[F5]", "Reload List"),
-            ("[F6]", "Regenerate Maps"),
-            ("[ESC]", "Back to Menu")
+            ("[F6]", "Regenerate Maps")
         ]
-        y = 280
+        y = 325 # Increased from 310 to clear title bar (280 + 32 + padding)
         for key, action in controls:
             r.draw_text(surface, key, 640, y, theme["secondary"], font=r.small_font)
             r.draw_text(surface, action, 720, y, theme["text"], font=r.small_font)
             y += 24
         
         # Download panel
-        r.draw_panel(surface, 620, 500, 340, 80, "DOWNLOAD")
-        r.draw_text(surface, "[D] Download Songs", 640, 525, theme["text"])
+        r.draw_panel(surface, 620, 560, 340, 80, "DOWNLOAD")
+        r.draw_text(surface, "[D] Download Songs", 640, 600, theme["text"])
+        
+        # Autoplay toggle visualization in Controls or just below difficulty
+        ap_col = theme["primary"] if self.autoplay_enabled else (100, 100, 100)
+        ap_txt = "AUTOPLAY: ON" if self.autoplay_enabled else "AUTOPLAY: OFF"
+        r.draw_text(surface, f"[A] {ap_txt}", 620, 535, ap_col, r.small_font)
         
         # Bottom bar
         pygame.draw.rect(surface, (15, 20, 25), (0, 700, 1024, 68))
@@ -714,7 +798,8 @@ class SongSelectScene(Scene):
                         from scenes.game_scene import GameScene
                         self.game.scene_manager.switch_to(GameScene, {
                             'song': self.songs[self.selected_index],
-                            'difficulty': self.difficulties[self.diff_index]
+                            'difficulty': self.difficulties[self.diff_index],
+                            'autoplay': self.autoplay_enabled
                         })
                 else: 
                      self.play_sfx("back") # Error/Empty
@@ -740,6 +825,14 @@ class SongSelectScene(Scene):
                     # Also shuffle cache for consistency if it exists
                     if hasattr(self.game, 'song_cache') and self.game.song_cache:
                         random.shuffle(self.game.song_cache)
+            elif event.key == pygame.K_a:
+                # Toggle Autoplay
+                self.autoplay_enabled = not self.autoplay_enabled
+                if self.autoplay_enabled:
+                     self.play_sfx("type")
+                else:
+                     self.play_sfx("back")
+                     
             elif event.key == pygame.K_r:
                 # RANDOM
                 if self.songs:
@@ -804,7 +897,7 @@ class SettingsScene(Scene):
         self.all_items = {
             "AUDIO": ["VOLUME", "MUSIC_VOLUME", "SFX_VOLUME", "OFFSET", "HIT SOUNDS"],
             "VIDEO": ["RESOLUTION", "FULLSCREEN", "V-SYNC", "CRT FILTER", "THEME", "VISUAL FX", "POST EFFECTS", "SHOW FPS", "BG DIM"],
-            "GAMEPLAY": ["SPEED", "UPSCROLL", "SCREEN SHAKE", "NOTE STYLE", "RE-GEN MAPS", "LANGUAGE", "VIM BINDINGS", "UPDATE SOURCE"],
+            "GAMEPLAY": ["SPEED", "UPSCROLL", "SCREEN SHAKE", "NOTE STYLE", "RE-GEN MAPS", "LANGUAGE", "VIM BINDINGS"],
             "INPUT": ["KEYBINDS", "DEADZONE"],
             "THEMES": [
                 "-- PRIMARY --", "PRIMARY R", "PRIMARY G", "PRIMARY B",
@@ -824,8 +917,9 @@ class SettingsScene(Scene):
         # or just put it in Gameplay for now. Actually, let's just make it a dedicated index or something.
         # Better: Add to last category or separate navigation.
         # Standard: Add to the bottom of the list.
-        for cat in self.all_items:
-            self.all_items[cat].append("BACK")
+        # "BACK" removed from list to avoid redundancy with ESC footer
+        # for cat in self.all_items:
+        #     self.all_items[cat].append("BACK")
             
         self.refresh_current_items()
 
@@ -871,20 +965,21 @@ class SettingsScene(Scene):
         for i, tab in enumerate(self.tabs):
             tab_text = get_text(self.game, tab)
             is_active = (i == self.current_tab)
-            col = theme["primary"] if is_active else (150, 150, 150)
+            # Use BG color for text on active tab to contrast with Primary highlight
+            col = theme["bg"] if is_active else (150, 150, 150)
             
             # Highlight Active Tab
             if is_active:
                 tw, th = r.font.size(tab_text)
-                pygame.draw.rect(surface, (*theme["primary"], 50), (tab_x - 10, tab_y - 5, tw + 20, th + 10), 0)
-                pygame.draw.rect(surface, theme["primary"], (tab_x - 10, tab_y - 5, tw + 20, th + 10), 1)
+                # Adjusted padding for better vertical centering
+                # Y moved up (y-7), Height increased (th+14)
+                pygame.draw.rect(surface, (*theme["primary"], 50), (tab_x - 10, tab_y - 7, tw + 20, th + 14), 0)
+                pygame.draw.rect(surface, theme["primary"], (tab_x - 10, tab_y - 7, tw + 20, th + 14), 1)
                 
             r.draw_text(surface, tab_text, tab_x, tab_y, col)
             tab_x += r.font.size(tab_text)[0] + 40
 
-        # Settings panel - draw title ABOVE the panel
-        cat_title = get_text(self.game, self.tabs[self.current_tab])
-        r.draw_text(surface, f"◉ {cat_title}", 55, 128, theme["secondary"])
+        # Settings panel - (Title removed to avoid redundancy with tabs)
         r.draw_panel(surface, 50, 150, 550, 460, None)  # No title in header
         
         # Fetch Data
@@ -999,47 +1094,79 @@ class SettingsScene(Scene):
             value = item_data[1]
             
             selected = (i == self.index)
-            color = theme["primary"] if selected else theme["text"]
+            color = theme["secondary"] if selected else theme["text"]
             
             if selected:
-                pygame.draw.rect(surface, theme["grid"], (55, y - 2, 540, 32))
+                # Match button style for selected row
+                # Increased X from 55 to 65 for better padding against panel border (X=50)
+                # Adjusted Y to y-6 to center text vertically in the 35px box
+                row_rect = pygame.Rect(65, y - 6, 530, 35)
+                # Pulse effect
+                pulse_val = (pygame.time.get_ticks() % 1000) / 1000.0
+                bg_c = theme["grid"]
+                bg_c = (
+                    min(255, bg_c[0] + int(20 * pulse_val)),
+                    min(255, bg_c[1] + int(20 * pulse_val)),
+                    min(255, bg_c[2] + int(20 * pulse_val))
+                )
+                
+                pygame.draw.rect(surface, bg_c, row_rect)
+                pygame.draw.rect(surface, theme["primary"], row_rect, 2)
             
             # Label
             display_label = get_text(self.game, label)
             prefix = "◉ " if selected else "  "
-            r.draw_text(surface, f"{prefix}{display_label}", 70, y, color)
+            r.draw_text(surface, f"{prefix}{display_label}", 80, y, color) # Increased X from 70
             
             if value:
                 val_col = theme["secondary"] if selected else (120, 120, 150)
+                
+                # Truncate long values to prevent left-side overflow
+                max_w = 260
                 vw = r.font.size(value)[0]
-                # Keep value inside panel bounds (panel ends at 600)
-                r.draw_text(surface, value, min(580 - vw, 350), y, val_col)
+                if vw > max_w:
+                    while len(value) > 3 and r.font.size(value + "..")[0] > max_w:
+                         value = value[:-1]
+                    value += ".."
+                    vw = r.font.size(value)[0]
+
+                # Align at 350 for short text, right-align for longer text (up to label collision around 300)
+                target_x = 580 - vw
+                if target_x > 350: target_x = 350
+                r.draw_text(surface, value, target_x, y, val_col)
             y += 44
 
         # Scroll indicators (positioned inside panel bounds)
         if self.scroll_offset > 0:
             r.draw_text(surface, "▲ MORE", 280, 153, (100, 100, 100))
         if self.scroll_offset + self.visible_items < len(items):
-            r.draw_text(surface, "▼ MORE", 280, 595, (100, 100, 100))
+            r.draw_text(surface, "▼ MORE", 280, 585, (100, 100, 100))
 
         # Help panel (Right side, standardized position)
-        r.draw_panel(surface, 600, 125, 380, 200, "CONTROLS")
-        r.draw_text(surface, "[↑/↓] Navigate", 620, 150, theme["text"])
-        r.draw_text(surface, "[Q/E] Switch Tabs", 620, 180, theme["secondary"])
-        r.draw_text(surface, "[←/→] Adjust", 620, 215, theme["text"])
-        r.draw_text(surface, "[SHIFT] Fast Adjust", 620, 245, theme["text"])
-        r.draw_text(surface, "[ENTER] Select", 620, 275, theme["text"])
-        r.draw_text(surface, "[ESC] Back", 620, 305, theme["text"])
+        # Moved X from 600 to 620 to add gap from main window (ends at 600)
+        panel_x_right = 620
+        r.draw_panel(surface, panel_x_right, 125, 380, 240, "CONTROLS") 
+        
+        # Content shifted +20 (620 -> 640)
+        txt_x = panel_x_right + 20
+        r.draw_text(surface, "[↑/↓] Navigate", txt_x, 165, theme["text"])
+        r.draw_text(surface, "[Q/E] Switch Tabs", txt_x, 195, theme["secondary"])
+        r.draw_text(surface, "[←/→] Adjust", txt_x, 230, theme["text"])
+        r.draw_text(surface, "[SHIFT] Fast Adjust", txt_x, 260, theme["text"])
+        r.draw_text(surface, "[ENTER] Select", txt_x, 290, theme["text"])
+        r.draw_text(surface, "[ESC] Back", txt_x, 320, theme["text"])
         
         # Theme preview (Right side, standardized position)
-        r.draw_panel(surface, 600, 355, 380, 180, "THEME_PREVIEW")
-        pygame.draw.rect(surface, theme["primary"], (620, 380, 40, 25))
-        r.draw_text(surface, "Primary", 670, 383, theme["text"])
-        pygame.draw.rect(surface, theme["secondary"], (620, 415, 40, 25))
-        r.draw_text(surface, "Secondary", 670, 418, theme["text"])
-        pygame.draw.rect(surface, theme["bg"], (620, 450, 40, 25))
-        pygame.draw.rect(surface, theme["grid"], (620, 450, 40, 25), 1)
-        r.draw_text(surface, "Background", 670, 453, theme["text"])
+        r.draw_panel(surface, panel_x_right, 380, 380, 180, "THEME_PREVIEW")
+        # Shifted Y down by 20px to clear title bar
+        # Shifted X to match new panel pos
+        pygame.draw.rect(surface, theme["primary"], (txt_x, 425, 40, 25))
+        r.draw_text(surface, "Primary", txt_x + 50, 428, theme["text"])
+        pygame.draw.rect(surface, theme["secondary"], (txt_x, 460, 40, 25))
+        r.draw_text(surface, "Secondary", txt_x + 50, 463, theme["text"])
+        pygame.draw.rect(surface, theme["bg"], (txt_x, 495, 40, 25))
+        pygame.draw.rect(surface, theme["grid"], (txt_x, 495, 40, 25), 1)
+        r.draw_text(surface, "Background", txt_x + 50, 498, theme["text"])
 
         # Confirmation Overlay for RE-GEN MAPS
         if self.show_regen_confirm:
@@ -1075,11 +1202,10 @@ class SettingsScene(Scene):
             overlay.fill((5, 10, 15))
             surface.blit(overlay, (0,0))
             
-            # Progress Box (Wider for long song names)
+            # Progress Box (Using styled panel)
             box_w, box_h = 700, 150
             bx, by = (SCREEN_WIDTH - box_w)//2, (SCREEN_HEIGHT - box_h)//2
-            pygame.draw.rect(surface, theme["bg"], (bx, by, box_w, box_h))
-            pygame.draw.rect(surface, theme["primary"], (bx, by, box_w, box_h), 2)
+            r.draw_panel(surface, bx, by, box_w, box_h, "SYSTEM BUSY", color=(20, 20, 30))
             
             # Header
             r.draw_text(surface, "RE-GENERATING ALL PATTERNS", bx + 20, by + 15, theme["primary"])
@@ -1503,16 +1629,6 @@ class SettingsScene(Scene):
             cur = s.get("bg_dim")
             cur += direction * 0.1
             s.set("bg_dim", max(0.0, min(1.0, cur)))
-        elif item == "UPDATE SOURCE":
-            from core.updater import UPDATE_SOURCE_GITHUB, UPDATE_SOURCE_ITCHIO, UPDATE_SOURCE_DISABLED
-            sources = [UPDATE_SOURCE_GITHUB, UPDATE_SOURCE_ITCHIO, UPDATE_SOURCE_DISABLED]
-            cur = s.get("update_source") or UPDATE_SOURCE_GITHUB
-            try:
-                idx = sources.index(cur)
-            except:
-                idx = 0
-            new_idx = (idx + direction) % len(sources)
-            s.set("update_source", sources[new_idx])
         
         # RGB component handlers - adjust values by 5 (or 10 with shift)
         # Primary color RGB
@@ -1722,29 +1838,50 @@ class ControllerConfigScene(Scene):
         
         if self.rebind_mode:
             self.game.renderer.draw_text(surface, f"REBINDING LANE {self.rebind_step}...", SCREEN_WIDTH//2 - 150, 400, (255, 255, 0), self.game.renderer.big_font)
-            self.game.renderer.draw_text(surface, "PRESS A CONTROLLER BUTTON", SCREEN_WIDTH//2 - 140, 460, (255, 255, 255))
+            self.game.renderer.draw_text(surface, "PRESS A CONTROLLER BUTTON OR AXIS (TRIGGER)", SCREEN_WIDTH//2 - 200, 460, (255, 255, 255))
         else:
             self.game.renderer.draw_text(surface, "PRESS [ENTER] TO REBIND ALL LANES", SCREEN_WIDTH//2 - 180, 500, (200, 200, 200))
             
             # Show Binds
             binds = self.game.settings.get("joy_binds")
             for i, b in enumerate(binds):
-                self.game.renderer.draw_text(surface, f"LANE {i}: BTN {b}", 400, 550 + i * 30, theme["primary"])
+                txt = "UNBOUND"
+                if isinstance(b, int): txt = f"BTN {b}" # Legacy
+                elif isinstance(b, dict):
+                    if b['type'] == 'btn': txt = f"BTN {b['value']}"
+                    elif b['type'] == 'axis': 
+                        d = "+" if b['dir'] > 0 else "-"
+                        txt = f"AXIS {b['axis']} {d}"
+                
+                self.game.renderer.draw_text(surface, f"LANE {i}: {txt}", 400, 550 + i * 30, theme["primary"])
 
         self.game.renderer.draw_text(surface, "[ESC] BACK", 100, 700, theme["secondary"])
 
     def handle_input(self, event):
         if self.rebind_mode:
+            bind = None
             if event.type == pygame.JOYBUTTONDOWN:
+                bind = {'type': 'btn', 'value': event.button}
+            elif event.type == pygame.JOYAXISMOTION:
+                if abs(event.value) > 0.7: # Higher threshold for distinct input
+                    direction = 1 if event.value > 0 else -1
+                    bind = {'type': 'axis', 'axis': event.axis, 'dir': direction}
+            
+            if bind:
                 self.play_sfx("accept")
-                self.temp_joy_binds[self.rebind_step] = event.button
+                self.temp_joy_binds[self.rebind_step] = bind
                 self.rebind_step += 1
+                pygame.time.wait(200) # Debounce
+                pygame.event.clear() # Clear queue to prevent skip
+                
                 if self.rebind_step >= 4:
                     self.game.settings.set("joy_binds", self.temp_joy_binds)
                     self.rebind_mode = False
+            
             elif event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:
                 self.rebind_mode = False
             return
+
 
         if event.type == pygame.KEYDOWN:
             if event.key == pygame.K_ESCAPE:
@@ -1760,6 +1897,156 @@ class ControllerConfigScene(Scene):
         if pygame.joystick.get_count() == 0:
             self.game.scene_manager.switch_to(TitleScene)
 
+
+
+class ReplaySelectScene(Scene):
+    def on_enter(self, params=None):
+        self.replays = []
+        self.selected_index = 0
+        self.scroll_offset = 0
+        self.visible_items = 10
+        self.load_replays()
+        
+    def load_replays(self):
+        replay_dir = "replays"
+        if not os.path.exists(replay_dir):
+            os.makedirs(replay_dir)
+            
+        import json
+        files = [f for f in os.listdir(replay_dir) if f.endswith('.turr')]
+        files.sort(key=lambda x: os.path.getmtime(os.path.join(replay_dir, x)), reverse=True)
+        
+        self.replays = []
+        for f in files:
+            try:
+                path = os.path.join(replay_dir, f)
+                with open(path, 'r') as file:
+                    data = json.load(file)
+                    # Basic metadata
+                    self.replays.append({
+                        'filename': f,
+                        'song': data.get('song', 'Unknown'),
+                        'score': data.get('score', 0),
+                        'max_score': data.get('max_score', 0),
+                        'timestamp': data.get('timestamp', 0),
+                        'difficulty': data.get('difficulty', 'MEDIUM'),
+                        'full_data': data
+                    })
+            except Exception as e:
+                print(f"Failed to load replay {f}: {e}")
+                
+    def draw(self, surface):
+        r = self.game.renderer
+        theme = r.get_theme()
+        surface.fill(theme["bg"])
+        
+        # Header
+        r.draw_text(surface, "REPLAYS", 50, 50, theme["primary"], r.big_font)
+        
+        # Panel
+        panel_x, panel_y = 50, 100
+        panel_w, panel_h = 600, 550
+        r.draw_panel(surface, panel_x, panel_y, panel_w, panel_h, "SAVED GAMES")
+        
+        if not self.replays:
+            r.draw_centered_text(surface, "No replays found.", panel_x + panel_w//2, panel_y + 100, (150, 150, 150))
+            r.draw_text(surface, "[ESC] BACK", 50, 700, theme["secondary"])
+            return
+
+        # List
+        visible_count = 10
+        start_idx = self.scroll_offset
+        end_idx = min(len(self.replays), start_idx + visible_count)
+        
+        y = panel_y + 43 # Matched offset with SongSelectScene to prevent clipping
+        for i in range(start_idx, end_idx):
+            item = self.replays[i]
+            is_selected = (i == self.selected_index)
+            
+            # Draw Item
+            bg_col = (40, 40, 40) if is_selected else (20, 20, 20)
+            if is_selected:
+                r.draw_styled_rect(surface, panel_x + 10, y, panel_w - 20, 50, theme["grid"], theme["primary"], 2)
+            else:
+                r.draw_styled_rect(surface, panel_x + 10, y, panel_w - 20, 50, bg_col)
+
+            # Details
+            col = theme["text"] if is_selected else (200, 200, 200)
+            
+            # Format Date
+            import time
+            date_str = time.strftime('%Y-%m-%d %H:%M', time.localtime(item['timestamp']))
+            
+            # Song Title
+            r.draw_text(surface, f"{item['song']} [{item['difficulty']}]", panel_x + 20, y + 15, col, r.font)
+            
+            # Score
+            score_txt = f"{item['score']:,}"
+            r.draw_text(surface, score_txt, panel_x + 400, y + 15, theme["secondary"])
+            
+            # Date
+            r.draw_text(surface, date_str, panel_x + 20, y - 10, (100, 100, 100), r.small_font)
+            
+            y += 55
+
+        # Controls Hint
+        r.draw_text(surface, "[ENTER] WATCH   [DEL] DELETE   [ESC] BACK", 50, 700, theme["secondary"])
+
+        # Scrollbar logic would go here if needed
+        if start_idx > 0:
+            r.draw_text(surface, "▲", panel_x + panel_w - 30, panel_y + 10, theme["primary"])
+        if end_idx < len(self.replays):
+            r.draw_text(surface, "▼", panel_x + panel_w - 30, panel_y + panel_h - 25, theme["primary"])
+
+    def handle_input(self, event):
+        if event.type != pygame.KEYDOWN:
+            return
+            
+        if event.key == pygame.K_UP:
+            if self.selected_index > 0:
+                self.selected_index -= 1
+                if self.selected_index < self.scroll_offset:
+                    self.scroll_offset = self.selected_index
+                self.play_sfx("blip")
+        elif event.key == pygame.K_DOWN:
+            if self.selected_index < len(self.replays) - 1:
+                self.selected_index += 1
+                if self.selected_index >= self.scroll_offset + self.visible_items:
+                    self.scroll_offset = self.selected_index - self.visible_items + 1
+                self.play_sfx("blip")
+        elif event.key == pygame.K_RETURN:
+            if self.replays:
+                self.play_replay(self.replays[self.selected_index])
+        elif event.key == pygame.K_DELETE:
+            if self.replays:
+                self.delete_replay(self.selected_index)
+        elif event.key == pygame.K_ESCAPE:
+            self.game.scene_manager.switch_to(TitleScene)
+
+    def play_replay(self, replay_meta):
+        from scenes.game_scene import GameScene
+        data = replay_meta['full_data']
+        
+        params = {
+            'song': data.get('song'), # Filename or path
+            'difficulty': data.get('difficulty'),
+            'mode': 'single', # Replay is essentially single player view
+            'replay_mode': True,
+            'replay_data': data,
+            'autoplay': False
+        }
+        self.game.scene_manager.switch_to(GameScene, params)
+    
+    def delete_replay(self, index):
+        item = self.replays[index]
+        try:
+            os.remove(os.path.join("replays", item['filename']))
+            self.replays.pop(index)
+            if self.selected_index >= len(self.replays):
+                self.selected_index = max(0, len(self.replays) - 1)
+            self.play_sfx("back")
+        except Exception as e:
+            print(f"Error deleting replay: {e}")
 
 class CreditsScene(Scene):
     def draw(self, surface):
@@ -1796,4 +2083,102 @@ class CreditsScene(Scene):
         if event.type == pygame.KEYDOWN:
             if event.key == pygame.K_ESCAPE:
                 self.play_sfx("back")
+                self.game.scene_manager.switch_to(TitleScene)
+class HowToPlayScene(Scene):
+    def on_enter(self, params=None):
+        self.game.discord.update("Reading Instructions", "How to Play")
+        
+    def draw(self, surface):
+        r = self.game.renderer
+        theme = r.get_theme()
+        
+        # Get actual screen dimensions
+        sw = surface.get_width()
+        sh = surface.get_height()
+        
+        surface.fill(theme["bg"])
+        
+        # Header
+        r.draw_text(surface, "◉ HOW TO PLAY ◉", 50, 30, theme["primary"], r.big_font)
+        
+        # Content Panel - adjust for screen size
+        margin = 50
+        panel_x = margin
+        panel_y = 100
+        panel_w = min(900, sw - margin * 2)  # Cap width for ultra-wide
+        panel_h = sh - 150
+        
+        r.draw_panel(surface, panel_x, panel_y, panel_w, panel_h, "INSTRUCTIONS")
+        
+        # Determine current keybinds for display
+        binds = self.game.settings.get("keybinds")
+        keys = [pygame.key.name(k).upper() for k in binds]
+        
+        # 1. The Basics
+        y = panel_y + 45
+        x = panel_x + 30
+        
+        r.draw_text(surface, "OBJECTIVE", x, y, theme["secondary"])
+        y += 30
+        r.draw_text(surface, "Hit notes as they reach the receptors.", x, y, theme["text"])
+        y += 25
+        r.draw_text(surface, "Sync your key presses with the music!", x, y, theme["text"])
+        
+        y += 45
+        r.draw_text(surface, "CONTROLS", x, y, theme["secondary"])
+        y += 30
+        
+        # Draw keybind boxes
+        key_x = x
+        for i, k in enumerate(keys):
+            pygame.draw.rect(surface, theme["grid"], (key_x, y, 50, 50))
+            pygame.draw.rect(surface, theme["primary"], (key_x, y, 50, 50), 2)
+            # Center vertically better (50px box, ~40px font -> 5px padding)
+            r.draw_centered_text(surface, k, key_x + 25, y + 5, theme["primary"], r.big_font, shadow=False)
+            
+            # Label
+            r.draw_centered_text(surface, f"L{i+1}", key_x + 25, y + 55, (150, 150, 150), r.small_font, shadow=False)
+            key_x += 65
+            
+        y += 85
+        r.draw_text(surface, "TIPS", x, y, theme["secondary"])
+        y += 28
+        tips = [
+            "• Watch your HEALTH bar!",
+            "• Hold notes must be released on time.",
+            "• Adjust SCROLL SPEED in options.",
+            "• Use OFFSET if audio feels off."
+        ]
+        for tip in tips:
+            r.draw_text(surface, tip, x, y, theme["text"])
+            y += 24
+        
+        # Interactive Visual (Right Side) - only if screen is wide enough
+        if panel_w > 600:
+            vis_x = panel_x + panel_w - 220
+            vis_y = panel_y + 100
+            
+            # Draw a little fake lane
+            pygame.draw.rect(surface, (20, 20, 20), (vis_x, vis_y, 180, 250))
+            pygame.draw.rect(surface, theme["grid"], (vis_x, vis_y, 180, 250), 1)
+            
+            # Draw receptors (at top)
+            pygame.draw.rect(surface, (50, 50, 50), (vis_x + 10, vis_y + 20, 35, 10))
+            pygame.draw.rect(surface, (50, 50, 50), (vis_x + 50, vis_y + 20, 35, 10))
+            
+            # Draw a note approaching (Upscroll: Move Up)
+            # Start at bottom (220), end at top (20)
+            anim_pct = (pygame.time.get_ticks() % 1000 / 1000.0)
+            note_y = (vis_y + 220) - (anim_pct * 200) # Move up 200px
+            
+            pygame.draw.rect(surface, theme["primary"], (vis_x + 50, int(note_y), 35, 10))
+            
+            # Explanation arrow (At top receptor)
+            r.draw_text(surface, "<- HIT!", vis_x + 95, vis_y + 15, theme["primary"], r.small_font)
+        
+        r.draw_text(surface, "[ESC] BACK", 50, sh - 40, (150, 150, 150))
+
+    def handle_input(self, event):
+        if event.type == pygame.KEYDOWN:
+            if event.key == pygame.K_ESCAPE or event.key == pygame.K_RETURN:
                 self.game.scene_manager.switch_to(TitleScene)
