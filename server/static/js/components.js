@@ -1,4 +1,4 @@
-const API_URL = "https://tur.wyind.dev"; // Production
+const API_URL = "https://turapi.wyind.dev"; // API Server
 
 /* === UI Builders === */
 
