@@ -1,4 +1,4 @@
-const API_URL = "http://154.53.35.148:8080"; // Production VPS
+const API_URL = "https://tur.wyind.dev"; // Production
 
 /* === UI Builders === */
 
