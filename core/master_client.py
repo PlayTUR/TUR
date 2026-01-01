@@ -17,6 +17,19 @@ MASTER_SERVER_URL = "http://154.53.35.148:8080"
 class MasterClient:
     def __init__(self, server_url=None):
         self.server_url = server_url or MASTER_SERVER_URL
+        
+        # Auto-detect local server for dev
+        if not server_url:
+            try:
+                # Quick check if localhost is alive
+                with urllib.request.urlopen("http://localhost:8080/health", timeout=0.2) as r:
+                    if r.getcode() == 200:
+                         print("Local Master Server detected! Switching to localhost.")
+                         self.server_url = "http://localhost:8080"
+            except:
+                pass
+
+        self.auth_token = None
         self.auth_token = None
         self.username = None
         self.username = None

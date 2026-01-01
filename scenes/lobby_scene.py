@@ -158,18 +158,18 @@ class LobbyScene(Scene):
             r.draw_button(surface, item, 120, y, i == self.menu_index, 360, disabled=disabled)
             y += 50
         
-        # Server Status
+        # Server Status - moved down to avoid clipping
         status_text = "CHECKING..." if self.checking_status else ("ONLINE" if self.server_online else "OFFLINE")
         status_color = (150, 150, 150) if self.checking_status else ((100, 255, 100) if self.server_online else theme["error"])
-        r.draw_text(surface, f"SERVER: {status_text}", 120, y + 20, status_color)
+        r.draw_text(surface, f"SERVER: {status_text}", 120, y + 40, status_color)
 
         # How it works panel
         r.draw_panel(surface, 550, 180, 400, 180, "HOW_IT_WORKS")
-        r.draw_text(surface, "HOST:", 570, 220, theme["secondary"]) # Increased from 210 (180+32=212)
-        r.draw_text(surface, "Create room, share code.", 570, 245, (150, 150, 150))
-        r.draw_text(surface, "JOIN:", 570, 285, theme["secondary"])
-        r.draw_text(surface, "Enter host's room code.", 570, 300, (150, 150, 150))
-        r.draw_text(surface, "No port forwarding needed!", 570, 330, theme["primary"])
+        r.draw_text(surface, "HOST:", 580, 220, theme["secondary"]) # Added padding (570->580)
+        r.draw_text(surface, "Create room, share code.", 580, 245, (150, 150, 150))
+        r.draw_text(surface, "JOIN:", 580, 285, theme["secondary"])
+        r.draw_text(surface, "Enter host's room code.", 580, 300, (150, 150, 150))
+        r.draw_text(surface, "No port forwarding needed!", 580, 330, theme["primary"])
         
         # NAT Type display
         r.draw_panel(surface, 550, 390, 400, 80, "CONNECTIVITY")
