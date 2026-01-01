@@ -1010,6 +1010,34 @@ async def rename_user(request: Request):
     
     return {"success": True, "username": new_name}
 
+@app.get("/api/v2/users/recovery-key")
+async def get_recovery_key(request: Request):
+    auth_header = request.headers.get("Authorization")
+    if not auth_header or not auth_header.startswith("Bearer "):
+        raise HTTPException(401, "No token")
+    token = auth_header.split(" ")[1]
+    
+    conn = get_db()
+    c = conn.cursor()
+    c.execute(f"SELECT uid FROM {TBL_SESSIONS} WHERE tk = ?", (token,))
+    sess = c.fetchone()
+    
+    if not sess:
+         conn.close()
+         raise HTTPException(401, "Invalid token")
+    
+    uid = sess['uid']
+    c.execute(f"SELECT recovery_key FROM {TBL_USERS} WHERE id = ?", (uid,))
+    row = c.fetchone()
+    conn.close()
+    
+    if not row or not row['recovery_key']:
+        # If missing, maybe generate one? 
+        # For now, just return null or error
+        raise HTTPException(404, "No recovery key found")
+        
+    return {"recovery_key": row['recovery_key']}
+
 @app.post("/api/v2/users/avatar")
 async def set_avatar(request: Request):
     auth_header = request.headers.get("Authorization")

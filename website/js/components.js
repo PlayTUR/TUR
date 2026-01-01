@@ -344,6 +344,7 @@ const Components = {
                 ${!isPublic ? `
                     <div style="display: flex; flex-direction: column; gap: 0.5rem;">
                         ${App.state.isAdmin ? `<button class="btn btn-primary" style="width: 100%;" onclick="window.location.href='sys_root_77.html'">[ACCESS_ROOT_TERMINAL]</button>` : ''}
+                        <button class="btn btn-secondary" style="width: 100%;" onclick="App.revealKey()">[REVEAL_RECOVERY_KEY]</button>
                         <button class="btn btn-secondary" style="width: 100%;" onclick="App.logout()">[TERMINATE_SESSION]</button>
                     </div>
                 ` : `
