@@ -4,18 +4,65 @@ import threading
 from core.scene_manager import Scene
 from core.config import *
 
+
+# Avatar Collection (ASCII Art)
+AVATARS = [
+    # 0: Default
+    [
+        r"  .---.  ",
+        r" /     \ ",
+        r"|  O O  |",
+        r" \  ^  / ",
+        r"  '---'  "
+    ],
+    # 1: Hacker / Visor
+    [
+        r"  .---.  ",
+        r" /=====\ ",
+        r"| [___] |",
+        r" \ === / ",
+        r"  '---'  "
+    ],
+    # 2: Robot
+    [
+        r"  [o_o]  ",
+        r" /|___|\ ",
+        r"| [___] |",
+        r" \_| |_/ ",
+        r"   I I   "
+    ],
+    # 3: Alien
+    [
+        r"   \ /   ",
+        r"  (o.o)  ",
+        r"  ( > )  ",
+        r" /  ^  \ ",
+        r"   | |   "
+    ],
+    # 4: Ninja
+    [
+        r"  .---.  ",
+        r" / ~~~ \ ",
+        r"|  - -  |",
+        r" \  =  / ",
+        r"  '---'  "
+    ]
+]
+
 class ProfileScene(Scene):
     def __init__(self, game):
         super().__init__(game)
-        self.menu_items = ["VIEW LEADERBOARD", "EDIT PROFILE", "LOGOUT", "BACK"]
+        self.menu_items = ["VIEW LEADERBOARD", "EDIT PROFILE", "CHANGE AVATAR", "LOGOUT", "BACK"]
         self.index = 0
         
         self.loading = True
         self.profile_data = None
         self.error_msg = None
+        self.avatar_id = 0
         
         # Temp state
         self.renaming = False
+        self.changing_avatar = False
         self.temp_name = ""
 
     def on_enter(self, params=None):
