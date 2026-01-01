@@ -934,6 +934,13 @@ async def get_my_stats(request: Request):
     c.execute(f"SELECT uname, is_admin, l_at, is_stealth, avatar_id FROM {TBL_USERS} WHERE id = ?", (uid,))
     u_row = c.fetchone()
     
+    if not u_row:
+         # Orphaned session (User deleted but session remains)
+         c.execute(f"DELETE FROM {TBL_SESSIONS} WHERE tk = ?", (token,))
+         conn.commit()
+         conn.close()
+         raise HTTPException(401, "Session invalidated (User not found)")
+    
     # Advanced Stats
     # 1. Best Score
     c.execute("SELECT MAX(score) FROM s_logs WHERE uid = ?", (uid,))
