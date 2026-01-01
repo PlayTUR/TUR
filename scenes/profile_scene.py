@@ -64,11 +64,41 @@ class ProfileScene(Scene):
         
         if level > 10: self.stats["title"] = "TUR MASTER"
         
-        # Fetch Server Stats
+        # Fetch Server Stats & User Profile
         def fetch_svr():
+            # 1. Global Stats
             stats = self.game.master_client.get_server_stats()
             if stats:
                 self.server_stats = stats
+            
+            # 2. Personal Stats (Sync with Server)
+            if self.game.master_client.logged_in:
+                my_data = self.game.master_client.get_my_stats()
+                if my_data:
+                    # Update local state
+                    s = my_data.get("stats", {})
+                    self.stats['rank'] = s.get("rank", 0)
+                    self.stats['xp'] = s.get("xp", 0)
+                    self.stats['level'] = s.get("level", 1)
+                    
+                    # Update Settings
+                    self.game.settings.set("xp", self.stats['xp'])
+                    self.game.settings.set("level", self.stats['level'])
+                    
+                    # Admin Status (Honor Stealth)
+                    real_admin = my_data.get("is_admin", False) is True
+                    is_stealth = my_data.get("is_stealth", False) is True
+                    
+                    # Update Badge Visibility
+                    self.is_admin = real_admin
+                    if is_stealth: # Hide if stealth is active
+                        self.is_admin = False
+                        
+                    # Title update
+                    if self.stats['level'] > 10: 
+                        self.stats['title'] = "TUR MASTER"
+                    elif self.stats['level'] > 5:
+                        self.stats['title'] = "RHYTHM GAMER"
         
         import threading
         threading.Thread(target=fetch_svr, daemon=True).start()
