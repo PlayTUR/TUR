@@ -254,37 +254,18 @@ const Components = {
             </div>
             
             <div class="panel">
-                <h3>VISUAL_SETTINGS</h3>
-                <div class="form-group">
-                    <label>THEME_OVERRIDE</label>
-                    <select id="theme-select" style="width: 100%;" onchange="App.setTheme(this.value)">
-                        <option value="TERMINAL">TERMINAL (DEFAULT)</option>
-                        <option value="CYBERPUNK">CYBERPUNK</option>
-                        <option value="AMBER">AMBER</option>
-                        <option value="MIDNIGHT">MIDNIGHT</option>
-                        <option value="RETRO_BLUE">RETRO_BLUE</option>
-                        <option value="SYNTHWAVE">SYNTHWAVE</option>
-                        <option value="NEON">NEON</option>
-                        <option value="OCEAN">OCEAN</option>
-                        <option value="SUNSET">SUNSET</option>
-                        <option value="FOREST">FOREST</option>
-                        <option value="BLOOD">BLOOD</option>
-                        <option value="MATRIX">MATRIX</option>
-                        <option value="COTTON_CANDY">COTTON_CANDY</option>
-                        <option value="ROYAL">ROYAL</option>
-                        <option value="FROST">FROST</option>
-                    </select>
-                </div>
-            </div>
- 
-            <div class="panel">
                 <h3>SESSION_INFO</h3>
-                <p>STATUS: <span style="color: var(--color-primary);">ONLINE</span></p>
+                <div style="margin-bottom: 1rem;">
+                    <div style="font-size: 0.8rem; color: var(--color-dim);">STATUS</div>
+                    <div style="color: var(--color-primary); font-weight: bold;">ONLINE</div>
+                </div>
                 ${!isPublic ? `
-                    ${App.state.isAdmin ? `<button class="btn" style="margin-top: 1rem; width: 100%; text-align: center;" onclick="window.location.href='sys_root_77.html'">[ACCESS_ROOT_TERMINAL]</button>` : ''}
-                    <button class="btn btn-secondary" style="margin-top: 1rem;" onclick="App.logout()">[TERMINATE_SESSION]</button>
+                    <div style="display: flex; flex-direction: column; gap: 0.5rem;">
+                        ${App.state.isAdmin ? `<button class="btn btn-primary" style="width: 100%;" onclick="window.location.href='sys_root_77.html'">[ACCESS_ROOT_TERMINAL]</button>` : ''}
+                        <button class="btn btn-secondary" style="width: 100%;" onclick="App.logout()">[TERMINATE_SESSION]</button>
+                    </div>
                 ` : `
-                    <button class="btn" style="margin-top: 1rem; width: 100%;" onclick="window.location.hash='#leaderboard'">[RETURN]</button>
+                    <button class="btn" style="width: 100%;" onclick="window.location.hash='#leaderboard'">[RETURN]</button>
                 `}
             </div>
         </div>
