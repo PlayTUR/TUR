@@ -325,6 +325,12 @@ def get_user_from_token(token: str):
     uid = row['uid']
     c.execute(f"SELECT id, username, is_admin FROM {TBL_USERS} WHERE id = ?", (uid,))
     user = c.fetchone()
+    
+    # Update last active time (l_at)
+    if user:
+         c.execute(f"UPDATE {TBL_USERS} SET l_at = ? WHERE id = ?", (time.time(), uid))
+         conn.commit()
+         
     conn.close()
     return user
 

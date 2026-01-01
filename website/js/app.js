@@ -115,11 +115,12 @@ const App = {
                     content.innerHTML = Components.Loader();
                     App.fetchProfile().then(profileData => {
                         // Inject admin/stealth flags into stats for the component
-                        if (profileData.stats) {
-                            profileData.stats.is_admin = profileData.is_admin;
-                            profileData.stats.is_stealth = profileData.is_stealth;
-                            profileData.stats.id = profileData.id;
-                        }
+                        if (!profileData.stats) profileData.stats = {}; // Ensure object exists
+
+                        profileData.stats.is_admin = profileData.is_admin;
+                        profileData.stats.is_stealth = profileData.is_stealth;
+                        profileData.stats.id = profileData.id;
+
                         content.innerHTML = Components.Profile(profileData.username, profileData.stats, false, profileData.online, profileData.avatar_id);
 
                         // Show recovery key warning if just registered (using state)
@@ -152,11 +153,12 @@ const App = {
                 const targetUser = hash.split('/')[1];
                 content.innerHTML = Components.Loader();
                 App.fetchPublicProfile(targetUser).then(profile => {
-                    if (profile.stats) {
-                        profile.stats.is_admin = profile.is_admin;
-                        profile.stats.is_stealth = profile.is_stealth;
-                        profile.stats.id = profile.id;
-                    }
+                    if (!profile.stats) profile.stats = {};
+
+                    profile.stats.is_admin = profile.is_admin;
+                    profile.stats.is_stealth = profile.is_stealth;
+                    profile.stats.id = profile.id;
+
                     content.innerHTML = Components.Profile(profile.username, profile.stats, true, profile.online, profile.avatar_id);
                 }).catch(err => {
                     content.innerHTML = Components.Error("OPERATOR_NOT_FOUND");
