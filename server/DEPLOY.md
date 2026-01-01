@@ -22,12 +22,12 @@ The `server/` folder now contains BOTH the backend logic and the frontend websit
     # Set Environment Variables
     export TUR_ADMIN_KEY="your_secret_key"
     
-    # Run
-    python3 main.py
+    # Run (requires sudo for port 80)
+    sudo python3 main.py
     ```
-
+    
 3.  **Access**:
-    *   **Website**: `http://YOUR_SERVER_IP:8080`
+    *   **Website**: `https://tur.wyind.dev`
     *   **Post News**: Send POST to `/api/v2/news/webhook` with header `Authorization: TUR_ADMIN_KEY` and body `{"content": "...", "author": "..."}`.
 
 ## 3. Advanced (Nginx Proxy)

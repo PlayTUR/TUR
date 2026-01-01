@@ -895,4 +895,5 @@ if os.path.exists("static"):
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8080)
+    # Port 80 is required for Cloudflare Flexible SSL to work without extra config
+    uvicorn.run(app, host="0.0.0.0", port=80)
