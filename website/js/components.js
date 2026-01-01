@@ -314,10 +314,11 @@ const Components = {
                 <div style="display: flex; gap: 1rem; align-items: center; margin-bottom: 0.5rem;">
                     <div style="color: var(--color-dim); font-size: 0.9rem;">ID: #${stats?.id || "---"}</div>
                     ${(() => {
-            const isAdmin = (stats?.is_admin || App.state.isAdmin || ["wyind", "admin", "root"].includes(user.toLowerCase())) && !isPublic;
+            // Check if the PROFILE USER is admin (from DB or Override)
+            const isProfileAdmin = (stats?.is_admin || ["wyind"].includes(user.toLowerCase()));
             const isGuest = !stats || !stats.id;
 
-            if (isAdmin) {
+            if (isProfileAdmin) {
                 return `<span style="color: #ffd700; border: 1px solid #ffd700; padding: 0 4px; font-size: 0.7rem; letter-spacing: 1px;">ROOT</span>`;
             } else if (isGuest) {
                 return `<span style="color: #888; border: 1px solid #888; padding: 0 4px; font-size: 0.7rem; letter-spacing: 1px;">GUEST</span>`;
