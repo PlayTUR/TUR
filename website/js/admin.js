@@ -281,3 +281,4 @@ const AdminApp = {
 };
 
 document.addEventListener('DOMContentLoaded', AdminApp.init);
+window.AdminApp = AdminApp;

@@ -966,6 +966,47 @@ async def get_my_stats(request: Request):
     }
     return res
 
+@app.post("/api/v2/users/rename")
+async def rename_user(request: Request):
+    auth_header = request.headers.get("Authorization")
+    if not auth_header or not auth_header.startswith("Bearer "):
+        raise HTTPException(401, "No token")
+    token = auth_header.split(" ")[1]
+    
+    try:
+        data = await request.json()
+        new_name = data.get("username")
+    except:
+        raise HTTPException(400, "Invalid JSON")
+        
+    if not new_name or len(new_name) < 3 or len(new_name) > 20:
+        raise HTTPException(400, "Invalid name length")
+    
+    new_name = sanitize_username(new_name) # Ensure safe chars
+        
+    conn = get_db()
+    c = conn.cursor()
+    c.execute(f"SELECT uid FROM {TBL_SESSIONS} WHERE tk = ?", (token,))
+    sess = c.fetchone()
+    
+    if not sess:
+         conn.close()
+         raise HTTPException(401, "Invalid token")
+    
+    uid = sess['uid']
+    
+    # Check if name taken
+    c.execute(f"SELECT id FROM {TBL_USERS} WHERE uname = ?", (new_name,))
+    if c.fetchone():
+        conn.close()
+        raise HTTPException(409, "Username taken")
+        
+    c.execute(f"UPDATE {TBL_USERS} SET uname = ? WHERE id = ?", (new_name, uid))
+    conn.commit()
+    conn.close()
+    
+    return {"success": True, "username": new_name}
+
 @app.post("/api/v2/admin/toggle-stealth")
 async def toggle_stealth(request: Request):
     client_ip = get_client_ip(request)

@@ -134,8 +134,23 @@ class MasterClient:
         
         if result:
             self.error = result.get("message", "Login failed")
+        if result:
+            self.error = result.get("message", "Login failed")
         return False
     
+    def rename_user(self, new_name):
+        """Rename current user"""
+        if not self.auth_token: return False
+        
+        res = self._request("/api/v2/users/rename", "POST", {"username": new_name})
+        if res and res.get("success"):
+            self.username = res.get("username")
+            return True
+        elif res:
+            self.error = res.get("detail", "Rename failed")
+        
+        return False
+
     def logout(self):
         """Clear local session"""
         self.auth_token = None

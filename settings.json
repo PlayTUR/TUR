@@ -1,5 +1,5 @@
 {
-    "name": "wyind",
+    "name": "ANON",
     "volume": 0.30000000000000016,
     "music_volume": 0.39999999999999986,
     "sfx_volume": 0.34999999999999964,
@@ -53,7 +53,7 @@
     "bg_dim": 0.5,
     "show_fps": 0,
     "show_hold_ends": true,
-    "account_type": "REGISTERED",
+    "account_type": "GUEST",
     "last_name_change": 0,
     "user_id": "38251279",
     "auto_recreate_beatmaps": false,

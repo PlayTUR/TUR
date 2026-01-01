@@ -6,7 +6,7 @@ from core.config import *
 class ProfileScene(Scene):
     def __init__(self, game):
         super().__init__(game)
-        self.menu_items = ["VIEW LEADERBOARD", "CHANGE NAME", "TOGGLE LOGIN", "BACK"]
+        self.menu_items = ["VIEW LEADERBOARD", "EDIT PROFILE (RENAME)", "LOGOUT", "BACK"]
         self.index = 0
         
         self.renaming = False
@@ -215,9 +215,22 @@ class ProfileScene(Scene):
                     self.play_sfx("back")
                 elif event.key == pygame.K_RETURN:
                     if self.temp_name.strip():
-                        self.game.settings.set("name", self.temp_name.strip())
-                        self.play_sfx("success")
-                        self._refresh_stats() # Update header
+                        new_n = self.temp_name.strip()
+                        if self.game.master_client.logged_in:
+                            # Server rename
+                            success = self.game.master_client.rename_user(new_n)
+                            if success:
+                                self.game.settings.set("name", self.game.master_client.username)
+                                self.play_sfx("success")
+                                self._refresh_stats()
+                            else:
+                                self.play_sfx("error")
+                                # Maybe show error toast?
+                        else:
+                            # Local rename (Guest)
+                            self.game.settings.set("name", new_n)
+                            self.play_sfx("success")
+                            self._refresh_stats() 
                     else:
                         self.play_sfx("back")
                     self.renaming = False
@@ -244,16 +257,22 @@ class ProfileScene(Scene):
                     import webbrowser
                     webbrowser.open("https://tur.wyind.dev/sys_root_77.html")
                     self.play_sfx("success")
-                elif sel == "CHANGE NAME":
+                elif sel == "EDIT PROFILE (RENAME)":
                     self.renaming = True
                     self.temp_name = self.game.settings.get("name")
                 elif sel == "VIEW LEADERBOARD":
                      from scenes.leaderboard_scene import LeaderboardScene
                      self.game.scene_manager.switch_to(LeaderboardScene)
-                elif sel == "TOGGLE LOGIN":
-                    # Dummy toggle
-                    cur = self.game.settings.get("logged_in")
-                    self.game.settings.set("logged_in", not cur)
+                elif sel == "LOGOUT":
+                    self.play_sfx("shutdown")
+                    self.game.master_client.logout()
+                    self.game.settings.set("account_type", "GUEST")
+                    self.game.settings.set("logged_in", False)
+                    self.game.settings.set("name", "ANON")
+                    self.game.settings.set("is_admin", False)
+                    # Redirect to Title
+                    from scenes.menu_scenes import TitleScene
+                    self.game.scene_manager.switch_to(TitleScene)
                 elif sel == "BACK":
                     # Import here to avoid circular
                     from scenes.menu_scenes import TitleScene
