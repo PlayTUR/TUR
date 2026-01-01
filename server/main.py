@@ -499,6 +499,7 @@ class LoginResponse(BaseModel):
     token: Optional[str] = None
     username: Optional[str] = None
     message: Optional[str] = None
+    recovery_key: Optional[str] = None
 
 class ServerListResponse(BaseModel):
     servers: List[dict]
@@ -590,12 +591,101 @@ async def register(req: RegisterRequest, request: Request):
         raise HTTPException(400, "Username taken")
     
     pw_hash = hash_password(req.password)
-    c.execute(f"INSERT INTO {TBL_USERS} (uname, pw_h) VALUES (?, ?)", (username, pw_hash))
+    recovery_key = secrets.token_urlsafe(16)
+    
+    c.execute(f"INSERT INTO {TBL_USERS} (uname, pw_h, recovery_key) VALUES (?, ?, ?)", (username, pw_hash, recovery_key))
     user_id = c.lastrowid
     conn.commit()
     conn.close()
     
+    return LoginResponse(success=True, token=create_session(user_id), username=username, recovery_key=recovery_key)
+
     return LoginResponse(success=True, token=create_session(user_id), username=username)
+
+# === Password Management ===
+
+class ChangePasswordRequest(BaseModel):
+    old_password: str
+    new_password: str
+
+class ResetPasswordRequest(BaseModel):
+    username: str
+    recovery_key: str
+    new_password: str
+
+@app.post("/api/v2/auth/change-password")
+async def change_password(req: ChangePasswordRequest, request: Request):
+    # Rate limit
+    client_ip = get_client_ip(request)
+    if not check_rate_limit(client_ip, "pw_change", 5):
+        raise HTTPException(429, "Too many attempts")
+
+    # Auth check
+    auth_header = request.headers.get("Authorization")
+    if not auth_header or not auth_header.startswith("Bearer "):
+         raise HTTPException(401, "No token")
+    token = auth_header.split(" ")[1]
+    
+    conn = get_db()
+    c = conn.cursor()
+    c.execute(f"SELECT uid FROM {TBL_SESSIONS} WHERE tk = ?", (token,))
+    sess = c.fetchone()
+    if not sess:
+        conn.close()
+        raise HTTPException(401, "Invalid token")
+    
+    uid = sess['uid']
+    c.execute(f"SELECT pw_h FROM {TBL_USERS} WHERE id = ?", (uid,))
+    user = c.fetchone()
+    
+    # Verify old password
+    if not verify_password(req.old_password, user['pw_h']):
+        conn.close()
+        raise HTTPException(401, "Invalid old password")
+        
+    # Update
+    new_hash = hash_password(req.new_password)
+    c.execute(f"UPDATE {TBL_USERS} SET pw_h = ? WHERE id = ?", (new_hash, uid))
+    conn.commit()
+    conn.close()
+    
+    return {"success": True, "message": "Password changed successfully"}
+
+@app.post("/api/v2/auth/reset-password")
+async def reset_password(req: ResetPasswordRequest, request: Request):
+    # Rate limit
+    client_ip = get_client_ip(request)
+    if not check_rate_limit(client_ip, "pw_reset", 3):  # Stricter limit for brute force
+        raise HTTPException(429, "Too many attempts")
+        
+    username = sanitize_username(req.username)
+    
+    conn = get_db()
+    c = conn.cursor()
+    c.execute(f"SELECT id, recovery_key FROM {TBL_USERS} WHERE uname = ?", (username,))
+    user = c.fetchone()
+    
+    if not user:
+        # Don't reveal user existence? Actually for recovery it's tricky. 
+        # For now, let's just generic error.
+        conn.close()
+        raise HTTPException(403, "Invalid username or recovery key")
+        
+    if not user['recovery_key'] or user['recovery_key'] != req.recovery_key:
+        conn.close()
+        raise HTTPException(403, "Invalid username or recovery key")
+        
+    # Valid key, reset password
+    new_hash = hash_password(req.new_password)
+    
+    # Also rotate the recovery key? Probably safer.
+    new_recovery_key = secrets.token_urlsafe(16)
+    
+    c.execute(f"UPDATE {TBL_USERS} SET pw_h = ?, recovery_key = ? WHERE id = ?", (new_hash, new_recovery_key, user['id']))
+    conn.commit()
+    conn.close()
+    
+    return {"success": True, "message": "Password reset! New recovery key generated.", "new_recovery_key": new_recovery_key}
 
 @app.post("/login")
 async def login(req: LoginRequest, request: Request):

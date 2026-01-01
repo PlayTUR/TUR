@@ -216,7 +216,6 @@ const App = {
                 App.state.showRecoveryOnce = true;
                 if (data.recovery_key) {
                     App.state.tempKey = data.recovery_key;
-                    alert("REGISTRATION_SUCCESSFUL! [CRITICAL: WRITE DOWN YOUR RECOVERY KEY]: " + data.recovery_key);
                 }
 
                 // Automatically log in
@@ -237,6 +236,93 @@ const App = {
             errEl.style.display = 'block';
             errEl.innerText = "CONNECTION_REFUSED";
         }
+    },
+
+    // RESET PASSWORD
+    resetPassword: async () => {
+        const user = document.getElementById('reset-user').value;
+        const key = document.getElementById('reset-key').value;
+        const pass = document.getElementById('reset-pass').value;
+        const errEl = document.getElementById('reset-error');
+
+        if (!user || !key || !pass) {
+            errEl.style.display = 'block';
+            errEl.innerText = "ALL_FIELDS_REQUIRED";
+            return;
+        }
+
+        try {
+            const res = await fetch(`${API_URL}/api/v2/auth/reset-password`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ username: user, recovery_key: key, new_password: pass })
+            });
+            const data = await res.json();
+
+            if (data.success) {
+                alert("PASSWORD_RESET_SUCCESSFUL! Please save your NEW recovery key: " + data.new_recovery_key);
+                window.location.hash = '#account'; // Redirect to login
+            } else {
+                errEl.style.display = 'block';
+                errEl.innerText = `ERROR: ${data.detail || data.message || "Unknown error"}`;
+            }
+        } catch (e) {
+            errEl.style.display = 'block';
+            errEl.innerText = "CONNECTION_REFUSED";
+        }
+    },
+
+    // CHANGE PASSWORD
+    changePassword: async () => {
+        const oldPass = document.getElementById('chg-old-pass').value;
+        const newPass = document.getElementById('chg-new-pass').value;
+        const errEl = document.getElementById('chg-error');
+
+        if (!oldPass || !newPass) {
+            errEl.style.display = 'block';
+            errEl.innerText = "ALL_FIELDS_REQUIRED";
+            return;
+        }
+
+        try {
+            const res = await fetch(`${API_URL}/api/v2/auth/change-password`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${App.state.token}`
+                },
+                body: JSON.stringify({ old_password: oldPass, new_password: newPass })
+            });
+            const data = await res.json();
+
+            if (res.ok) {
+                alert("PASSWORD_UPDATED_SUCCESSFULLY");
+                // Clear inputs
+                document.getElementById('chg-old-pass').value = '';
+                document.getElementById('chg-new-pass').value = '';
+                errEl.style.display = 'none';
+            } else {
+                errEl.style.display = 'block';
+                errEl.innerText = `ERROR: ${data.detail || "Update failed"}`;
+            }
+        } catch (e) {
+            errEl.style.display = 'block';
+            errEl.innerText = "CONNECTION_ERROR";
+        }
+    },
+
+    // TOAST
+    showToast: (msg) => {
+        let toast = document.getElementById('toast');
+        if (!toast) {
+            toast = document.createElement('div');
+            toast.id = 'toast';
+            toast.style.cssText = "position: fixed; bottom: 20px; right: 20px; background: var(--color-primary); color: #000; padding: 1rem; border-radius: 4px; z-index: 10000; font-weight: bold; opacity: 0; transition: opacity 0.3s;";
+            document.body.appendChild(toast);
+        }
+        toast.innerText = msg;
+        toast.style.opacity = '1';
+        setTimeout(() => toast.style.opacity = '0', 3000);
     },
 
     // LOGOUT

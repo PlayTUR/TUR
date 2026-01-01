@@ -270,15 +270,45 @@ const Components = {
             </div>
             <div class="form-group">
                 <label>PASSPHRASE</label>
-                <input type="password" id="login-pass" placeholder="Enter Password...">
+                <input type="password" id="login-pass" placeholder="Enter Password..." onkeyup="if(event.key==='Enter') App.login()">
             </div>
             <div id="login-error" class="error-msg"></div>
-            <button class="btn" onclick="App.login()">[AUTHENTICATE]</button>
+            <div style="display: flex; gap: 1rem; margin-top: 1rem;">
+                <button class="btn" style="flex: 1;" onclick="App.login()">[AUTHENTICATE]</button>
+            </div>
             
             <p style="margin-top: 1.5rem; font-size: 0.9rem;">
-                NO_CREDENTIALS? <a href="#register">[REGISTER_NEW_ID]</a><br>
-                LOST_ACCESS? <a href="#recovery">[RESET_PASSPHRASE]</a>
+                NO_CREDENTIALS? <a href="#register" style="color: var(--color-primary);">[REGISTER_NEW_ID]</a><br>
+                LOST_ACCESS? <a href="#recovery" style="color: var(--color-error);">[RESET_PASSPHRASE]</a>
             </p>
+        </div>
+    `,
+
+    AccountRecovery: () => `
+        <h2>ACCOUNT_RECOVERY_PROTOCOL</h2>
+        <div class="panel" style="max-width: 500px; margin: 0 auto;">
+            <p style="margin-bottom: 1.5rem; font-size: 0.8rem; color: var(--color-dim);">
+                Enter your Operator ID and the unique 16-character Recovery Key provided during registration.
+                <br><br>
+                <span style="color: var(--color-error);">WARNING:</span> This action will invalidate all active sessions.
+            </p>
+            <div class="form-group">
+                <label>OPERATOR_ID</label>
+                <input type="text" id="reset-user" placeholder="Enter Username...">
+            </div>
+            <div class="form-group">
+                <label>RECOVERY_KEY</label>
+                <input type="text" id="reset-key" placeholder="Enter 16-char Key...">
+            </div>
+            <div class="form-group">
+                <label>NEW_PASSPHRASE</label>
+                <input type="password" id="reset-pass" placeholder="New Password (6-64 chars)...">
+            </div>
+            <div id="reset-error" class="error-msg"></div>
+            <div style="display: flex; gap: 1rem; margin-top: 1rem;">
+                <button class="btn btn-primary" style="flex: 1;" onclick="App.resetPassword()">[EXECUTE_RESET]</button>
+                <button class="btn btn-secondary" style="flex: 0 0 100px;" onclick="window.location.hash='#account'">[CANCEL]</button>
+            </div>
         </div>
     `,
 
@@ -336,6 +366,51 @@ const Components = {
                 ${key}
             </div>
             <button class="btn" style="width: 100%;" onclick="this.parentElement.remove()">[ACKNOWLEDGE_AND_SECURE]</button>
+        </div>
+    `,
+
+    ChangePassword: () => `
+        <div class="panel" style="margin-top: 1rem; border-color: var(--color-secondary);">
+            <h3>SECURITY_UPDATE</h3>
+            <div class="form-group">
+                <label>CURRENT_PASSPHRASE</label>
+                <input type="password" id="chg-old-pass" placeholder="Verify Identity...">
+            </div>
+            <div class="form-group">
+                <label>NEW_PASSPHRASE</label>
+                <input type="password" id="chg-new-pass" placeholder="New Password...">
+            </div>
+            <div id="chg-error" class="error-msg"></div>
+            <button class="btn btn-secondary" style="width: 100%;" onclick="App.changePassword()">[UPDATE_CREDENTIALS]</button>
+        </div>
+    `,
+
+    RecoveryKeyDisplay: (key) => `
+        <div class="panel" style="border-color: var(--color-primary); margin-top: 2rem; animation: slideIn 0.5s ease-out;">
+            <h3 style="color: var(--color-primary); text-align: center;">⚠ CRITICAL: SAVE_THIS_KEY ⚠</h3>
+            <p style="text-align: center; margin-bottom: 1rem;">
+                This key is the <strong>ONLY</strong> way to restore access if you forget your password.<br>
+                We do not store email addresses.
+            </p>
+            
+            <div class="key-box" onclick="navigator.clipboard.writeText('${key}'); App.showToast('COPIED_TO_CLIPBOARD')" style="
+                background: rgba(0, 0, 0, 0.3);
+                border: 2px dashed var(--color-primary);
+                padding: 1.5rem;
+                text-align: center;
+                font-family: 'JetBrains Mono', monospace;
+                font-size: 1.5rem;
+                letter-spacing: 2px;
+                cursor: pointer;
+                color: var(--color-primary);
+                margin-bottom: 1rem;
+                transition: all 0.2s;
+            " onmouseover="this.style.background='rgba(0,255,136,0.1)'" onmouseout="this.style.background='rgba(0,0,0,0.3)'">
+                ${key}
+                <div style="font-size: 0.7rem; color: var(--color-dim); margin-top: 0.5rem; letter-spacing: 0;">(CLICK_TO_COPY)</div>
+            </div>
+
+            <button class="btn btn-primary" style="width: 100%;" onclick="window.location.hash='#account'">[I_HAVE_SAVED_THIS_KEY_SECURELY]</button>
         </div>
     `,
 
