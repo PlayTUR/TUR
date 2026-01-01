@@ -210,7 +210,7 @@ class TitleScene(Scene):
         btn_spacing = min(38, (available_h - header_h) // num_items)  # Cap at 38, shrink if needed
         
         menu_w = 380
-        menu_h = num_items * btn_spacing + header_h + 10
+        menu_h = num_items * btn_spacing + header_h + 25
         menu_x = (sw - menu_w) // 2
         menu_start_y = menu_top_margin
         
