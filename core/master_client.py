@@ -164,6 +164,13 @@ class MasterClient:
         
         return False
 
+    def set_avatar(self, avatar_id):
+        """Update avatar selection"""
+        if not self.auth_token: return False
+        
+        res = self._request("/api/v2/users/avatar", "POST", {"avatar_id": avatar_id})
+        return res and res.get("success")
+
     def logout(self):
         """Clear local session"""
         self.auth_token = None

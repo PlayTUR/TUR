@@ -2,6 +2,39 @@ const API_URL = "https://turapi.wyind.dev"; // API Server
 
 /* === UI Builders === */
 
+const AVATARS = [
+    // 0: Default
+    `  .---.  
+ /     \\ 
+|  O O  |
+ \\  ^  / 
+  '---'  `,
+    // 1: Hacker
+    `  .---.  
+ /=====\\ 
+| [___] |
+ \\ === / 
+  '---'  `,
+    // 2: Robot
+    `  [o_o]  
+ /|___|\\ 
+| [___] |
+ \\_| |_/ 
+   I I   `,
+    // 3: Alien
+    `   \\ /   
+  (o.o)  
+  ( > )  
+ /  ^  \\ 
+   | |   `,
+    // 4: Ninja
+    `  .---.  
+ / ~~~ \\ 
+|  - -  |
+ \\  =  / 
+  '---'  `
+];
+
 const Components = {
     Loader: () => `
         <div class="loader" style="text-align:center; padding: 2rem;">
@@ -263,12 +296,21 @@ const Components = {
         </div>
     `,
 
-    Profile: (user, stats, isPublic = false, isOnline = false) => `
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
-            <h2>OPERATOR_PROFILE: ${user}</h2>
-            <div style="display: flex; align-items: center; gap: 0.5rem; font-size: 0.9rem;">
-                <span style="color: ${isOnline ? 'var(--color-primary)' : 'var(--color-error)'}">●</span>
-                ${isOnline ? 'ONLINE' : 'OFFLINE'}
+    Profile: (user, stats, isPublic = false, isOnline = false, avatarId = 0) => `
+        <div style="display: flex; gap: 2rem; align-items: flex-start; margin-bottom: 1rem;">
+            <div class="panel" style="padding: 1rem; width: 140px; text-align: center; flex-shrink: 0; display: flex; align-items: center; justify-content: center; min-height: 120px;">
+                <pre style="font-family: 'JetBrains Mono', monospace; line-height: 1.2; font-size: 0.9rem; color: var(--color-secondary); margin: 0;">${AVATARS[avatarId || 0] || AVATARS[0]}</pre>
+            </div>
+            
+            <div style="flex: 1;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+                    <h2 style="margin: 0;">OPERATOR_PROFILE: ${user}</h2>
+                    <div style="display: flex; align-items: center; gap: 0.5rem; font-size: 0.9rem;">
+                        <span style="color: ${isOnline ? 'var(--color-primary)' : 'var(--color-error)'}">●</span>
+                        ${isOnline ? 'ONLINE' : 'OFFLINE'}
+                    </div>
+                </div>
+                <div style="color: var(--color-dim); font-size: 0.9rem;">ID: #${stats?.id || "---"}</div>
             </div>
         </div>
         

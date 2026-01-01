@@ -114,7 +114,7 @@ const App = {
                 if (App.state.token) {
                     content.innerHTML = Components.Loader();
                     Promise.all([App.fetchProfile(), App.fetchRecoveryKey()]).then(([profileData, recoveryData]) => {
-                        content.innerHTML = Components.Profile(profileData.username, profileData.stats, false, profileData.online);
+                        content.innerHTML = Components.Profile(profileData.username, profileData.stats, false, profileData.online, profileData.avatar_id);
 
                         // Show recovery key warning if just registered or if user wants to see it
                         if (App.state.showRecoveryOnce) {
@@ -145,7 +145,7 @@ const App = {
                 const targetUser = hash.split('/')[1];
                 content.innerHTML = Components.Loader();
                 App.fetchPublicProfile(targetUser).then(profile => {
-                    content.innerHTML = Components.Profile(profile.username, profile.stats, true, profile.online);
+                    content.innerHTML = Components.Profile(profile.username, profile.stats, true, profile.online, profile.avatar_id);
                 }).catch(err => {
                     content.innerHTML = Components.Error("OPERATOR_NOT_FOUND");
                 });

@@ -203,7 +203,7 @@ def init_db():
             c.execute(f"ALTER TABLE {TBL_USERS} ADD COLUMN is_stealth INTEGER DEFAULT 0")
         except: pass
         try:
-            c.execute(f"ALTER TABLE {TBL_USERS} ADD COLUMN is_stealth INTEGER DEFAULT 0")
+            c.execute(f"ALTER TABLE {TBL_USERS} ADD COLUMN avatar_id INTEGER DEFAULT 0")
         except: pass
 
     c.execute(f"""CREATE TABLE IF NOT EXISTS {TBL_BANS} (
@@ -927,7 +927,7 @@ async def get_my_stats(request: Request):
     stats = c.fetchone()
     
     # Get user info including admin status
-    c.execute(f"SELECT uname, is_admin, l_at FROM {TBL_USERS} WHERE id = ?", (uid,))
+    c.execute(f"SELECT uname, is_admin, l_at, is_stealth, avatar_id FROM {TBL_USERS} WHERE id = ?", (uid,))
     u_row = c.fetchone()
     
     # Advanced Stats
@@ -951,7 +951,10 @@ async def get_my_stats(request: Request):
     res = {
         "username": u_row['uname'],
         "id": uid,
+        "username": u_row['uname'],
+        "id": uid,
         "is_admin": bool(u_row['is_admin']),
+        "avatar_id": u_row['avatar_id'] if 'avatar_id' in u_row.keys() else 0,
         "is_stealth": bool(u_row['is_stealth']) if 'is_stealth' in u_row.keys() else False,
         "online": (u_row['l_at'] or 0) > (time.time() - 300),
         "stats": {
@@ -1006,6 +1009,40 @@ async def rename_user(request: Request):
     conn.close()
     
     return {"success": True, "username": new_name}
+
+@app.post("/api/v2/users/avatar")
+async def set_avatar(request: Request):
+    auth_header = request.headers.get("Authorization")
+    if not auth_header or not auth_header.startswith("Bearer "):
+        raise HTTPException(401, "No token")
+    token = auth_header.split(" ")[1]
+    
+    try:
+        data = await request.json()
+        avatar_id = int(data.get("avatar_id", 0))
+    except:
+        raise HTTPException(400, "Invalid JSON")
+        
+    # Validate range (Allow 0-99 for now)
+    if avatar_id < 0 or avatar_id > 99:
+        avatar_id = 0
+        
+    conn = get_db()
+    c = conn.cursor()
+    c.execute(f"SELECT uid FROM {TBL_SESSIONS} WHERE tk = ?", (token,))
+    sess = c.fetchone()
+    
+    if not sess:
+         conn.close()
+         raise HTTPException(401, "Invalid token")
+    
+    uid = sess['uid']
+    
+    c.execute(f"UPDATE {TBL_USERS} SET avatar_id = ? WHERE id = ?", (avatar_id, uid))
+    conn.commit()
+    conn.close()
+    
+    return {"success": True, "avatar_id": avatar_id}
 
 @app.post("/api/v2/admin/toggle-stealth")
 async def toggle_stealth(request: Request):
@@ -1145,6 +1182,7 @@ async def get_public_profile(username: str):
     return {
         "username": u_row['uname'],
         "online": (u_row['l_at'] or 0) > (time.time() - 300),
+        "avatar_id": u_row['avatar_id'] if 'avatar_id' in u_row.keys() else 0,
         "is_admin": bool(u_row['is_admin']) if not u_row.get('is_stealth') else False,
         "stats": {
             "score": stats['t_score'] if stats else 0,

@@ -40,6 +40,7 @@ class ProfileScene(Scene):
             
             if data:
                 self.profile_data = data
+                self.avatar_id = data.get("avatar_id", 0)
                 
                 # Check admin status and update menu
                 is_admin = data.get("is_admin", False) is True
@@ -127,16 +128,22 @@ class ProfileScene(Scene):
         r.draw_panel(surface, panel_x, panel_y, 400, 350, "OPERATOR_ID")
         
         # Avatar (ASCII Style)
-        avatar = [
-            r"  .---.  ",
-            r" /     \ ",
-            r"|  O O  |",
-            r" \  ^  / ",
-            r"  '---'  "
-        ]
+        # Handle index safely
+        display_id = self.avatar_id
+        if display_id < 0 or display_id >= len(AVATARS): display_id = 0
+        
+        avatar = AVATARS[display_id]
+        
         av_y = panel_y + 50
+        
+        # Highlight avatar box if changing
+        if self.changing_avatar:
+             pygame.draw.rect(surface, theme["primary"], (panel_x + 30, av_y - 5, 200, 100), 1)
+             r.draw_text(surface, "< CHANGE >", panel_x + 80, av_y + 100, theme["primary"], r.small_font)
+        
         for i, line in enumerate(avatar):
-            r.draw_text(surface, line, panel_x + 30, av_y + i*20, theme["secondary"], r.ascii_font)
+            col = theme["secondary"] if not self.changing_avatar else theme["primary"]
+            r.draw_text(surface, line, panel_x + 30, av_y + i*20, col, r.ascii_font)
             
         info_x = panel_x + 150
         y = panel_y + 160
@@ -243,6 +250,10 @@ class ProfileScene(Scene):
             self._handle_rename_input(event)
             return
 
+        if self.changing_avatar:
+             self._handle_avatar_input(event)
+             return
+
         if event.type == pygame.KEYDOWN:
             if event.key == pygame.K_LEFT:
                 self.index = (self.index - 1) % len(self.menu_items)
@@ -277,6 +288,9 @@ class ProfileScene(Scene):
             if not current_name:
                 current_name = self.game.settings.get("name", "User")
             self.temp_name = current_name
+        elif item == "CHANGE AVATAR":
+            self.changing_avatar = True
+            self.play_sfx("blip")
         elif item == "VIEW LEADERBOARD":
              from scenes.leaderboard_scene import LeaderboardScene
              self.game.scene_manager.switch_to(LeaderboardScene)
@@ -312,7 +326,31 @@ class ProfileScene(Scene):
              if len(self.temp_name) > 0:
                  self.temp_name = self.temp_name[:-1]
              self.play_sfx("type")
-        elif event.unicode.isprintable() and len(self.temp_name) < 16:
-            self.temp_name += event.unicode
-            self.play_sfx("type")
+    def _handle_avatar_input(self, event):
+        if event.type != pygame.KEYDOWN: return
+        
+        if event.key == pygame.K_LEFT:
+            self.avatar_id = (self.avatar_id - 1) % len(AVATARS)
+            self.play_sfx("blip")
+        elif event.key == pygame.K_RIGHT:
+            self.avatar_id = (self.avatar_id + 1) % len(AVATARS)
+            self.play_sfx("blip")
+        elif event.key == pygame.K_RETURN:
+            # Save avatar
+            self.play_sfx("accept")
+            
+            def save_av():
+                 self.game.master_client.set_avatar(self.avatar_id)
+                 
+            threading.Thread(target=save_av, daemon=True).start()
+            self.changing_avatar = False
+            
+        elif event.key == pygame.K_ESCAPE:
+            # Revert? Or just keep? Let's keep for now but not save?
+            # Ideally fetch original but we don't store it separate.
+            # user likely expects escape to cancel.
+            if self.profile_data:
+                self.avatar_id = self.profile_data.get("avatar_id", 0)
+            self.changing_avatar = False
+            self.play_sfx("back")
 
