@@ -2,6 +2,8 @@ name: Create Release
 
 on:
   push:
+    branches:
+      - main
     tags:
       - '*'  # Triggers on any tag
   workflow_dispatch:
@@ -9,7 +11,7 @@ on:
       version:
         description: 'Version tag (e.g., v1.0.0, private-beta-1)'
         required: true
-        default: 'private-beta-1'
+        default: 'dev'
 
 jobs:
   build-and-release:
@@ -36,8 +38,11 @@ jobs:
       run: |
         if ("${{ github.event_name }}" -eq "workflow_dispatch") {
           echo "VERSION=${{ github.event.inputs.version }}" >> $env:GITHUB_OUTPUT
-        } else {
+        } elseif ("${{ github.ref_type }}" -eq "tag") {
           echo "VERSION=${{ github.ref_name }}" >> $env:GITHUB_OUTPUT
+        } else {
+          $short_sha = "${{ github.sha }}".Substring(0,7)
+          echo "VERSION=dev-$short_sha" >> $env:GITHUB_OUTPUT
         }
       shell: pwsh
     
