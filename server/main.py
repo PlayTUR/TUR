@@ -753,7 +753,7 @@ async def get_leaderboard():
 async def get_my_stats(request: Request):
     auth_header = request.headers.get("Authorization")
     if not auth_header or not auth_header.startswith("Bearer "):
-        return {"error": "No token"}
+        raise HTTPException(401, "No token")
     token = auth_header.split(" ")[1]
     
     conn = get_db()
@@ -763,7 +763,7 @@ async def get_my_stats(request: Request):
     
     if not sess:
          conn.close()
-         return {"error": "Invalid token"}
+         raise HTTPException(401, "Invalid token")
          
     uid = sess['uid']
     c.execute(f"SELECT * FROM {TBL_STATS} WHERE uid = ?", (uid,))

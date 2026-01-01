@@ -229,11 +229,11 @@ const Components = {
                      </div>
                 </div>
                 
-                <p><strong>XP:</strong> ${stats.xp.toLocaleString()}</p>
-                <p><strong>BEST SCORE:</strong> ${(stats.best_score || 0).toLocaleString()}</p>
-                <p><strong>TOTAL SCORE:</strong> ${stats.total_score.toLocaleString()}</p>
-                <p><strong>MISSIONS PLAYED:</strong> ${stats.plays}</p>
-                <p><strong>FAVORITE DIFFICULTY:</strong> ${stats.fav_difficulty || "NONE"}</p>
+                <p><strong>XP:</strong> ${(stats?.xp || 0).toLocaleString()}</p>
+                <p><strong>BEST SCORE:</strong> ${(stats?.best_score || 0).toLocaleString()}</p>
+                <p><strong>TOTAL SCORE:</strong> ${(stats?.total_score || stats?.score || 0).toLocaleString()}</p>
+                <p><strong>MISSIONS PLAYED:</strong> ${stats?.plays || 0}</p>
+                <p><strong>FAVORITE DIFFICULTY:</strong> ${stats?.fav_difficulty || "NONE"}</p>
             </div>
             
             <div class="panel">
@@ -259,11 +259,11 @@ const Components = {
                     </select>
                 </div>
             </div>
-
+ 
             <div class="panel">
                 <h3>SESSION_INFO</h3>
                 <p>STATUS: <span style="color: var(--color-primary);">ONLINE</span></p>
-                ${App.state.isAdmin ? `<button class="btn" style="margin-top: 1rem; width: 100%; text-align: center;" onclick="window.location.href='sys_root_77.html'">[ACCESS_ROOT_TERMINAL]</button>` : ''}
+                ${App.state.isAdmin ? `<button class="btn" style="margin-top: 1rem; width: 100%; text-align: center;" onclick="window.location.href='m7x9k2.html'">[ACCESS_ROOT_TERMINAL]</button>` : ''}
                 <button class="btn btn-secondary" style="margin-top: 1rem;" onclick="App.logout()">[TERMINATE_SESSION]</button>
             </div>
         </div>
