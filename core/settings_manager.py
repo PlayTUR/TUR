@@ -144,8 +144,8 @@ class SettingsManager:
             # If decode fails (e.g. not b64 or not 20 times), assume invalid
             return None
 
-    def get(self, key):
-        return self.settings.get(key, DEFAULT_SETTINGS.get(key))
+    def get(self, key, default=None):
+        return self.settings.get(key, default if default is not None else DEFAULT_SETTINGS.get(key))
 
     def set(self, key, value):
         self.settings[key] = value

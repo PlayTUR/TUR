@@ -235,9 +235,9 @@ class TitleScene(Scene):
         account_type = self.game.settings.get('account_type')
         
         if account_type == "GUEST":
-            self.game.renderer.draw_text(surface, f"GUEST  |  [L] Login  [R] Register  |  {VERSION}", 20, sh - 30, theme["secondary"])
+            self.game.renderer.draw_text(surface, f"GUEST  |  [L] Login  [R] Register  |  {VERSION}", 20, sh - 50, theme["secondary"])
         else:
-            self.game.renderer.draw_text(surface, f"◉ {name}  |  [P] Profile  [L] Logout  |  {VERSION}", 20, sh - 30, theme["primary"])
+            self.game.renderer.draw_text(surface, f"◉ {name}  |  [P] Profile  [L] Logout  |  {VERSION}", 20, sh - 50, theme["primary"])
         
         if hasattr(self.game, 'current_bgm_title') and self.game.current_bgm_title:
              r_text = f"NOW PLAYING: {self.game.current_bgm_title}"
