@@ -118,6 +118,17 @@
                         onclick="AdminApp.promoteUser()">[GRANT_ROOT_ACCESS]</button>
                 </div>
 
+                <!-- Demotion Tools -->
+                <div class="panel">
+                    <h3>REVOKE_PRIVILEGES (DEMOTE)</h3>
+                    <div class="form-group">
+                        <label>TARGET_OPERATOR_ID</label>
+                        <input type="text" id="demote-target" placeholder="Username...">
+                    </div>
+                    <button class="btn" style="border-color: #ff9900; color: #ff9900;"
+                        onclick="AdminApp.demoteUser()">[REVOKE_ACCESS]</button>
+                </div>
+
                 <!-- Wipe Stats -->
                 <div class="panel">
                     <h3>DATA_PURGE (WIPE STATS)</h3>

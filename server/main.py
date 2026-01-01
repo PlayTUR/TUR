@@ -370,6 +370,61 @@ async def promote_user(req: PromoteRequest, request: Request):
     conn.close()
     return {"success": True, "message": f"User {req.username} is now an ADMIN"}
 
+@app.post("/api/v2/admin/demote")
+async def demote_user(req: PromoteRequest, request: Request):
+    client_ip = get_client_ip(request)
+    if not check_rate_limit(client_ip, "admin_action", 5):
+         raise HTTPException(429, "Rate limit")
+         
+    # Check Auth (Key OR Token)
+    auth_header = request.headers.get("Authorization")
+    token = auth_header.split(" ")[1] if auth_header and auth_header.startswith("Bearer ") else None
+    
+    if not is_admin_request(req.admin_key, token):
+        raise HTTPException(403, "Invalid Admin Key or Token")
+    
+    conn = get_db()
+    c = conn.cursor()
+    c.execute(f"UPDATE {TBL_USERS} SET is_admin = 0 WHERE uname = ?", (req.username,))
+    if c.rowcount == 0:
+        conn.close()
+        raise HTTPException(404, "User not found")
+    conn.commit()
+    conn.close()
+    return {"success": True, "message": f"User {req.username} has been DEMOTED"}
+
+@app.post("/api/v2/admin/toggle-stealth")
+async def toggle_stealth(request: Request):
+    auth_header = request.headers.get("Authorization")
+    if not auth_header or not auth_header.startswith("Bearer "):
+         raise HTTPException(401, "No token")
+    token = auth_header.split(" ")[1]
+    
+    if not is_admin_request(None, token):
+        raise HTTPException(403, "Admins only")
+        
+    conn = get_db()
+    c = conn.cursor()
+    
+    # Get user ID from token
+    c.execute(f"SELECT uid FROM {TBL_SESSIONS} WHERE tk = ?", (token,))
+    sess = c.fetchone()
+    if not sess:
+        conn.close()
+        raise HTTPException(401, "Invalid token")
+    uid = sess['uid']
+    
+    # Toggle
+    c.execute(f"UPDATE {TBL_USERS} SET is_stealth = NOT COALESCE(is_stealth, 0) WHERE id = ?", (uid,))
+    conn.commit()
+    
+    # Get new state
+    c.execute(f"SELECT is_stealth FROM {TBL_USERS} WHERE id = ?", (uid,))
+    new_state = bool(c.fetchone()[0])
+    conn.close()
+    
+    return {"success": True, "is_stealth": new_state}
+
 # === Admin Wipe Stats ===
 class WipeStatsRequest(BaseModel):
     admin_key: Optional[str] = None

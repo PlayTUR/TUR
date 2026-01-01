@@ -100,14 +100,16 @@ const AdminApp = {
         }
     },
 
-    promoteUser: async () => {
-        const target = document.getElementById('promote-target').value;
+},
+
+    demoteUser: async () => {
+        const target = document.getElementById('demote-target').value;
         if (!target) return alert("INVALID_TARGET");
 
-        if (!confirm(`CONFIRM: GRANT ROOT ACCESS TO [${target}]?`)) return;
+        if (!confirm(`CONFIRM: REVOKE ROOT ACCESS FROM [${target}]?`)) return;
 
         try {
-            const res = await fetch(`${API_URL}/api/v2/admin/promote`, {
+            const res = await fetch(`${API_URL}/api/v2/admin/demote`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -117,106 +119,135 @@ const AdminApp = {
             });
 
             if (res.ok) {
-                alert(`SUCCESS: [${target}] IS NOW ROOT.`);
-                document.getElementById('promote-target').value = "";
+                alert(`SUCCESS: [${target}] HAS BEEN DEMOTED.`);
+                document.getElementById('demote-target').value = "";
             } else {
                 const err = await res.json();
                 alert(`ERROR: ${err.detail || err.error || 'Unknown Error'}`);
             }
         } catch (e) {
-            console.error("Promote Error:", e);
-            alert(`CONNECTION_ERROR: ${e.message}\nCheck if ${API_URL} is reachable and CORS is allowing your current origin.`);
+            console.error("Demote Error:", e);
+            alert(`CONNECTION_ERROR: ${e.message}`);
         }
     },
 
-    wipeStats: async () => {
-        const target = document.getElementById('wipe-target').value;
-        if (!target) return alert("INVALID_TARGET");
+        promoteUser: async () => {
+            const target = document.getElementById('promote-target').value;
+            if (!target) return alert("INVALID_TARGET");
 
-        if (!confirm(`CRITICAL WARNING: PERMANENTLY WIPE ALL STATS FOR [${target}]?\nTHIS CANNOT BE UNDONE.`)) return;
-        if (!confirm(`ARE YOU ABSOLUTELY SURE?`)) return;
+            if (!confirm(`CONFIRM: GRANT ROOT ACCESS TO [${target}]?`)) return;
 
-        try {
-            const res = await fetch(`${API_URL}/api/v2/admin/wipe-stats`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${AdminApp.state.token}`
-                },
-                body: JSON.stringify({ username: target })
-            });
+            try {
+                const res = await fetch(`${API_URL}/api/v2/admin/promote`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${AdminApp.state.token}`
+                    },
+                    body: JSON.stringify({ username: target })
+                });
 
-            if (res.ok) {
-                alert(`SUCCESS: STATS FOR [${target}] HAVE BEEN PURGED.`);
-                document.getElementById('wipe-target').value = "";
-            } else {
-                const err = await res.json();
-                alert(`ERROR: ${err.detail || err.error || 'Unknown Error'}`);
-            }
-        } catch (e) {
-            console.error("Wipe Stats Error:", e);
-            alert(`CONNECTION_ERROR: ${e.message}\nCheck if ${API_URL} is reachable.`);
-        }
-    },
-
-    banUser: async () => {
-        const target = document.getElementById('ban-target').value;
-        const reason = document.getElementById('ban-reason').value;
-        const duration = document.getElementById('ban-duration').value;
-
-        let body = {
-            reason: reason,
-            duration_days: parseInt(duration),
-            admin_key: null // Using token auth
-        };
-
-        if (target.includes('.')) {
-            body.ip = target;
-        } else {
-            body.username = target;
-        }
-
-        try {
-            const res = await fetch(`${API_URL}/api/v2/internal/mod/r`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${AdminApp.state.token}`
-                },
-                body: JSON.stringify(body)
-            });
-
-            if (res.ok) {
-                alert("EXECUTION_CONFIRMED");
-                document.getElementById('ban-target').value = "";
-                AdminApp.loadBans();
-            } else {
-                const err = await res.json();
-                alert(`ERROR: ${err.detail || err.error || 'Unknown Error'}`);
-            }
-        } catch (e) {
-            console.error("Ban Error:", e);
-            alert(`CONNECTION_ERROR: ${e.message}\nCheck if ${API_URL} is reachable and CORS is allowing your current origin.`);
-        }
-    },
-
-    loadBans: async () => {
-        const listEl = document.getElementById('ban-list');
-        listEl.innerHTML = "<p>LOADING...</p>";
-
-        try {
-            const res = await fetch(`${API_URL}/api/v2/internal/mod/l`, {
-                headers: { 'Authorization': `Bearer ${AdminApp.state.token}` }
-            });
-
-            if (res.ok) {
-                const data = await res.json();
-                if (data.bans.length === 0) {
-                    listEl.innerHTML = "<p>NO ACTIVE BANS</p>";
-                    return;
+                if (res.ok) {
+                    alert(`SUCCESS: [${target}] IS NOW ROOT.`);
+                    document.getElementById('promote-target').value = "";
+                } else {
+                    const err = await res.json();
+                    alert(`ERROR: ${err.detail || err.error || 'Unknown Error'}`);
                 }
+            } catch (e) {
+                console.error("Promote Error:", e);
+                alert(`CONNECTION_ERROR: ${e.message}\nCheck if ${API_URL} is reachable and CORS is allowing your current origin.`);
+            }
+        },
 
-                let html = `<table>
+            wipeStats: async () => {
+                const target = document.getElementById('wipe-target').value;
+                if (!target) return alert("INVALID_TARGET");
+
+                if (!confirm(`CRITICAL WARNING: PERMANENTLY WIPE ALL STATS FOR [${target}]?\nTHIS CANNOT BE UNDONE.`)) return;
+                if (!confirm(`ARE YOU ABSOLUTELY SURE?`)) return;
+
+                try {
+                    const res = await fetch(`${API_URL}/api/v2/admin/wipe-stats`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${AdminApp.state.token}`
+                        },
+                        body: JSON.stringify({ username: target })
+                    });
+
+                    if (res.ok) {
+                        alert(`SUCCESS: STATS FOR [${target}] HAVE BEEN PURGED.`);
+                        document.getElementById('wipe-target').value = "";
+                    } else {
+                        const err = await res.json();
+                        alert(`ERROR: ${err.detail || err.error || 'Unknown Error'}`);
+                    }
+                } catch (e) {
+                    console.error("Wipe Stats Error:", e);
+                    alert(`CONNECTION_ERROR: ${e.message}\nCheck if ${API_URL} is reachable.`);
+                }
+            },
+
+                banUser: async () => {
+                    const target = document.getElementById('ban-target').value;
+                    const reason = document.getElementById('ban-reason').value;
+                    const duration = document.getElementById('ban-duration').value;
+
+                    let body = {
+                        reason: reason,
+                        duration_days: parseInt(duration),
+                        admin_key: null // Using token auth
+                    };
+
+                    if (target.includes('.')) {
+                        body.ip = target;
+                    } else {
+                        body.username = target;
+                    }
+
+                    try {
+                        const res = await fetch(`${API_URL}/api/v2/internal/mod/r`, {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'Authorization': `Bearer ${AdminApp.state.token}`
+                            },
+                            body: JSON.stringify(body)
+                        });
+
+                        if (res.ok) {
+                            alert("EXECUTION_CONFIRMED");
+                            document.getElementById('ban-target').value = "";
+                            AdminApp.loadBans();
+                        } else {
+                            const err = await res.json();
+                            alert(`ERROR: ${err.detail || err.error || 'Unknown Error'}`);
+                        }
+                    } catch (e) {
+                        console.error("Ban Error:", e);
+                        alert(`CONNECTION_ERROR: ${e.message}\nCheck if ${API_URL} is reachable and CORS is allowing your current origin.`);
+                    }
+                },
+
+                    loadBans: async () => {
+                        const listEl = document.getElementById('ban-list');
+                        listEl.innerHTML = "<p>LOADING...</p>";
+
+                        try {
+                            const res = await fetch(`${API_URL}/api/v2/internal/mod/l`, {
+                                headers: { 'Authorization': `Bearer ${AdminApp.state.token}` }
+                            });
+
+                            if (res.ok) {
+                                const data = await res.json();
+                                if (data.bans.length === 0) {
+                                    listEl.innerHTML = "<p>NO ACTIVE BANS</p>";
+                                    return;
+                                }
+
+                                let html = `<table>
                     <thead>
                         <tr>
                             <th>ID</th>
@@ -228,7 +259,7 @@ const AdminApp = {
                     </thead>
                     <tbody>`;
 
-                html += data.bans.map(b => `
+                                html += data.bans.map(b => `
                     <tr>
                         <td>${b.id}</td>
                         <td>${b.username || b.ip || "ID:" + b.user_id}</td>
@@ -243,49 +274,49 @@ const AdminApp = {
                     </tr>
                 `).join('');
 
-                html += "</tbody></table>";
-                listEl.innerHTML = html;
-            }
-        } catch (e) {
-            listEl.innerHTML = "<p>FETCH_ERROR</p>";
-        }
-    },
+                                html += "</tbody></table>";
+                                listEl.innerHTML = html;
+                            }
+                        } catch (e) {
+                            listEl.innerHTML = "<p>FETCH_ERROR</p>";
+                        }
+                    },
 
-    unban: async (username, uid, ip) => {
-        if (!confirm("CONFIRM LIFT BAN?")) return;
+                        unban: async (username, uid, ip) => {
+                            if (!confirm("CONFIRM LIFT BAN?")) return;
 
-        let body = { admin_key: null };
-        if (username) body.username = username;
-        if (uid) body.user_id = uid;
-        if (ip) body.ip = ip;
+                            let body = { admin_key: null };
+                            if (username) body.username = username;
+                            if (uid) body.user_id = uid;
+                            if (ip) body.ip = ip;
 
-        try {
-            const res = await fetch(`${API_URL}/api/v2/internal/mod/u`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${AdminApp.state.token}`
-                },
-                body: JSON.stringify(body)
-            });
+                            try {
+                                const res = await fetch(`${API_URL}/api/v2/internal/mod/u`, {
+                                    method: 'POST',
+                                    headers: {
+                                        'Content-Type': 'application/json',
+                                        'Authorization': `Bearer ${AdminApp.state.token}`
+                                    },
+                                    body: JSON.stringify(body)
+                                });
 
-            if (res.ok) {
-                AdminApp.loadBans();
-            } else {
-                alert("FAILED");
-            }
-        } catch {
-            alert("ERROR");
-        }
-    },
+                                if (res.ok) {
+                                    AdminApp.loadBans();
+                                } else {
+                                    alert("FAILED");
+                                }
+                            } catch {
+                                alert("ERROR");
+                            }
+                        },
 
-    manualUnban: async () => {
-        const target = document.getElementById('unban-target').value;
-        if (!target) return alert("INVALID_TARGET");
+                            manualUnban: async () => {
+                                const target = document.getElementById('unban-target').value;
+                                if (!target) return alert("INVALID_TARGET");
 
-        AdminApp.unban(target, null, target.includes('.') ? target : null);
-        document.getElementById('unban-target').value = "";
-    }
+                                AdminApp.unban(target, null, target.includes('.') ? target : null);
+                                document.getElementById('unban-target').value = "";
+                            }
 };
 
 document.addEventListener('DOMContentLoaded', AdminApp.init);
