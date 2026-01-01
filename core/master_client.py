@@ -112,8 +112,9 @@ class MasterClient:
                 profile = self.get_my_stats()
                 if profile:
                     self.is_admin = profile.get("is_admin", False)
-                    # Simple check for "Owner" if username matches specific hardcoded owner or similar logic
-                    # For now just trust is_admin
+                    # Propagate to game settings for UI
+                    if hasattr(self, 'game') and self.game:
+                        self.game.settings.set("is_admin", self.is_admin)
             except:
                 self.is_admin = False
                 

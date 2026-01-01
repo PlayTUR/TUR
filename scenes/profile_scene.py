@@ -12,6 +12,11 @@ class ProfileScene(Scene):
         self.renaming = False
         self.temp_name = ""
         
+        # Admin check
+        self.is_admin = self.game.settings.get("is_admin") or False
+        if self.is_admin:
+            self.menu_items.insert(0, "ACCESS ADMIN PANEL")
+        
         # Stats Cache
         self.stats = {}
         
@@ -107,6 +112,14 @@ class ProfileScene(Scene):
                    (0, 255, 0) if status == "LOGGED IN" else (150, 150, 150))
         r.draw_text(surface, f"TITLE: {self.stats['title']}", info_x, card_y + 115, theme["secondary"])
         r.draw_text(surface, f"LEVEL: {self.stats['level']}", info_x, card_y + 140, theme["primary"])
+        
+        # Admin Badge
+        if self.is_admin:
+             # Golden Badge
+             badge_y = card_y + 175
+             pygame.draw.rect(surface, (255, 215, 0), (info_x, badge_y, 120, 30))
+             pygame.draw.rect(surface, (255, 255, 255), (info_x, badge_y, 120, 30), 2)
+             r.draw_text(surface, "ROOT ADMIN", info_x + 15, badge_y + 5, (0, 0, 0), r.small_font)
         
         # XP Bar (Inside ID Card panel)
         bar_w = 300
@@ -206,7 +219,11 @@ class ProfileScene(Scene):
             elif event.key == pygame.K_RETURN:
                 self.play_sfx("accept")
                 sel = self.menu_items[self.index]
-                if sel == "CHANGE NAME":
+                if sel == "ACCESS ADMIN PANEL":
+                    # Placeholder or new scene
+                    from scenes.admin_scene import AdminScene
+                    self.game.scene_manager.switch_to(AdminScene)
+                elif sel == "CHANGE NAME":
                     self.renaming = True
                     self.temp_name = self.game.settings.get("name")
                 elif sel == "VIEW LEADERBOARD":
