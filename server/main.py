@@ -56,6 +56,11 @@ app.add_middleware(
 @app.middleware("http")
 async def check_ip_blacklist(request: Request, call_next):
     ip = get_client_ip(request)
+    
+    # Whitelist localhost for admin/ssh actions
+    if ip in ["127.0.0.1", "::1"]:
+        return await call_next(request)
+        
     if blocklist.check_ip(ip):
         # Log basic info but don't spam
         # print(f"Blocked connection from blacklisted IP: {ip}")
