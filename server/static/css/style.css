@@ -38,6 +38,10 @@
     padding: 0;
 }
 
+.hidden {
+    display: none !important;
+}
+
 html {
     scroll-behavior: smooth;
 }
@@ -498,11 +502,39 @@ footer a:hover {
 }
 
 /* === Loader === */
-.loader {
-    text-align: center;
-    padding: 2rem;
+/* === Search Results === */
+.search-result-card {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1rem;
+    margin-bottom: 0.8rem;
+    background: rgba(0, 255, 136, 0.03);
+    border: 1px solid var(--color-border);
+    border-radius: 4px;
+    transition: var(--transition-fast);
+}
+
+.search-result-card:hover {
+    border-color: var(--color-primary);
+    background: rgba(0, 255, 136, 0.08);
+    transform: translateX(5px);
+}
+
+.search-result-card .user-info {
+    display: flex;
+    flex-direction: column;
+}
+
+.search-result-card .username {
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: var(--color-primary);
+}
+
+.search-result-card .stats-summary {
+    font-size: 0.75rem;
     color: var(--color-dim);
-    font-size: 0.85rem;
 }
 
 /* === Profile Stats === */
