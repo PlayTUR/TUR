@@ -159,6 +159,7 @@ const App = {
                 localStorage.setItem('tur_token', data.token);
                 localStorage.setItem('tur_user', data.username);
                 window.location.hash = '#account';
+                App.router();
             } else {
                 errEl.style.display = 'block';
                 errEl.innerText = `ERROR: ${data.message}`;
@@ -190,6 +191,7 @@ const App = {
                 localStorage.setItem('tur_token', data.token);
                 localStorage.setItem('tur_user', data.username);
                 window.location.hash = '#account';
+                App.router();
             } else {
                 errEl.style.display = 'block';
                 errEl.innerText = `REGISTRATION_FAILED: ${data.detail || data.message || "Unknown Error"}`;
