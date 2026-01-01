@@ -53,12 +53,12 @@ const Components = {
         <div class="panel" style="margin: 1.5rem 0;">
             <h3>GETTING STARTED</h3>
             <div class="steps-grid">
-                <div class="step"><span class="step-num">1</span><span class="step-text">Download the ZIP from above</span></div>
-                <div class="step"><span class="step-num">2</span><span class="step-text">Extract anywhere on your PC</span></div>
-                <div class="step"><span class="step-num">3</span><span class="step-text">Run TUR.exe (no install needed)</span></div>
-                <div class="step"><span class="step-num">4</span><span class="step-text">Create account for online features</span></div>
-                <div class="step"><span class="step-num">5</span><span class="step-text">Add MP3/OGG/WAV files to /songs</span></div>
-                <div class="step"><span class="step-num">6</span><span class="step-text">Launch, select song, play!</span></div>
+                <div class="step"><span class="step-num">1</span><span class="step-text">Download the ZIP for your OS</span></div>
+                <div class="step"><span class="step-num">2</span><span class="step-text">Extract to any folder</span></div>
+                <div class="step"><span class="step-num">3</span><span class="step-text">Run: TUR.exe (Win) or ./TUR (Linux)</span></div>
+                <div class="step"><span class="step-num">4</span><span class="step-text">Linux: chmod +x TUR first</span></div>
+                <div class="step"><span class="step-num">5</span><span class="step-text">Add audio files to /songs folder</span></div>
+                <div class="step"><span class="step-num">6</span><span class="step-text">Select a song and play!</span></div>
             </div>
         </div>
 

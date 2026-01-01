@@ -22,12 +22,12 @@ datas = [
     ('story_music', 'story_music'),
     ('mainmenu_music', 'mainmenu_music'),
     ('tools', 'tools'),
-    ('tools', 'tools'),
-    # ('songs', 'songs'), # Excluded as per user request (game generates these)
+    ('songs', 'songs'),  # Empty songs folder for user content
     
-    # Config files
+    # Config and legal files
     ('default_settings.json', '.'),
     ('bans.json', '.'),
+    ('eula.txt', '.'),
 ]
 
 # Add optional files/folders if they exist
