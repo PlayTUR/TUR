@@ -18,13 +18,10 @@ class LobbyScene(Scene):
         self.menu_index = 0
         self.menu_items = ["LAN", "ONLINE", "LEADERBOARD", "BACK"]
         
-        # Server Status
-        self.server_online = False
-        self.checking_status = True
-        self.last_status_check = 0
+        # Server Status (Delegated to MasterClient)
+        # self.server_online is now self.game.master_client.server_online
         
-        # Check initially
-        self._check_server_status()
+        # Check initially handled by on_enter
         
         # Input buffers
         self.code_buffer = ""
@@ -61,13 +58,13 @@ class LobbyScene(Scene):
         # Reset network state
         self.game.network.reset()
 
-    def _check_server_status(self):
-        """Check if master server is online"""
-        def check():
-            self.server_online = self.game.master_client.get_status()
-            self.checking_status = False
-        import threading
-        threading.Thread(target=check, daemon=True).start()
+    def on_enter(self, params=None):
+        # Start rate-limited health check (every 5s)
+        self.game.master_client.start_monitoring()
+        
+    def on_exit(self):
+        # Stop monitoring when leaving multiplayer menu
+        self.game.master_client.stop_monitoring()
         
     def update(self):
         self.blink_timer = (self.blink_timer + 1) % 60
@@ -154,13 +151,16 @@ class LobbyScene(Scene):
         y = 225 # Increased from 210 to clear title bar (180+32+padding)
         for i, item in enumerate(self.menu_items):
             # Disable ONLINE if server is offline
-            disabled = (item == "ONLINE" and not self.server_online)
+            is_online = self.game.master_client.server_online
+            disabled = (item == "ONLINE" and not is_online)
             r.draw_button(surface, item, 120, y, i == self.menu_index, 360, disabled=disabled)
             y += 50
         
-        # Server Status - moved down to avoid clipping
-        status_text = "CHECKING..." if self.checking_status else ("ONLINE" if self.server_online else "OFFLINE")
-        status_color = (150, 150, 150) if self.checking_status else ((100, 255, 100) if self.server_online else theme["error"])
+        # Server Status - rate limited check via MasterClient
+        is_online = self.game.master_client.server_online
+        status_text = "ONLINE" if is_online else "OFFLINE"
+        status_color = (100, 255, 100) if is_online else theme["error"]
+        
         r.draw_text(surface, f"SERVER: {status_text}", 120, y + 40, status_color)
 
         # How it works panel
