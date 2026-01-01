@@ -281,7 +281,7 @@ const Components = {
                 <h3>SESSION_INFO</h3>
                 <p>STATUS: <span style="color: var(--color-primary);">ONLINE</span></p>
                 ${!isPublic ? `
-                    ${App.state.isAdmin ? `<button class="btn" style="margin-top: 1rem; width: 100%; text-align: center;" onclick="window.location.href='m7x9k2.html'">[ACCESS_ROOT_TERMINAL]</button>` : ''}
+                    ${App.state.isAdmin ? `<button class="btn" style="margin-top: 1rem; width: 100%; text-align: center;" onclick="window.location.href='sys_root_77.html'">[ACCESS_ROOT_TERMINAL]</button>` : ''}
                     <button class="btn btn-secondary" style="margin-top: 1rem;" onclick="App.logout()">[TERMINATE_SESSION]</button>
                 ` : `
                     <button class="btn" style="margin-top: 1rem; width: 100%;" onclick="window.location.hash='#leaderboard'">[RETURN]</button>
