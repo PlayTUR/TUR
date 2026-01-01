@@ -160,6 +160,7 @@ class ProfileScene(Scene):
         r.draw_text(surface, "ACCURACY", stats_x, s_y, theme["text"])
         r.draw_text(surface, f"{self.stats['avg_acc']:.2f}%", stats_x, s_y + 25, theme["secondary"], r.big_font)
         
+        r.draw_text(surface, "MAX_COMBO", stats_x + 230, s_y, theme["text"])
         r.draw_text(surface, f"{self.stats['max_combo']}x", stats_x + 230, s_y + 25, theme["primary"], r.big_font)
 
         # ---- BOTTOM PANEL: Global Stats (470 to 970) ----

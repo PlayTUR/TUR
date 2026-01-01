@@ -217,17 +217,18 @@ class LobbyScene(Scene):
         
         r.draw_text(surface, "PLAYERS:", 230, y, theme["text"])
         y += 35
-        h_label = " (HOST)"
-        if self.game.settings.get("is_admin"):
-            h_label = " (ROOT ADMIN)"
-        r.draw_text(surface, f"  1. You{h_label}", 230, y, theme["primary"])
+        # 1. Self
+        label = " (HOST)"
+        if self.game.settings.get("is_admin") and not self.game.settings.get("is_stealth"):
+            label += " [ROOT ADMIN]"
+        r.draw_text(surface, f"  1. You{label}", 230, y, theme["primary"])
         y += 30
         
-        # Display other players
+        # 2. Opponent
         p_name = self.game.network.opponent_name
         p_label = ""
         if getattr(self.game.network, 'opponent_is_admin', False):
-            p_label = " (ROOT ADMIN)"
+            p_label = " [ROOT ADMIN]"
         r.draw_text(surface, f"  2. {p_name}{p_label}", 230, y, theme["text"])
         
         if self.game.network.connected:
@@ -303,14 +304,17 @@ class LobbyScene(Scene):
         
         r.draw_text(surface, "PLAYERS:", 230, y, theme["secondary"])
         y += 30
+        # 1. Host
         h_label = " (HOST)"
         if getattr(self.game.network, 'opponent_is_admin', False):
-            h_label = " (ROOT ADMIN)"
+             h_label += " [ROOT ADMIN]"
         r.draw_text(surface, f"  1. {self.game.network.opponent_name}{h_label}", 230, y, theme["primary"])
         y += 30
+        
+        # 2. Self (Client)
         p2_label = ""
-        if self.game.settings.get("is_admin"):
-            p2_label = " (ROOT ADMIN)"
+        if self.game.settings.get("is_admin") and not self.game.settings.get("is_stealth"):
+            p2_label = " [ROOT ADMIN]"
         r.draw_text(surface, f"  2. You{p2_label}", 230, y, theme["text"])
         y += 50
         
