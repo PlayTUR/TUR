@@ -1155,13 +1155,20 @@ async def promote_user(request: Request):
 
 @app.get("/api/v2/users/search")
 async def search_users(q: str):
-    if len(q) < 2:
+    q = q.strip()
+    if len(q) < 1:
         return {"users": []}
     
     conn = get_db()
     c = conn.cursor()
-    # Search by username, LIMIT 10 for performance
-    c.execute(f"SELECT uname, l_at FROM {TBL_USERS} WHERE uname LIKE ? LIMIT 10", (f"%{q}%",))
+    
+    # Check if query is numeric (ID search)
+    if q.isdigit():
+        c.execute(f"SELECT uname, l_at, level, xp FROM {TBL_USERS} LEFT JOIN {TBL_STATS} ON {TBL_USERS}.id = {TBL_STATS}.uid WHERE {TBL_USERS}.id = ?", (int(q),))
+    else:
+        # Search by username, LIMIT 10 for performance
+        c.execute(f"SELECT uname, l_at, level, xp FROM {TBL_USERS} LEFT JOIN {TBL_STATS} ON {TBL_USERS}.id = {TBL_STATS}.uid WHERE uname LIKE ? LIMIT 10", (f"%{q}%",))
+        
     rows = c.fetchall()
     conn.close()
     
@@ -1169,7 +1176,9 @@ async def search_users(q: str):
     return {
         "users": [{
             "username": r["uname"],
-            "online": (r["l_at"] or 0) > (now - 300)
+            "online": (r["l_at"] or 0) > (now - 300),
+            "level": r["level"] if "level" in r.keys() and r["level"] else 1,
+            "xp": r["xp"] if "xp" in r.keys() and r["xp"] else 0
         } for r in rows]
     }
 
