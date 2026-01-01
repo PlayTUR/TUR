@@ -238,11 +238,11 @@ const Components = {
                 <div style="display: grid; grid-template-columns: 1fr 1fr; margin-bottom: 1rem;">
                      <div>
                         <div style="font-size: 0.8rem; color: var(--color-secondary);">GLOBAL RANK</div>
-                        <div style="font-size: 1.5rem;">#${stats.rank || "-"}</div>
+                        <div style="font-size: 1.5rem;">#${stats?.rank || "-"}</div>
                      </div>
                      <div>
                         <div style="font-size: 0.8rem; color: var(--color-secondary);">LEVEL</div>
-                        <div style="font-size: 1.5rem;">${stats.level}</div>
+                        <div style="font-size: 1.5rem;">${stats?.level || 1}</div>
                      </div>
                 </div>
                 
