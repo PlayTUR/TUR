@@ -432,8 +432,8 @@ const Components = {
                 <div style="display: flex; gap: 1rem; align-items: center; margin-bottom: 0.5rem;">
                     <div style="color: var(--color-dim); font-size: 0.9rem;">ID: #${stats?.id || "---"}</div>
                     ${(() => {
-            // Check if the PROFILE USER is admin (from DB)
-            const isProfileAdmin = (stats?.is_admin);
+            // Check if user is admin AND not in stealth mode
+            const isProfileAdmin = (stats?.is_admin && !stats?.is_stealth);
             const isGuest = !stats || !stats.id;
 
             if (isProfileAdmin) {
