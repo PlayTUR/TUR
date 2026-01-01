@@ -367,7 +367,7 @@ def get_user_from_token(token: str):
         return None
     
     uid = row['uid']
-    c.execute(f"SELECT id, username, is_admin FROM {TBL_USERS} WHERE id = ?", (uid,))
+    c.execute(f"SELECT id, uname as username, is_admin FROM {TBL_USERS} WHERE id = ?", (uid,))
     user = c.fetchone()
     
     # Update last active time (l_at)
