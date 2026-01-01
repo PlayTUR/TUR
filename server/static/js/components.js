@@ -336,26 +336,29 @@ const Components = {
             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 2rem;">
                 <div>
                    <h3>CORE_SERVICES</h3>
-                   <p>API_GATEWAY: <span style="color: var(--color-primary);">ONLINE</span></p>
-                   <p>DATABASE_SHARD: <span style="color: var(--color-primary);">ONLINE</span></p>
-                   <p>AUTH_MODULE: <span style="color: var(--color-primary);">ONLINE</span></p>
+                   <p>API_GATEWAY: <span style="color: ${status.api ? 'var(--color-primary)' : 'var(--color-error)'};">${status.api ? 'ONLINE' : 'OFFLINE'}</span></p>
+                   <p>DATABASE_SHARD: <span style="color: ${status.api ? 'var(--color-primary)' : 'var(--color-error)'};">${status.api ? 'ONLINE' : 'OFFLINE'}</span></p>
+                   <p>AUTH_MODULE: <span style="color: ${status.api ? 'var(--color-primary)' : 'var(--color-error)'};">${status.api ? 'ONLINE' : 'OFFLINE'}</span></p>
                    <p>DISCORD_UPLINK: <span style="color: ${status.discord ? 'var(--color-primary)' : 'var(--color-error)'};">${status.discord ? 'CONNECTED' : 'OFFLINE'}</span></p>
                 </div>
                 <div>
                     <h3>PERFORMANCE_METRICS</h3>
-                    <p>LATENCY: ${Math.floor(Math.random() * 20 + 10)}ms</p>
-                    <p>SERVER_LOAD: ${Math.floor(Math.random() * 10 + 1)}%</p>
-                    <p>ACTIVE_OPERATORS: ${Math.floor(Math.random() * 50 + 5)}</p>
+                    <p>LATENCY: ${status.latency || "---"}ms</p>
+                    <p>SERVER_LOAD: ${status.load || "---"}%</p>
+                    <p>ACTIVE_OPERATORS: ${status.active || "---"}</p>
                 </div>
             </div>
             
             <div style="margin-top: 2rem; border-top: 1px solid var(--color-grid); padding-top: 1rem;">
                 <h3>MAINTENANCE_LOG</h3>
-                <p class="blink" style="color: var(--color-primary);">[SYSTEM_ALL_CLEAR] NO INCIDENTS REPORTED.</p>
+                ${status.api
+            ? `<p class="blink" style="color: var(--color-primary);">[SYSTEM_ALL_CLEAR] NO INCIDENTS REPORTED.</p>`
+            : `<p class="blink" style="color: var(--color-error);">[CRITICAL_FAILURE] UNABLE_TO_REACH_CORE_SERVICES.</p>`
+        }
             </div>
             
             <div style="text-align: center; margin-top: 2rem;">
-                <button class="btn" onclick="window.history.back()">[RETURN]</button>
+                <button class="btn" onclick="window.location.hash='#home'">[RETURN]</button>
             </div>
         </div>
     `
