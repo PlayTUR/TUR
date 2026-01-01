@@ -101,23 +101,22 @@ class AuthScene(Scene):
         if getattr(self, 'reset_hint', False) and time.time() < getattr(self, 'reset_hint_timer', 0):
             r.draw_text(surface, "Forgot password? Reset at:", px + 50, py + 230, (150, 150, 200))
             r.draw_text(surface, "tur.wyind.dev", px + 50, py + 250, (100, 100, 255))
-        # Remember Me Checkbox
-        chk_y = py + 185
-        chk_x = px + (panel_w - 200) // 2
-        chk_char = "x" if self.remember_me else " "
-        # Use primary color instead of non-existent 'success' key
-        chk_col = theme["primary"] if self.remember_me else (100, 100, 100)
-        
-        # Draw box
-        r.draw_text(surface, f"[{chk_char}] REMEMBER ME", chk_x, chk_y, chk_col if self.active_field == 2 else theme["text"])
         if self.active_field == 2:
-             pygame.draw.rect(surface, theme["primary"], (chk_x - 10, chk_y - 5, 220, 30), 1)
+            # Highlight 'Remember Me' when active but don't draw it separately here
+            pass
 
         # Controls
-        controls_y = py + 240
+        controls_y = py + 220
         r.draw_text(surface, "[TAB] Switch Field", px + 30, controls_y, (100, 100, 100))
         r.draw_text(surface, "[ENTER] Login", px + 30, controls_y + 25, (100, 100, 100))
-        r.draw_text(surface, "[ESC] Cancel", px + 30, controls_y + 50, (100, 100, 100))
+        
+        # "Remember Me" integrated into controls (replacing position of ESC roughly)
+        chk_char = "x" if self.remember_me else " "
+        chk_col = theme["primary"] if self.active_field == 2 else (100, 100, 100)
+        r.draw_text(surface, f"[{chk_char}] REMEMBER ME", px + 30, controls_y + 50, chk_col)
+        
+        # Move Exit below
+        r.draw_text(surface, "[ESC] Cancel", px + 30, controls_y + 75, (100, 100, 100))
         
         # Register link (only shown when not typing)
         # Register link (wrapped)
