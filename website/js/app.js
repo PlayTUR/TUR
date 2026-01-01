@@ -161,7 +161,7 @@ const App = {
 
                     content.innerHTML = Components.Profile(profile.username, profile.stats, true, profile.online, profile.avatar_id);
                 }).catch(err => {
-                    content.innerHTML = Components.Error("OPERATOR_NOT_FOUND");
+                    content.innerHTML = Components.Error(err.message || "OPERATOR_NOT_FOUND");
                 });
                 break;
             default:
