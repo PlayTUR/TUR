@@ -163,6 +163,8 @@ class ProfileScene(Scene):
         is_admin = data.get("is_admin", False) is True
         is_stealth = data.get("is_stealth", False) is True
         
+        # print(f"DEBUG PROFILE DRAW: admin={is_admin}, stealth={is_stealth}, data={data}")
+        
         lvl = stats.get("level", 1)
         xp = stats.get("xp", 0)
         rank = stats.get("rank", 0)
