@@ -113,15 +113,16 @@ const App = {
             case 'account':
                 if (App.state.token) {
                     content.innerHTML = Components.Loader();
-                    Promise.all([App.fetchProfile(), App.fetchRecoveryKey()]).then(([profileData, recoveryData]) => {
+                    App.fetchProfile().then(profileData => {
                         content.innerHTML = Components.Profile(profileData.username, profileData.stats, false, profileData.online, profileData.avatar_id);
 
-                        // Show recovery key warning if just registered or if user wants to see it
-                        if (App.state.showRecoveryOnce) {
+                        // Show recovery key warning if just registered (using state)
+                        if (App.state.showRecoveryOnce && App.state.tempKey) {
                             const container = document.createElement('div');
-                            container.innerHTML = Components.RecoveryKeyDisplay(recoveryData.recovery_key);
+                            container.innerHTML = Components.RecoveryKeyDisplay(App.state.tempKey);
                             content.prepend(container);
                             App.state.showRecoveryOnce = false;
+                            App.state.tempKey = null;
                         }
 
                         const sel = document.getElementById('theme-select');
@@ -214,6 +215,7 @@ const App = {
                 // Return success and show recovery key once
                 App.state.showRecoveryOnce = true;
                 if (data.recovery_key) {
+                    App.state.tempKey = data.recovery_key;
                     alert("REGISTRATION_SUCCESSFUL! [CRITICAL: WRITE DOWN YOUR RECOVERY KEY]: " + data.recovery_key);
                 }
 
