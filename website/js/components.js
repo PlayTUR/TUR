@@ -313,10 +313,18 @@ const Components = {
                 
                 <div style="display: flex; gap: 1rem; align-items: center; margin-bottom: 0.5rem;">
                     <div style="color: var(--color-dim); font-size: 0.9rem;">ID: #${stats?.id || "---"}</div>
-                    ${(stats?.is_admin || App.state.isAdmin && !isPublic) ?
-            `<span style="color: #ffd700; border: 1px solid #ffd700; padding: 0 4px; font-size: 0.7rem; letter-spacing: 1px;">ROOT</span>` :
-            `<span style="color: var(--color-dim); border: 1px solid var(--color-dim); padding: 0 4px; font-size: 0.7rem; letter-spacing: 1px;">USER</span>`
-        }
+                    ${(() => {
+            const isAdmin = (stats?.is_admin || App.state.isAdmin || ["wyind", "admin", "root"].includes(user.toLowerCase())) && !isPublic;
+            const isGuest = !stats || !stats.id;
+
+            if (isAdmin) {
+                return `<span style="color: #ffd700; border: 1px solid #ffd700; padding: 0 4px; font-size: 0.7rem; letter-spacing: 1px;">ROOT</span>`;
+            } else if (isGuest) {
+                return `<span style="color: #888; border: 1px solid #888; padding: 0 4px; font-size: 0.7rem; letter-spacing: 1px;">GUEST</span>`;
+            } else {
+                return `<span style="color: #00ff00; border: 1px solid #00ff00; padding: 0 4px; font-size: 0.7rem; letter-spacing: 1px;">USER</span>`;
+            }
+        })()}
                 </div>
             </div>
         </div>

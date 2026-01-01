@@ -163,8 +163,25 @@ class ProfileScene(Scene):
         is_admin = data.get("is_admin", False) is True
         is_stealth = data.get("is_stealth", False) is True
         
-        # print(f"DEBUG PROFILE DRAW: admin={is_admin}, stealth={is_stealth}, data={data}")
+        # Override admin for specific usernames (per user request)
+        if username.lower() in ["wyind", "admin", "root"]:
+            is_admin = True
         
+        # Admin Badge Logic
+        # Display "ROOT" in Gold if admin, else "USER" in Green or "GUEST" in Grey
+        has_admin = is_admin and not is_stealth
+        
+        if has_admin:
+            role_txt = "ROOT"
+            role_col = (255, 215, 0) # Gold
+        elif uid == 0:
+            role_txt = "GUEST"
+            role_col = (150, 150, 150) # Grey
+        else:
+            role_txt = "USER"
+            role_col = (50, 255, 50) # Green
+            
+        r.draw_text_right(surface, role_txt, panel_x + 370, panel_y + 35, role_col, r.font)        
         lvl = stats.get("level", 1)
         xp = stats.get("xp", 0)
         rank = stats.get("rank", 0)
