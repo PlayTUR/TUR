@@ -946,9 +946,9 @@ class LobbyScene(Scene):
                 r.draw_text(surface, "Be the first to host!", 400, 320, theme["secondary"])
         else:
             # Header row
-            r.draw_text(surface, "NAME", 120, 190, theme["secondary"])
-            r.draw_text(surface, "HOST", 450, 190, theme["secondary"])
-            r.draw_text(surface, "PLAYERS", 700, 190, theme["secondary"])
+            r.draw_text(surface, "NAME", 140, 190, theme["secondary"])
+            r.draw_text(surface, "HOST", 460, 190, theme["secondary"])
+            r.draw_text(surface, "PLAYERS", 710, 190, theme["secondary"])
             
             y = 220
             visible_count = 8
@@ -968,9 +968,9 @@ class LobbyScene(Scene):
                 players = f"{srv.get('player_count', 1)}/{srv.get('max_players', 2)}"
                 
                 color = theme["primary"] if selected else theme["text"]
-                r.draw_text(surface, name, 120, y, color)
-                r.draw_text(surface, host_name, 450, y, (150, 150, 150))
-                r.draw_text(surface, players, 720, y, (150, 150, 150))
+                r.draw_text(surface, name, 140, y, color)
+                r.draw_text(surface, host_name, 460, y, (150, 150, 150))
+                r.draw_text(surface, players, 730, y, (150, 150, 150))
                 
                 if srv.get("password_protected"):
                     r.draw_text(surface, "🔒", 850, y, (255, 100, 100))
