@@ -379,6 +379,53 @@ const App = {
             load: apiOnline ? Math.floor(Math.random() * 5 + 1) : 0,
             active: apiOnline ? Math.floor(Math.random() * 20 + 5) : 0
         };
+    },
+
+    // --- Download Modal Logic ---
+    showDownloadModal: () => {
+        // Inject styles if missing
+        if (!document.getElementById('modal-styles')) {
+            const style = document.createElement('style');
+            style.id = 'modal-styles';
+            style.textContent = `
+                .modal-overlay { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.8); z-index: 1000; display: flex; align-items: center; justify-content: center; backdrop-filter: blur(5px); }
+                .modal-box { background: var(--color-bg); border: 2px solid var(--color-primary); padding: 0; max-width: 500px; width: 90%; box-shadow: 0 0 20px rgba(0,0,0,0.5); position: relative; }
+                .modal-header { background: var(--color-grid); padding: 1rem; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--color-primary); }
+                .modal-header h3 { margin: 0; color: var(--color-primary); font-family: 'JetBrains Mono'; }
+                .modal-close { background: none; border: none; color: var(--color-text); font-size: 1.5rem; cursor: pointer; }
+                .modal-content { padding: 2rem; text-align: center; }
+                .platform-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin: 2rem 0; }
+                .btn-win, .btn-nix { display: flex; flex-direction: column; align-items: center; padding: 1.5rem; border: 1px solid var(--color-dim); background: rgba(255,255,255,0.05); color: var(--color-text); cursor: pointer; transition: all 0.2s; }
+                .btn-win:hover { border-color: #00a8e8; background: rgba(0,168,232,0.1); transform: translateY(-2px); }
+                .btn-nix:hover { border-color: #fca311; background: rgba(252,163,17,0.1); transform: translateY(-2px); }
+                .btn-win .icon, .btn-nix .icon { font-size: 2rem; margin-bottom: 0.5rem; }
+                .btn-win .sub, .btn-nix .sub { font-size: 0.7rem; color: var(--color-dim); margin-top: 0.5rem; }
+                .modal-footer { margin-top: 1rem; font-size: 0.8rem; }
+                .modal-footer a { color: var(--color-secondary); text-decoration: none; }
+                .modal-footer a:hover { text-decoration: underline; }
+            `;
+            document.head.appendChild(style);
+        }
+
+        const container = document.createElement('div');
+        container.innerHTML = Components.DownloadModal();
+        document.body.appendChild(container.firstElementChild);
+    },
+
+    closeDownloadModal: () => {
+        const modal = document.getElementById('dl-modal-overlay');
+        if (modal) modal.remove();
+    },
+
+    download: (os) => {
+        const urls = {
+            'win': 'https://github.com/PlayTUR/TUR/releases/latest/download/TUR-Windows.zip',
+            'lin': 'https://github.com/PlayTUR/TUR/releases/latest/download/TUR-Linux.zip'
+        };
+        if (urls[os]) {
+            window.location.href = urls[os]; // Direct download
+            // App.closeDownloadModal(); // Optional: keep open or close
+        }
     }
 };
 

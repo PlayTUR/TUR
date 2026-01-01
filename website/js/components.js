@@ -49,13 +49,40 @@ const Components = {
         </div>
     `,
 
+    DownloadModal: () => `
+        <div id="dl-modal-overlay" class="modal-overlay" onclick="App.closeDownloadModal()">
+            <div class="modal-box" onclick="event.stopPropagation()">
+                <div class="modal-header">
+                    <h3>SELECT_PLATFORM</h3>
+                    <button class="modal-close" onclick="App.closeDownloadModal()">×</button>
+                </div>
+                <div class="modal-content">
+                    <p>Choose your operating system for direct download:</p>
+                    <div class="platform-grid">
+                        <button class="btn btn-win" onclick="App.download('win')">
+                            <span class="icon">🪟</span> WINDOWS
+                            <span class="sub">.zip (64-bit)</span>
+                        </button>
+                        <button class="btn btn-nix" onclick="App.download('lin')">
+                            <span class="icon">🐧</span> LINUX
+                            <span class="sub">.zip (x86_64)</span>
+                        </button>
+                    </div>
+                    <div class="modal-footer">
+                        <a href="https://github.com/PlayTUR/TUR/releases/latest" target="_blank">View all releases on GitHub</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `,
+
     Home: () => `
         <div class="hero">
             <h1 class="glitch">THE UNNAMED RHYTHM GAME</h1>
             <p class="subtitle"><span>></span> A 4-key rhythm game with custom song support</p>
             
             <div style="display: flex; gap: 1rem; justify-content: center; flex-wrap: wrap;">
-                <button id="download-btn" class="btn btn-primary" onclick="Utils.downloadGame()">CHECKING...</button>
+                <button id="download-btn" class="btn btn-primary" onclick="App.showDownloadModal()">DOWNLOAD NOW</button>
                 <a href="#leaderboard" class="btn btn-secondary">LEADERBOARD</a>
                 <a href="https://discord.gg/FSXS54PdpQ" target="_blank" class="btn btn-discord">DISCORD</a>
             </div>
