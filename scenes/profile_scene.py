@@ -87,12 +87,14 @@ class ProfileScene(Scene):
                  return
 
             # 1. Ensure we are logged in
+            attempted_auto_auth = False
             if not self.game.master_client.logged_in:
                 # Attempt Auto-Auth from saved token (Lazy Login)
                 saved_token = self.game.settings.get("auth_token")
                 if saved_token:
                      self.game.master_client.auth_token = saved_token
                      self.game.master_client.logged_in = True
+                     attempted_auto_auth = True
                      # Retry fetch basically immediately by falling through to step 2
                 else:
                     # genuinely guest
@@ -125,7 +127,20 @@ class ProfileScene(Scene):
                 # but we hide the badge in the UI.
                 
             else:
-                self.error_msg = "Failed to load profile data."
+                # Data fetch failed. 
+                if attempted_auto_auth:
+                    # If we just tried to auto-login and failed, the token is likely bad.
+                    # Revert to Guest instead of showing error.
+                    print("Auto-Auth failed (Invalid Token). Reverting to Guest.")
+                    self.game.master_client.logout()
+                    self.game.settings.set("auth_token", None) # Clear bad token
+                    self.game.settings.set("logged_in", False)
+                    
+                    self.profile_data = self._get_guest_profile()
+                    self.connection_status = "GUEST"
+                    # User will see "GUEST ACCESS" and can just login again.
+                else:
+                    self.error_msg = "Failed to load profile data."
                 
             # Add Reauthenticate if not OK
             if self.connection_status != "OK" and "REAUTHENTICATE" not in self.menu_items:
