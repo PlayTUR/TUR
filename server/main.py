@@ -1122,11 +1122,12 @@ async def get_leaderboard():
     now = time.time()
     # Filter out banned users
     c.execute(f"""
-        SELECT s.xp, s.lvl, s.t_score, u.uname, u.is_admin 
-        FROM {TBL_STATS} s
-        JOIN {TBL_USERS} u ON s.uid = u.id
+        SELECT COALESCE(s.xp, 0) as xp, COALESCE(s.lvl, 1) as lvl, COALESCE(s.t_score, 0) as t_score, u.uname, u.is_admin 
+        FROM {TBL_USERS} u
+        LEFT JOIN {TBL_STATS} s ON u.id = s.uid
         WHERE u.id NOT IN (SELECT uid FROM {TBL_BANS} WHERE exp IS NULL OR exp > ?)
-        ORDER BY s.xp DESC, u.id ASC
+        AND COALESCE(s.xp, 0) > 0
+        ORDER BY COALESCE(s.xp, 0) DESC, u.id ASC
         LIMIT 50
     """, (now,))
     rows = c.fetchall()
@@ -1178,8 +1179,11 @@ async def get_my_stats(request: Request):
     # 3. Global Rank (by XP)
     # Count how many users have more XP than me
     my_xp = stats['xp'] if stats else 0
-    c.execute(f"SELECT COUNT(*) FROM {TBL_STATS} WHERE xp > ? OR (xp = ? AND uid < ?)", (my_xp, my_xp, uid))
-    rank = c.fetchone()[0] + 1
+    if my_xp > 0:
+        c.execute(f"SELECT COUNT(*) FROM {TBL_USERS} u LEFT JOIN {TBL_STATS} s ON u.id = s.uid WHERE (COALESCE(s.xp, 0) > ?) OR (COALESCE(s.xp, 0) = ? AND u.id < ?)", (my_xp, my_xp, uid))
+        rank = c.fetchone()[0] + 1
+    else:
+        rank = "N/A"
     
     conn.close()
     
@@ -1446,8 +1450,11 @@ async def get_public_profile(username: str):
     
     # 3. Global Rank (by XP)
     my_xp = stats['xp'] if stats else 0
-    c.execute(f"SELECT COUNT(*) FROM {TBL_STATS} WHERE xp > ? OR (xp = ? AND uid < ?)", (my_xp, my_xp, uid))
-    rank = c.fetchone()[0] + 1
+    if my_xp > 0:
+        c.execute(f"SELECT COUNT(*) FROM {TBL_USERS} u LEFT JOIN {TBL_STATS} s ON u.id = s.uid WHERE (COALESCE(s.xp, 0) > ?) OR (COALESCE(s.xp, 0) = ? AND u.id < ?)", (my_xp, my_xp, uid))
+        rank = c.fetchone()[0] + 1
+    else:
+        rank = "N/A"
     
     conn.close()
     
