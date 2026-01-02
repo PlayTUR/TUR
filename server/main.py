@@ -139,9 +139,37 @@ async def validate_client(request: Request, call_next):
 @app.websocket("/ws/{room_id}/{client_id}")
 async def websocket_endpoint(websocket: WebSocket, room_id: str, client_id: str):
     try:
+        # Check Auth
+        uid = None
+        auth = websocket.headers.get("Authorization")
+        if auth and auth.startswith("Bearer "):
+             tk = auth.split(" ")[1]
+             user = get_user_from_token(tk)
+             if user:
+                 uid = user['id']
+                 print(f"[WS] Auth User: {user['uname']}")
+
         await manager.connect(websocket, room_id)
+        
+        last_update = time.time()
+        
         try:
             while True:
+                # Receive with timeout to allow periodic updates? 
+                # Or just update when receiving message? 
+                # Better: Use asyncio.wait_for or just update on activity
+                # Simplest: Update on every message, but if idle, they might show offline.
+                # Ideally, simple heartbeat from client or just trust activity.
+                
+                # Update l_at if authenticated
+                if uid and (time.time() - last_update > 60):
+                     conn = get_db()
+                     c = conn.cursor()
+                     c.execute(f"UPDATE {TBL_USERS} SET l_at = ? WHERE id = ?", (time.time(), uid))
+                     conn.commit()
+                     conn.close()
+                     last_update = time.time()
+                
                 data = await websocket.receive_text()
                 await manager.broadcast(data, room_id, websocket)
         except WebSocketDisconnect:
@@ -1098,7 +1126,7 @@ async def get_leaderboard():
         FROM {TBL_STATS} s
         JOIN {TBL_USERS} u ON s.uid = u.id
         WHERE u.id NOT IN (SELECT uid FROM {TBL_BANS} WHERE exp IS NULL OR exp > ?)
-        ORDER BY s.xp DESC
+        ORDER BY s.xp DESC, u.id ASC
         LIMIT 50
     """, (now,))
     rows = c.fetchall()
@@ -1150,7 +1178,7 @@ async def get_my_stats(request: Request):
     # 3. Global Rank (by XP)
     # Count how many users have more XP than me
     my_xp = stats['xp'] if stats else 0
-    c.execute(f"SELECT COUNT(*) FROM {TBL_STATS} WHERE xp > ?", (my_xp,))
+    c.execute(f"SELECT COUNT(*) FROM {TBL_STATS} WHERE xp > ? OR (xp = ? AND uid < ?)", (my_xp, my_xp, uid))
     rank = c.fetchone()[0] + 1
     
     conn.close()
@@ -1418,16 +1446,17 @@ async def get_public_profile(username: str):
     
     # 3. Global Rank (by XP)
     my_xp = stats['xp'] if stats else 0
-    c.execute(f"SELECT COUNT(*) FROM {TBL_STATS} WHERE xp > ?", (my_xp,))
+    c.execute(f"SELECT COUNT(*) FROM {TBL_STATS} WHERE xp > ? OR (xp = ? AND uid < ?)", (my_xp, my_xp, uid))
     rank = c.fetchone()[0] + 1
     
     conn.close()
     
     return {
+        "id": u_row['id'],
         "username": u_row['uname'],
         "online": (u_row['l_at'] or 0) > (time.time() - 300),
         "avatar_id": u_row['avatar_id'] if 'avatar_id' in u_row.keys() else 0,
-        "is_admin": bool(u_row['is_admin']) if not u_row.get('is_stealth') else False,
+        "is_admin": bool(u_row['is_admin']) if not u_row['is_stealth'] else False,
         "stats": {
             "score": stats['t_score'] if stats else 0,
             "plays": stats['t_plays'] if stats else 0,

@@ -596,7 +596,13 @@ class NetworkManager:
         
         try:
             self.status_message = f"Connecting to relay..."
-            async with websockets.connect(uri) as websocket:
+            
+            # Auth Headers
+            headers = {}
+            if hasattr(self, 'game') and self.game.settings.get("auth_token"):
+                 headers["Authorization"] = f"Bearer {self.game.settings.get('auth_token')}"
+                 
+            async with websockets.connect(uri, extra_headers=headers) as websocket:
                 self.relay_ws = websocket
                 self.connected = True
                 self.connecting = False

@@ -92,6 +92,7 @@ class Game:
         self.discord = DiscordRPCManager(self)
         self.generator = BeatmapGenerator()
         self.network = NetworkManager()
+        self.network.game = self
         self.master_client = get_master_client()
         self.master_client.start_monitoring()
         self.updater = get_updater()

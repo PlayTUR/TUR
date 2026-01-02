@@ -426,7 +426,10 @@ const Components = {
             
             <div style="flex: 1;">
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
-                    <h2 style="margin: 0;">OPERATOR_PROFILE: ${user}</h2>
+                    <h2 style="margin: 0; display: flex; align-items: center; gap: 0.5rem;">
+                        OPERATOR_PROFILE: ${user}
+                        ${isOnline ? '<span class="status-dot" style="width: 10px; height: 10px; background: #00ff00; border-radius: 50%; box-shadow: 0 0 10px #00ff00; display: inline-block;"></span>' : ''}
+                    </h2>
                 </div>
                 
                 <div style="display: flex; gap: 1rem; align-items: center; margin-bottom: 0.5rem;">
