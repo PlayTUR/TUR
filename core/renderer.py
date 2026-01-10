@@ -113,17 +113,44 @@ class PygameRenderer:
         bf = self.fonts["big_default"]
         
         if lang == "JP":
-            # Try to find a CJK font
-            cjk_candidates = ["notosanscjkjp", "notosansgothic", "notosanscjksc", "takaoexgothic", "msgothic"]
-            all_fonts = pygame.font.get_fonts()
+            # Explicitly check for Noto Sans CJK on Linux and MS Gothic/Meiryo on Windows
+            cjk_paths = [
+                # Linux Paths
+                "/usr/share/fonts/noto-cjk/NotoSansCJK-Regular.ttc",
+                "/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc",
+                "/usr/share/fonts/truetype/noto/NotoSansCJK-Regular.ttc",
+                # Windows Paths
+                "C:\\Windows\\Fonts\\msgothic.ttc",
+                "C:\\Windows\\Fonts\\meiryo.ttc",
+                "C:\\Windows\\Fonts\\yugothr.ttc"
+            ]
             
-            for candidate in cjk_candidates:
-                if candidate in all_fonts:
-                    try:
-                        f = pygame.font.SysFont(candidate, 20, bold=True)
-                        bf = pygame.font.SysFont(candidate, 40, bold=True)
-                        break
-                    except: continue
+            font_path = None
+            for p in cjk_paths:
+                if os.path.exists(p):
+                    font_path = p
+                    break
+            
+            if font_path:
+                try:
+                    f = pygame.font.Font(font_path, 20)
+                    bf = pygame.font.Font(font_path, 40)
+                    print(f"Loaded CJK Font from: {font_path}")
+                except Exception as e:
+                    print(f"Failed to load CJK font {font_path}: {e}")
+            else:
+                # Fallback to system font search (works well on Windows for installed fonts)
+                cjk_candidates = ["msgothic", "meiryo", "yugothic", "notosanscjkjp", "notosansgothic", "takaoexgothic"]
+                all_fonts = pygame.font.get_fonts()
+                
+                for candidate in cjk_candidates:
+                    if candidate in all_fonts:
+                        try:
+                            f = pygame.font.SysFont(candidate, 20, bold=True)
+                            bf = pygame.font.SysFont(candidate, 40, bold=True)
+                            print(f"Loaded CJK SysFont: {candidate}")
+                            break
+                        except: continue
         
         self.fonts["current_font"] = f
         self.fonts["current_big_font"] = bf

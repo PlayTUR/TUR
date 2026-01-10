@@ -61,10 +61,31 @@ if exist "dist\TUR\internal\sfx" (
     move "dist\TUR\internal\sfx" "dist\TUR\" >nul
 )
 
+REM Rename to TUR-Windows for distribution
+if exist "dist\TUR" (
+    if exist "dist\TUR-Windows" rmdir /s /q "dist\TUR-Windows"
+    ren "dist\TUR" "TUR-Windows"
+)
+
 echo.
 echo === Build Complete ===
-echo Executable: dist\TUR\TUR.exe
-echo Game Root:  dist\TUR\
+echo Executable: dist\TUR-Windows\TUR.exe
+echo Game Root:  dist\TUR-Windows\
+echo.
+
+REM Create ZIP archive
+echo === Creating ZIP Archive ===
+cd dist
+where powershell >nul 2>nul
+if %ERRORLEVEL% equ 0 (
+    if exist "TUR-Windows.zip" del "TUR-Windows.zip"
+    powershell -Command "Compress-Archive -Path 'TUR-Windows' -DestinationPath 'TUR-Windows.zip' -Force"
+    echo Created: dist\TUR-Windows.zip
+) else (
+    echo Warning: PowerShell not found, skipping ZIP creation
+)
+cd ..
+
 echo.
 echo NOTE: Users will need yt-dlp for song downloads:
 echo   pip install yt-dlp

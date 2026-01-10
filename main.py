@@ -32,6 +32,54 @@ if platform.system() == "Linux":
     # This prevents tiling issues and flickering
     os.environ['SDL_VIDEO_X11_NET_WM_BYPASS_COMPOSITOR'] = "0"
 
+
+def create_linux_desktop_entry():
+    """Create a .desktop entry for easy launching on Linux."""
+    if platform.system() != "Linux":
+        return
+    
+    # Check if we've already created it
+    marker_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), ".desktop_created")
+    if os.path.exists(marker_file):
+        return
+    
+    try:
+        # Get paths
+        exe_path = os.path.abspath(sys.argv[0])
+        exe_dir = os.path.dirname(exe_path)
+        icon_path = os.path.join(exe_dir, "tur.ico")
+        
+        # Use XDG applications directory
+        apps_dir = os.path.expanduser("~/.local/share/applications")
+        os.makedirs(apps_dir, exist_ok=True)
+        
+        desktop_content = f"""[Desktop Entry]
+Name=TUR
+Comment=Terminal Underground Rhythm Game
+Exec={exe_path}
+Icon={icon_path}
+Terminal=false
+Type=Application
+Categories=Game;
+StartupWMClass=tur
+"""
+        
+        desktop_path = os.path.join(apps_dir, "tur.desktop")
+        with open(desktop_path, 'w') as f:
+            f.write(desktop_content)
+        
+        # Make it executable
+        os.chmod(desktop_path, 0o755)
+        
+        # Create marker file
+        with open(marker_file, 'w') as f:
+            f.write("1")
+        
+        print(f"Created desktop entry: {desktop_path}")
+    except Exception as e:
+        print(f"Failed to create desktop entry: {e}")
+
+
 # Main Pygame Entry Point
 class Game:
     def __init__(self):
@@ -433,5 +481,6 @@ class Game:
             self.play_playlist_track(fade_ms=500)
 
 if __name__ == "__main__":
+    create_linux_desktop_entry()
     game = Game()
     game.run()

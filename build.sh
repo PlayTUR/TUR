@@ -58,5 +58,19 @@ echo "=== Build Complete ==="
 echo "Executable: dist/TUR-Linux/TUR"
 echo "Game Root:  dist/TUR-Linux/"
 echo ""
+
+# Create ZIP archive
+echo "=== Creating ZIP Archive ==="
+cd dist
+if command -v zip &> /dev/null; then
+    rm -f TUR-Linux.zip
+    zip -r TUR-Linux.zip TUR-Linux
+    echo "Created: dist/TUR-Linux.zip"
+else
+    echo "Warning: 'zip' command not found, skipping archive creation"
+fi
+cd ..
+
+echo ""
 echo "NOTE: Users will need yt-dlp for song downloads:"
 echo "  pip install yt-dlp"

@@ -10,7 +10,7 @@ from core.scene_manager import Scene
 from core.config import *
 
 # Website URL for registration
-REGISTER_URL = "https://tur.wyind.dev/register"  # Change to your website
+REGISTER_URL = "https://wyind.dev/#account"
 
 class AuthScene(Scene):
     def __init__(self, game):
@@ -112,7 +112,7 @@ class AuthScene(Scene):
         # Register link - Simplified formatting
         reg_x = px + panel_w - 160
         r.draw_text(surface, "No account?", reg_x, controls_y, (100, 100, 100))
-        r.draw_text(surface, "[R] Register", reg_x, controls_y + 25, theme["primary"])
+        r.draw_text(surface, "[F2] Register", reg_x, controls_y + 25, theme["primary"])
 
         # Error Message Overlay (Moved to end for Z-Index)
         if time.time() < self.error_timer:
@@ -137,6 +137,15 @@ class AuthScene(Scene):
                  self.remember_me = not self.remember_me
                  self.play_sfx("blip")
                 
+            elif event.key == pygame.K_F2:
+                # Open URL
+                self.play_sfx("accept")
+                try:
+                    print(f"Opening register URL: {REGISTER_URL}")
+                    webbrowser.open(REGISTER_URL)
+                except Exception as e:
+                    print(f"Failed to open URL: {e}")
+
             elif event.key == pygame.K_RETURN:
                 if self.active_field == 0 and self.username:
                     self.active_field = 1

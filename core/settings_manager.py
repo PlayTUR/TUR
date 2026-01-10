@@ -54,8 +54,19 @@ DEFAULT_SETTINGS = {
     "language": "EN",
     "vim_mode": False,
     "note_skin": "DEFAULT",
-    "update_source": "github",
 }
+
+# Keys that should not be saved to disk (handled by server or session-only)
+EXCLUDED_KEYS = [
+    "auth_token",  # Stored separately in session.dat
+    "update_source", 
+    "is_stealth", 
+    "name", 
+    "username",
+    "account_type", 
+    "logged_in",
+    "is_admin"
+]
 
 class SettingsManager:
     def __init__(self):
@@ -84,14 +95,10 @@ class SettingsManager:
                     data = json.load(f)
                     # Merge data into defaults to ensure new keys exist
                     for k, v in data.items():
-                        # Skip is_admin
-                        if k == "is_admin": continue
+                        # Skip excluded keys if they crept in
+                        if k in EXCLUDED_KEYS: continue
                         
-                        if k == "auth_token" and v:
-                            # De-obfuscate token on load
-                            self.settings[k] = self._deobfuscate(v)
-                        else:
-                            self.settings[k] = v
+                        self.settings[k] = v
             except Exception as e:
                 print(f"Failed to load settings: {e}")
         
@@ -108,45 +115,34 @@ class SettingsManager:
 
     def save(self):
         try:
-            # Create a copy to obfuscate sensitive data before writing
-            save_data = self.settings.copy()
-            
-            # Obfuscate auth_token if present
-            if save_data.get("auth_token"):
-                save_data["auth_token"] = self._obfuscate(save_data["auth_token"])
-                
-            # Remove is_admin if it crept in
-            if "is_admin" in save_data:
-                del save_data["is_admin"]
+            # Create a copy and remove excluded keys
+            save_data = {}
+            for k, v in self.settings.items():
+                if k not in EXCLUDED_KEYS:
+                    save_data[k] = v
             
             with open(STATS_FILE, 'w') as f:
                 json.dump(save_data, f, indent=4)
         except Exception as e:
             print(f"Failed to save settings: {e}")
 
-    def _obfuscate(self, text):
-        if not text: return None
-        try:
-            b = text.encode()
-            for _ in range(20):
-                b = base64.b64encode(b)
-            return b.decode()
-        except: return None
-
-    def _deobfuscate(self, text):
-        if not text: return None
-        try:
-            b = text.encode()
-            for _ in range(20):
-                b = base64.b64decode(b)
-            return b.decode()
-        except: 
-            # If decode fails (e.g. not b64 or not 20 times), assume invalid
-            return None
-
     def get(self, key, default=None):
+        # Special handling for auth_token - load from secure storage
+        if key == "auth_token":
+            from core.token_store import load_token
+            return load_token()
         return self.settings.get(key, default if default is not None else DEFAULT_SETTINGS.get(key))
 
     def set(self, key, value):
+        # Special handling for auth_token - save to secure storage
+        if key == "auth_token":
+            from core.token_store import save_token, clear_token
+            if value:
+                save_token(value)
+            else:
+                clear_token()
+            return
+        
         self.settings[key] = value
         self.save()
+

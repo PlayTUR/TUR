@@ -442,7 +442,7 @@ class ProfileScene(Scene):
              self.game.scene_manager.switch_to(LeaderboardScene)
         elif item == "WEB ADMIN PANEL":
              import webbrowser
-             webbrowser.open("http://154.53.35.148:80/sys_root_77.html")
+             webbrowser.open("https://tur.wyind.dev/#account")
 
     def _handle_rename_input(self, event):
         if event.type != pygame.KEYDOWN: return

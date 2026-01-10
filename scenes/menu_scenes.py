@@ -338,9 +338,11 @@ class TitleScene(Scene):
                 if event.key == pygame.K_y or event.key == pygame.K_RETURN:
                     self.play_sfx("accept")
                     try:
-                        webbrowser.open("https://ko-fi.com/wyind")
-                    except:
-                        pass
+                        url = "https://ko-fi.com/wyind"
+                        print(f"Opening URL: {url}")
+                        webbrowser.open(url)
+                    except Exception as e:
+                        print(f"Failed to open URL: {e}")
                     self.show_donate_confirm = False
                 elif event.key == pygame.K_n or event.key == pygame.K_ESCAPE:
                     self.play_sfx("back")
@@ -407,10 +409,9 @@ class TitleScene(Scene):
             
             elif event.key == pygame.K_r:
                 # Open register website
-                import webbrowser
                 self.play_sfx("accept")
                 try:
-                    webbrowser.open("https://tur.wyind.dev/register")
+                    webbrowser.open("https://wyind.dev/#account")
                 except:
                     pass
             
@@ -2080,41 +2081,98 @@ class ReplaySelectScene(Scene):
             print(f"Error deleting replay: {e}")
 
 class CreditsScene(Scene):
+    def __init__(self, game):
+        super().__init__(game)
+        self.wyind_url = "https://ko-fi.com/wyind"
+        self.ryan_url = "https://ryanpc.org"
+        
+        # Link Rects for mouse interaction (initialized in draw)
+        self.link1_rect = None
+        self.link2_rect = None
+
     def draw(self, surface):
         theme = self.game.renderer.get_theme()
         r = self.game.renderer
+        sw = surface.get_width()
+        sh = surface.get_height()
 
-        # 1. Animated Grid Background
+        # 1. Background (Grid)
         t = pygame.time.get_ticks()
         surface.fill(theme["bg"])
         grid_offset_y = (t * 0.1) % 40
         grid_col = theme["grid"]
         
-        for y in range(0, SCREEN_HEIGHT + 40, 40):
+        for y in range(0, sh + 40, 40):
             line_y = y + grid_offset_y - 40
-            pygame.draw.line(surface, grid_col, (0, line_y), (SCREEN_WIDTH, line_y))
-        for x in range(0, SCREEN_WIDTH, 40):
-            pygame.draw.line(surface, grid_col, (x, 0), (x, SCREEN_HEIGHT))
+            pygame.draw.line(surface, grid_col, (0, line_y), (sw, line_y))
+        for x in range(0, sw, 40):
+            pygame.draw.line(surface, grid_col, (x, 0), (x, sh))
             
         # Header
         r.draw_text(surface, "DEVELOPER CREDITS", 50, 50, theme["primary"], r.big_font)
         
-        # Scroll Bar logic....game.renderer.big_font)
+        # Developer Cards
         
-        # Wyind
-        self.game.renderer.draw_text(surface, "WYIND - LEAD DEV", 150, 200, theme["secondary"], self.game.renderer.big_font)
-        self.game.renderer.draw_text(surface, "ENGINE ARCHITECTURE / CORE SYSTEMS", 150, 240, theme["text"])
+        # Card 1: Wyind (Frontend)
+        card1_x = sw // 2 - 350
+        card1_y = 150
+        r.draw_panel(surface, card1_x, card1_y, 700, 180, "DEV_01")
         
-        self.game.renderer.draw_text(surface, "RYAN - LEAD DEV", 150, 350, theme["secondary"], self.game.renderer.big_font)
-        self.game.renderer.draw_text(surface, "USER EXPERIENCE / FEATURE ENHANCEMENTS", 150, 390, theme["text"])
+        r.draw_text(surface, "WYIND", card1_x + 30, card1_y + 40, theme["primary"], r.big_font)
+        r.draw_text(surface, "LEAD FRONTEND DEV", card1_x + 30, card1_y + 90, theme["secondary"])
+        r.draw_text(surface, "Engine Core • UI/UX Implementation • Audio System", card1_x + 30, card1_y + 125, theme["text"])
         
-        self.game.renderer.draw_text(surface, "[ESC] RETURN", 100, 650, theme["secondary"])
+        # Link 1
+        link1_text = f"[1] {self.wyind_url.replace('https://', '')}"
+        link1_surf = r.font.render(link1_text, True, (100, 200, 255))
+        self.link1_rect = link1_surf.get_rect(topleft=(card1_x + 450, card1_y + 40))
+        surface.blit(link1_surf, self.link1_rect)
+
+        # Card 2: Ryan (Backend & Design)
+        card2_x = sw // 2 - 350
+        card2_y = 360
+        r.draw_panel(surface, card2_x, card2_y, 700, 180, "DEV_02")
+        
+        r.draw_text(surface, "RYAN", card2_x + 30, card2_y + 40, theme["primary"], r.big_font)
+        r.draw_text(surface, "BACKEND & DESIGN LEAD", card2_x + 30, card2_y + 90, theme["secondary"])
+        r.draw_text(surface, "Server Architecture • Game Design • Database • Security", card2_x + 30, card2_y + 125, theme["text"])
+        
+        # Link 2
+        link2_text = f"[2] {self.ryan_url.replace('https://', '')}"
+        link2_surf = r.font.render(link2_text, True, (100, 200, 255))
+        self.link2_rect = link2_surf.get_rect(topleft=(card2_x + 450, card2_y + 40))
+        surface.blit(link2_surf, self.link2_rect)
+
+        # Footer (Interact Hint)
+        r.draw_text(surface, "Click links or press [1]/[2] to open", sw//2 - 180, 600, (80, 80, 80))
+        r.draw_text(surface, "[ESC] RETURN", 50, sh - 50, theme["secondary"])
 
     def handle_input(self, event):
         if event.type == pygame.KEYDOWN:
-            if event.key == pygame.K_ESCAPE:
+            if event.key == pygame.K_ESCAPE or event.key == pygame.K_RETURN:
                 self.play_sfx("back")
                 self.game.scene_manager.switch_to(TitleScene)
+            
+            elif event.key == pygame.K_1 or event.key == pygame.K_KP1:
+                self._open_url(self.wyind_url)
+            elif event.key == pygame.K_2 or event.key == pygame.K_KP2:
+                self._open_url(self.ryan_url)
+                
+        elif event.type == pygame.MOUSEBUTTONDOWN:
+            if event.button == 1: # Left click
+                pos = event.pos
+                if self.link1_rect and self.link1_rect.collidepoint(pos):
+                    self._open_url(self.wyind_url)
+                elif self.link2_rect and self.link2_rect.collidepoint(pos):
+                    self._open_url(self.ryan_url)
+
+    def _open_url(self, url):
+        self.play_sfx("accept")
+        try:
+            print(f"Opening URL: {url}")
+            webbrowser.open(url)
+        except Exception as e:
+            print(f"Failed to open URL: {e}")
 class HowToPlayScene(Scene):
     def on_enter(self, params=None):
         self.game.discord.update("Reading Instructions", "How to Play")
