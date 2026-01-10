@@ -1,8 +1,7 @@
-#!/bin/bash
 # Cross-compile TUR for Windows using Docker
 # Requires: docker
 
-IMAGE="tobix/pyinstaller"
+IMAGE="cdrx/pyinstaller-windows:python3"
 
 echo "=== Building TUR for Windows (Docker) ==="
 
