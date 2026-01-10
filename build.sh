@@ -28,17 +28,17 @@ echo ""
 echo "=== Post-Build Cleanup ==="
 echo "Extracting assets from _internal..."
 
-# Helper function to move folders out of _internal
+# Helper function to move folders out of internal
 move_asset() {
-    if [ -d "dist/TUR/_internal/$1" ]; then
+    if [ -d "dist/TUR/internal/$1" ]; then
         echo "  Moving $1..."
         if [ -d "dist/TUR/$1" ]; then
             # If destination exists (empty stub), remove it first
             rm -rf "dist/TUR/$1"
         fi
-        mv "dist/TUR/_internal/$1" "dist/TUR/"
+        mv "dist/TUR/internal/$1" "dist/TUR/"
     else
-        echo "  Warning: $1 not found in _internal"
+        echo "  Warning: $1 not found in internal"
     fi
 }
 

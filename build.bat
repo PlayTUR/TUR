@@ -29,36 +29,36 @@ pyinstaller TUR.spec
 
 echo.
 echo === Post-Build Cleanup ===
-echo Extracting assets from _internal...
+echo Extracting assets from internal...
 
-if exist "dist\TUR\_internal\songs" (
+if exist "dist\TUR\internal\songs" (
     echo   Moving songs...
     if exist "dist\TUR\songs" rmdir /s /q "dist\TUR\songs"
-    move "dist\TUR\_internal\songs" "dist\TUR\" >nul
+    move "dist\TUR\internal\songs" "dist\TUR\" >nul
 )
 
-if exist "dist\TUR\_internal\story_music" (
+if exist "dist\TUR\internal\story_music" (
     echo   Moving story_music...
     if exist "dist\TUR\story_music" rmdir /s /q "dist\TUR\story_music"
-    move "dist\TUR\_internal\story_music" "dist\TUR\" >nul
+    move "dist\TUR\internal\story_music" "dist\TUR\" >nul
 )
 
-if exist "dist\TUR\_internal\mainmenu_music" (
+if exist "dist\TUR\internal\mainmenu_music" (
     echo   Moving mainmenu_music...
     if exist "dist\TUR\mainmenu_music" rmdir /s /q "dist\TUR\mainmenu_music"
-    move "dist\TUR\_internal\mainmenu_music" "dist\TUR\" >nul
+    move "dist\TUR\internal\mainmenu_music" "dist\TUR\" >nul
 )
 
-if exist "dist\TUR\_internal\themes" (
+if exist "dist\TUR\internal\themes" (
     echo   Moving themes...
     if exist "dist\TUR\themes" rmdir /s /q "dist\TUR\themes"
-    move "dist\TUR\_internal\themes" "dist\TUR\" >nul
+    move "dist\TUR\internal\themes" "dist\TUR\" >nul
 )
 
-if exist "dist\TUR\_internal\sfx" (
+if exist "dist\TUR\internal\sfx" (
     echo   Moving sfx...
     if exist "dist\TUR\sfx" rmdir /s /q "dist\TUR\sfx"
-    move "dist\TUR\_internal\sfx" "dist\TUR\" >nul
+    move "dist\TUR\internal\sfx" "dist\TUR\" >nul
 )
 
 echo.

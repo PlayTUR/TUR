@@ -87,4 +87,5 @@ coll = COLLECT(
     upx=True,
     upx_exclude=[],
     name='TUR',
+    contents_directory='internal',  # Hide DLLs in this folder
 )

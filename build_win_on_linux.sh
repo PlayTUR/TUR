@@ -19,7 +19,7 @@ rm -rf build dist/TUR_Windows
 echo "Starting container..."
 docker run --rm -v "$(pwd):/src" \
     --entrypoint /bin/sh \
-    $IMAGE -c "pip install -r requirements.txt && pyinstaller --clean --noconfirm TUR.spec"
+    $IMAGE -c "python -m pip install --upgrade pip && pip install --upgrade pyinstaller && pip install -r requirements.txt && pyinstaller --clean --noconfirm TUR.spec"
 
 if [ $? -ne 0 ]; then
     echo "Build failed!"
@@ -43,15 +43,15 @@ fi
 
 # Asset Extraction (Same logic as build.sh)
 TARGET_DIR="dist/TUR_Windows"
-echo "Extracting assets from _internal..."
+echo "Extracting assets from internal..."
 
 move_asset() {
-    if [ -d "$TARGET_DIR/_internal/$1" ]; then
+    if [ -d "$TARGET_DIR/internal/$1" ]; then
         echo "  Moving $1..."
         if [ -d "$TARGET_DIR/$1" ]; then
             rm -rf "$TARGET_DIR/$1"
         fi
-        mv "$TARGET_DIR/_internal/$1" "$TARGET_DIR/"
+        mv "$TARGET_DIR/internal/$1" "$TARGET_DIR/"
     fi
 }
 
