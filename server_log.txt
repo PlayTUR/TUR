@@ -1,4 +1,0 @@
-Traceback (most recent call last):
-  File "/home/wyind/Downloads/TUR/server/main.py", line 7, in <module>
-    from fastapi import FastAPI, HTTPException, Request
-ModuleNotFoundError: No module named 'fastapi'

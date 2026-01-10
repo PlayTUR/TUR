@@ -32,11 +32,7 @@ class AuthScene(Scene):
             
         # Reset state
         self.active_field = 0
-        current = self.game.settings.get("name")
-        if current != "ANON" and current != "GUEST":
-            self.username = current
-        else:
-            self.username = ""
+        self.username = "" # Always start empty
         self.password = ""
         self.error_msg = ""
         self.logging_in = False
@@ -94,7 +90,6 @@ class AuthScene(Scene):
         draw_field("PASSWORD", self.password, py + 125, self.active_field == 1, masked=True)
 
         if self.active_field == 2:
-            # Highlight 'Remember Me' when active but don't draw it separately here
             pass
 
         # Controls
@@ -104,28 +99,20 @@ class AuthScene(Scene):
         
         # "Remember Me" integrated into controls
         chk_char = "x" if self.remember_me else " "
-        
-        # Highlight if toggled recently or just keep standard color? 
-        # User asked for "same color" but "toggle to a keybind"
         chk_col = theme["text"] if self.remember_me else (100, 100, 100)
         
         r.draw_text(surface, f"[{chk_char}] REMEMBER ME [F1]", px + 30, controls_y + 50, chk_col)
         
-        # Move Exit below
         r.draw_text(surface, "[ESC] Cancel", px + 30, controls_y + 75, (100, 100, 100))
         
-        # Move reset hint here
         # Password reset hint
         if getattr(self, 'reset_hint', False) and time.time() < getattr(self, 'reset_hint_timer', 0):
-            # Move up more to be safe
-            r.draw_text(surface, "Forgot password? Reset at:", px + 30, controls_y + 90, theme["text"]) 
-            r.draw_text(surface, "tur.wyind.dev", px + 30, controls_y + 110, (100, 150, 255))
+            r.draw_text(surface, "Forgot password? Reset at tur.wyind.dev", px + 30, controls_y + 110, (100, 150, 255))
         
-        # Register link (only shown when not typing)
-        # Register link (wrapped)
-        r.draw_text(surface, "No account?", px + panel_w - 180, controls_y, (100, 100, 100))
-        r.draw_text(surface, "Press ESC then", px + panel_w - 180, controls_y + 25, (80, 80, 80))
-        r.draw_text(surface, "R to register", px + panel_w - 180, controls_y + 45, (80, 80, 80))
+        # Register link - Simplified formatting
+        reg_x = px + panel_w - 160
+        r.draw_text(surface, "No account?", reg_x, controls_y, (100, 100, 100))
+        r.draw_text(surface, "[R] Register", reg_x, controls_y + 25, theme["primary"])
 
         # Error Message Overlay (Moved to end for Z-Index)
         if time.time() < self.error_timer:

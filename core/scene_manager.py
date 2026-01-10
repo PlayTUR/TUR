@@ -5,7 +5,15 @@ import os
 def _resource_path(relative_path):
     """Get absolute path to resource, works for dev and for PyInstaller"""
     if hasattr(sys, '_MEIPASS'):
+        # PyInstaller: Check if moved to external folder (adjacent to exe)
+        base_path = os.path.dirname(sys.executable)
+        external_path = os.path.join(base_path, relative_path)
+        if os.path.exists(external_path):
+            return external_path
+            
+        # Fallback to internal
         return os.path.join(sys._MEIPASS, relative_path)
+        
     return os.path.join(os.path.abspath("."), relative_path)
 
 def _load_sfx(filename, volume=0.4):

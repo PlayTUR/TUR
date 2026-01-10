@@ -21,12 +21,11 @@ datas = [
     ('sfx', 'sfx'),
     ('story_music', 'story_music'),
     ('mainmenu_music', 'mainmenu_music'),
-    ('tools', 'tools'),
+    ('mainmenu_music', 'mainmenu_music'),
     ('songs', 'songs'),  # Empty songs folder for user content
     
     # Config and legal files
     ('default_settings.json', '.'),
-    ('bans.json', '.'),
     ('eula.txt', '.'),
 ]
 
@@ -34,7 +33,6 @@ datas = [
 optional_items = [
     ('themes', 'themes'),
     ('.build_version', '.'),
-    ('yt-dlp', '.'),  # YouTube downloader binary
 ]
 
 for src, dst in optional_items:

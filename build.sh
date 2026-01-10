@@ -24,21 +24,27 @@ rm -rf build dist
 echo "Compiling..."
 pyinstaller TUR.spec
 
+# Rename to specific OS build
+if [ -d "dist/TUR" ]; then
+    rm -rf dist/TUR-Linux
+    mv dist/TUR dist/TUR-Linux
+fi
+
 echo ""
 echo "=== Post-Build Cleanup ==="
 echo "Extracting assets from _internal..."
 
 # Helper function to move folders out of internal
 move_asset() {
-    if [ -d "dist/TUR/internal/$1" ]; then
+    if [ -d "dist/TUR-Linux/_internal/$1" ]; then
         echo "  Moving $1..."
-        if [ -d "dist/TUR/$1" ]; then
+        if [ -d "dist/TUR-Linux/$1" ]; then
             # If destination exists (empty stub), remove it first
-            rm -rf "dist/TUR/$1"
+            rm -rf "dist/TUR-Linux/$1"
         fi
-        mv "dist/TUR/internal/$1" "dist/TUR/"
+        mv "dist/TUR-Linux/_internal/$1" "dist/TUR-Linux/"
     else
-        echo "  Warning: $1 not found in internal"
+        echo "  Warning: $1 not found in _internal"
     fi
 }
 
@@ -49,8 +55,8 @@ move_asset "themes"
 move_asset "sfx"
 
 echo "=== Build Complete ==="
-echo "Executable: dist/TUR/TUR"
-echo "Game Root:  dist/TUR/"
+echo "Executable: dist/TUR-Linux/TUR"
+echo "Game Root:  dist/TUR-Linux/"
 echo ""
 echo "NOTE: Users will need yt-dlp for song downloads:"
 echo "  pip install yt-dlp"

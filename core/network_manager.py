@@ -400,6 +400,8 @@ class NetworkManager:
             msg_type = msg.get('type', '')
             
             if msg_type == 'hello':
+                # Handshake received = Peer connected!
+                self.connected = True
                 if self.is_host:
                     # Verify password
                     if self.room_password and msg.get('password') != self.room_password:
@@ -629,9 +631,10 @@ class NetworkManager:
             # We use additional_headers to support modern versions (Python 3.13+)
             async with websockets.connect(uri, additional_headers=headers, **connect_kwargs) as websocket:
                 self.relay_ws = websocket
-                self.connected = True
+                # Do NOT set connected=True yet - wait for peer handshake
+                # self.connected = True 
                 self.connecting = False
-                self.status_message = "Connected via Relay!" if role == "CLIENT" else f"Hosting Relay: {self.relay_room_id}"
+                self.status_message = "Connected via Relay! Waiting for peer..." if role == "HOST" else "Connected to Relay!"
                 
                 # Handshake
                 handshake = {

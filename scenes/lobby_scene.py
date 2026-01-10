@@ -116,10 +116,7 @@ class LobbyScene(Scene):
             self._draw_lan_join(surface, r, theme)
         elif self.state == "DIRECT_JOIN":
             self._draw_direct_join(surface, r, theme)
-        elif self.state == "PLAYIT_HOSTING":
-            self._draw_playit_hosting(surface, r, theme)
-        elif self.state == "PLAYIT_JOIN":
-            self._draw_playit_join(surface, r, theme)
+
         elif self.state == "JOINING":
             self._draw_joining(surface, r, theme)
         elif self.state == "CLIENT_LOBBY":
@@ -411,11 +408,7 @@ class LobbyScene(Scene):
             self._handle_lan_join(key, event)
         elif self.state == "DIRECT_JOIN":
             self._handle_direct_join(key, event)
-        elif self.state == "PLAYIT_HOSTING":
-            self._handle_playit_hosting(key)
-        elif self.state == "PLAYIT_JOIN":
-            self._handle_playit_join(key, event)
-        elif self.state == "JOINING":
+
             pass
         elif self.state == "CLIENT_LOBBY":
             self._handle_client_lobby(key)
@@ -565,7 +558,7 @@ class LobbyScene(Scene):
                     self.state = "ONLINE_HOST_SETUP"
                     self.input_focus = 0
                     # Default to Relay for Online Hosting
-                    self.use_playit = True
+                    self.use_relay = True
                     
                 elif item == "DIRECT JOIN":
                     self.code_buffer = ""
@@ -689,148 +682,13 @@ class LobbyScene(Scene):
                     
         return ""
 
-    def _draw_playit_hosting(self, surface, r, theme):
-        """Draw playit hosting UI"""
-        center_x = 512  # SCREEN_WIDTH // 2
-        
-        playit = getattr(self.game, 'playit_manager', None)
-        claim_code = playit.claim_code if playit else None
-        tunnel_addr = playit.get_tunnel_address() if playit else None
-        
-        # Downloading state
-        if playit and playit.status_message and "Download" in playit.status_message:
-            r.draw_panel(surface, center_x - 200, 280, 400, 100, "SETTING_UP")
-            r.draw_text(surface, playit.status_message, center_x - 80, 320, theme["primary"])
-            return
-            
-        # Starting / connecting state
-        if not claim_code and not tunnel_addr:
-            r.draw_panel(surface, center_x - 200, 280, 400, 100, "CONNECTING")
-            dots = "." * ((self.blink_timer // 10) % 4)
-            r.draw_text(surface, f"Starting tunnel{dots}", center_x - 80, 320, theme["primary"])
-            if playit and playit.status_message:
-                r.draw_text(surface, playit.status_message[:50], center_x - 100, 350, (150, 150, 150))
-            return
-            
-        # First-time setup - show claim code
-        if claim_code and not tunnel_addr:
-            big_panel_x = center_x - 350
-            r.draw_panel(surface, big_panel_x, 120, 700, 350, "FIRST_TIME_SETUP")
-            
-            # Store claim URL for copying
-            self._claim_url = f"https://playit.gg/claim/{claim_code}"
-            
-            r.draw_text(surface, "One-time setup required", center_x - 140, 150, theme["primary"], r.big_font)
-            
-            r.draw_text(surface, "1. Go to this link:", big_panel_x + 50, 200, theme["text"])
-            url_text = f"playit.gg/claim/{claim_code}"
-            pygame.draw.rect(surface, (20, 30, 20), (big_panel_x + 50, 230, 600, 45))
-            pygame.draw.rect(surface, (100, 255, 100), (big_panel_x + 50, 230, 600, 45), 2)
-            r.draw_text(surface, url_text, big_panel_x + 70, 242, (100, 255, 100), r.big_font)
-            
-            r.draw_text(surface, "2. Create a FREE account (no credit card needed)", big_panel_x + 50, 295, theme["text"])
-            r.draw_text(surface, "3. Done! Connection starts automatically", big_panel_x + 50, 330, theme["text"])
-            
-            blink = "●" if self.blink_timer < 30 else "○"
-            r.draw_text(surface, f"Waiting for setup... {blink}", center_x - 100, 380, (150, 150, 150))
-            r.draw_text(surface, "[O] Open in Browser", center_x - 80, 420, (80, 180, 80))
-            return
-            
-        # Tunnel is ready - show room code
-        if tunnel_addr:
-            short_code = self._get_short_code(tunnel_addr)
-            
-            r.draw_panel(surface, center_x - 250, 150, 500, 200, "YOUR_ROOM_CODE")
-            r.draw_text(surface, short_code, center_x - len(short_code) * 12, 200, theme["primary"], r.big_font)
-            r.draw_text(surface, "Share this code with friends!", center_x - 110, 260, (150, 150, 150))
-            r.draw_text(surface, f"Full address: {tunnel_addr}", center_x - 150, 300, (80, 80, 80))
-            
-            if self.game.network.connected:
-                r.draw_text(surface, "● Player Connected!", center_x - 80, 380, (100, 255, 100))
-                r.draw_text(surface, "[ENTER] Start Game", center_x - 80, 420, theme["primary"])
-            else:
-                blink = "●" if self.blink_timer < 30 else "○"
-                r.draw_text(surface, f"Waiting for player... {blink}", center_x - 100, 380, (150, 150, 150))
 
-    def _get_short_code(self, tunnel_addr):
-        """Extract short code from tunnel address"""
-        # tunnel_addr format: abc123.at.playit.gg:12345
-        if ".at.playit.gg:" in tunnel_addr:
-            parts = tunnel_addr.split(".at.playit.gg:")
-            short = parts[0].upper()
-            port = parts[1]
-            return f"{short}:{port}"
-        return tunnel_addr
 
-    def _draw_playit_join(self, surface, r, theme):
-        """Draw playit join UI"""
-        center_x = 512
-        title = "SPECTATE" if getattr(self, 'spectate_mode', False) else "JOIN_ONLINE"
-        r.draw_panel(surface, center_x - 300, 180, 600, 280, title)
-        
-        r.draw_text(surface, "Enter room code:", center_x - 70, 220, theme["text"])
-        
-        display = self.code_buffer.upper() + ("_" if self.blink_timer < 30 else " ")
-        pygame.draw.rect(surface, (20, 20, 20), (center_x - 200, 260, 400, 60))
-        pygame.draw.rect(surface, theme["primary"], (center_x - 200, 260, 400, 60), 2)
-        r.draw_text(surface, display, center_x - 180, 280, theme["primary"], r.big_font)
-        
-        r.draw_text(surface, "Format: ABC123:12345", center_x - 80, 340, (100, 100, 100))
-        
-        btn_text = "SPECTATE" if getattr(self, 'spectate_mode', False) else "JOIN"
-        r.draw_button(surface, btn_text, center_x - 75, 380, True, 150)
-        r.draw_text(surface, "[ENTER] Connect  [CTRL+V] Paste  [ESC] Back", center_x - 170, 450, (80, 80, 80))
 
-    def _handle_playit_hosting(self, key):
-        """Handle input while hosting via playit"""
-        if key == pygame.K_RETURN and self.game.network.connected:
-            self.play_sfx("accept")
-            from scenes.menu_scenes import SongSelectScene
-            self.game.scene_manager.switch_to(SongSelectScene, {'mode': 'multiplayer'})
-        
-        elif key == pygame.K_o:
-            if hasattr(self, '_claim_url'):
-                import webbrowser
-                webbrowser.open(self._claim_url)
-                self.play_sfx("blip")
 
-    def _handle_playit_join(self, key, event):
-        """Handle playit join input"""
-        ctrl = (pygame.key.get_mods() & pygame.KMOD_CTRL)
-        
-        if key == pygame.K_v and ctrl:
-            text = self._get_clipboard()
-            if text:
-                self.code_buffer += text.strip()
-        elif key == pygame.K_RETURN:
-            if self.code_buffer:
-                self.play_sfx("accept")
-                code = self.code_buffer.strip()
-                
-                # Expand short code to full address if needed
-                # Short format: ABC123:12345 -> abc123.at.playit.gg:12345
-                if ":" in code and "playit" not in code.lower():
-                    parts = code.rsplit(":", 1)
-                    short = parts[0].lower()
-                    port = parts[1]
-                    code = f"{short}.at.playit.gg:{port}"
-                
-                # Parse host:port format
-                if ":" in code:
-                    host, port_str = code.rsplit(":", 1)
-                    try:
-                        port = int(port_str)
-                        self.game.network.join_game(host, port)
-                        self.game.network.is_spectator = getattr(self, 'spectate_mode', False)
-                        self.state = "JOINING"
-                    except ValueError:
-                        self.game.network.error_message = "Invalid port number"
-                else:
-                    self.game.network.error_message = "Format: CODE:PORT"
-        elif key == pygame.K_BACKSPACE:
-            self.code_buffer = self.code_buffer[:-1]
-        elif event.unicode.isprintable() and len(self.code_buffer) < 40:
-            self.code_buffer += event.unicode
+
+
+
 
     def _handle_client_lobby(self, key):
         if key == pygame.K_ESCAPE:
@@ -1101,7 +959,7 @@ class LobbyScene(Scene):
                 self.max_players_buffer = "2"
             
             # Start hosting with password
-            if getattr(self, 'use_playit', False):
+            if getattr(self, 'use_relay', False):
                 # Use WebSocket Relay (Server-side)
                 self.game.network.host_relay(room_name, password)
                 

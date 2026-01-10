@@ -294,12 +294,6 @@ class Game:
     
     def _cleanup(self):
         """Cleanup resources on exit"""
-        # Stop playit tunnel if running
-        if hasattr(self, 'playit_manager') and self.playit_manager:
-            try:
-                self.playit_manager.stop()
-            except:
-                pass
         
         # Close network
         if hasattr(self, 'network') and self.network:
