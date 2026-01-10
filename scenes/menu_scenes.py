@@ -778,8 +778,9 @@ class SongSelectScene(Scene):
             elif event.key == pygame.K_RETURN:
                 if self.songs:
                     self.play_sfx("accept")
-                    # check if multiplayer
-                    if self.game.network.connected:
+                    # check if multiplayer (strict mode check)
+                    is_multi = getattr(self, 'mode', 'single') == 'multiplayer'
+                    if self.game.network.connected and is_multi:
                         # Send Proposal
                         song = self.songs[self.selected_index]
                         diff = self.difficulties[self.diff_index]

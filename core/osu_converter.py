@@ -87,18 +87,18 @@ def parse_osu_file(osu_path):
                     # Calculate lane from x position
                     # For any key count, remap to 4 lanes
                     keys = data['keys']
-                    if data['mode'] == 3 and keys > 0:  # Mania mode
-                        # Calculate original lane from x position
+                    if data['mode'] == 3 and keys > 4:  # Mania mode > 4K
+                        # Improved Mapping
+                        # 0,1 -> 0
+                        # 2 -> 1
+                        # 3 -> 1 or 2 (Center)
+                        # 4 -> 2
+                        # 5,6 -> 3
+                        # General formula: index / (keys-1) * 3
                         original_lane = int(x * keys / 512)
-                        # Remap to 4 lanes (compress higher key counts)
-                        if keys <= 4:
-                            lane = min(3, original_lane)
-                        else:
-                            # Map 5K/6K/7K/8K etc to 4K
-                            lane = int(original_lane * 4 / keys)
-                            lane = min(3, max(0, lane))
+                        lane = int((original_lane / (keys - 1)) * 3.0 + 0.5)
+                        lane = min(3, max(0, lane))
                     else:
-                        # Standard mode - map x to 4 lanes
                         lane = min(3, int(x / 128))
                     
                     note = {
@@ -116,7 +116,18 @@ def parse_osu_file(osu_path):
                             except:
                                 pass
                     
-                    data['notes'].append(note)
+                    # Overlap Protection: Check if a note already exists at this time in this lane
+                    is_duplicate = False
+                    for existing in data['notes'][-16:]: # Check last few notes
+                        if abs(existing['time'] - note['time']) < 0.01 and existing['lane'] == lane:
+                             is_duplicate = True
+                             # Try to push to neighbor lane?
+                             # For now, just ignore duplicate to prevent unplayable stack
+                             break
+                    
+                    if not is_duplicate:
+                        data['notes'].append(note)
+
                 except:
                     pass
     
@@ -126,6 +137,13 @@ def parse_osu_file(osu_path):
     
     # Sort notes by time
     data['notes'].sort(key=lambda n: n['time'])
+    
+    print(f"DEBUG: Parsed {osu_path}")
+    print(f"DEBUG: Mode={data['mode']}, Keys={data['keys']}")
+    if data['notes']:
+        print(f"DEBUG: First 5 notes (of {len(data['notes'])}):")
+        for i, n in enumerate(data['notes'][:5]):
+            print(f"  [{i}] Time={n['time']:.2f}, Lane={n['lane']}")
     
     # Calculate duration
     if data['notes']:

@@ -88,6 +88,10 @@ async def check_ip_blacklist(request: Request, call_next):
     # Whitelist localhost for admin/ssh actions
     if ip in ["127.0.0.1", "::1"]:
         return await call_next(request)
+    
+    # Allow WebSocket paths (game client relay) - skip blacklist for game connections
+    if request.url.path.startswith("/ws/"):
+        return await call_next(request)
         
     if blocklist.check_ip(ip):
         # Log basic info but don't spam
@@ -101,6 +105,13 @@ async def validate_client(request: Request, call_next):
     # Public endpoints
     if request.url.path in ["/", "/health"]:
         return await call_next(request)
+    
+    # Allow WebSocket paths (game client relay)
+    if request.url.path.startswith("/ws/"):
+        print(f"DEBUG: Allowing WebSocket path: {request.url.path}")
+        return await call_next(request)
+        
+    print(f"DEBUG: Checking access for path: {request.url.path}")
     
     # NEW: Proactive IP Ban Check
     client_ip = get_client_ip(request)
@@ -147,7 +158,7 @@ async def websocket_endpoint(websocket: WebSocket, room_id: str, client_id: str)
              user = get_user_from_token(tk)
              if user:
                  uid = user['id']
-                 print(f"[WS] Auth User: {user['uname']}")
+                 print(f"[WS] Auth User: {user['username']}")
 
         await manager.connect(websocket, room_id)
         
@@ -886,7 +897,8 @@ class RegisterServerRequest(BaseModel):
     @field_validator('port')
     @classmethod
     def validate_port(cls, v: int) -> int:
-        if v < 1024 or v > 65535:
+        # Relay servers might use abstract ports, allow 0+
+        if v < 0 or v > 65535:
             raise ValueError('Invalid port')
         return v
         

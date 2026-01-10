@@ -18,6 +18,7 @@ import struct
 import asyncio
 import websockets
 import secrets # for room IDs
+import ssl
 
 
 def get_local_ip():
@@ -54,9 +55,12 @@ class NetworkManager:
         self.external_ip = None
         self.external_port = None
         self.local_ip = get_local_ip()
+        # Address info
+        self.external_ip = None
+        self.external_port = None
+        self.local_ip = get_local_ip()
         self.room_code = ""
-        
-        # Peer info
+        self.relay_queue = [] # Queue for outgoing relay messages
         self.peer_address = None
         self.opponent_name = "Waiting..."
         self.opponent_is_admin = False
@@ -72,7 +76,11 @@ class NetworkManager:
         self.seed = 0
         self.selected_song = None
         self.selected_difficulty = None
+        self.selected_difficulty = None
         self.peer_has_song = False
+        self.peer_finished = False
+        self.peer_failed = False
+        self.peer_final_score = 0
         
         # File transfer
         self.transfer_progress = 0
@@ -498,6 +506,12 @@ class NetworkManager:
                     self.error_message = "Connection refused - host may be offline"
                 else:
                     self.error_message = error_msg
+
+            elif msg_type == 'game_finished':
+                self.peer_finished = True
+                self.peer_failed = msg.get('failed', False)
+                self.peer_final_score = msg.get('score', 0)
+                self.status_message = f"{self.opponent_name} finished!"
     
     def send(self, data, conn=None):
         if self.use_relay:
@@ -596,13 +610,24 @@ class NetworkManager:
         
         try:
             self.status_message = f"Connecting to relay..."
+            print(f"DEBUG: Connecting to Relay URI: {uri}")
             
             # Auth Headers
-            headers = {}
+            headers = {
+                "X-TUR-Client": "TUR-G4M3-CL13NT-v1",  # Official client secret to bypass origin checks
+                "User-Agent": "TUR-Game-Client/2.1.0"
+            }
             if hasattr(self, 'game') and self.game.settings.get("auth_token"):
                  headers["Authorization"] = f"Bearer {self.game.settings.get('auth_token')}"
                  
-            async with websockets.connect(uri, extra_headers=headers) as websocket:
+            # Explicitly handle SSL to avoid argument mismatch issues
+            connect_kwargs = {}
+            if uri.startswith("wss://"):
+                connect_kwargs['ssl'] = ssl.create_default_context()
+                
+            # 'extra_headers' was renamed to 'additional_headers' in newer websockets versions
+            # We use additional_headers to support modern versions (Python 3.13+)
+            async with websockets.connect(uri, additional_headers=headers, **connect_kwargs) as websocket:
                 self.relay_ws = websocket
                 self.connected = True
                 self.connecting = False
@@ -637,7 +662,9 @@ class NetworkManager:
                     await asyncio.sleep(0.01)
                     
         except Exception as e:
-            # print(f"Relay error: {e}")
+            print(f"Relay error: {e}")
+            import traceback
+            traceback.print_exc()
             self.error_message = f"Relay error: {e}"
         finally:
             self.connected = False
@@ -752,6 +779,25 @@ class NetworkManager:
     def set_ready(self, ready=True):
         """Set ready status"""
         self.send({'type': 'ready', 'ready': ready})
+
+    def send_game_finished(self, failed=False, score=0):
+        """Signal that we finished the song"""
+        self.send({
+            'type': 'game_finished',
+            'failed': failed,
+            'score': score
+        })
+
+    def reset_game_state(self):
+        """Reset game-specific flags for next round"""
+        self.peer_finished = False
+        self.peer_failed = False
+        self.peer_final_score = 0
+        self.start_timestamp = 0
+        self.opponent_ready = False
+        self.opponent_score = 0
+        self.transfer_progress = 0
+        self.status_message = "Connected"
 
     # === Cleanup ===
     

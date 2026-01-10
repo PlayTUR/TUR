@@ -55,12 +55,23 @@ class LobbyScene(Scene):
         self.mode_menu_index = 0
         self.mode_menu_items = []
         
-        # Reset network state
-        self.game.network.reset()
+        # Reset network state ONLY if not coming from a game
+        if not self.game.network.connected:
+            self.game.network.reset()
+        else:
+            # We are returning from a game
+            self.game.network.reset_game_state()
 
     def on_enter(self, params=None):
         # Start rate-limited health check (every 5s)
         self.game.master_client.start_monitoring()
+        
+        # Restore state if returning from game
+        if self.game.network.connected:
+            if self.game.network.is_host:
+                self.state = "HOSTING"
+            else:
+                self.state = "CLIENT_LOBBY"
         
     def on_exit(self):
         # Stop monitoring when leaving multiplayer menu

@@ -99,12 +99,15 @@ class GameScene(Scene):
         
         # Intro / Sync Logic
         self.waiting_for_sync = False
+        self.waiting_for_peer = False # Always init
         self.intro_active = True
         self.intro_timer = 0.0
         self.intro_duration = 2.0
         
         if self.mode == 'multiplayer':
             self.intro_active = False
+            self.game.network.peer_finished = False # Reset peer state
+            
             if self.game.network.is_host:
                 self.start_time = self.game.network.start_game_request()
                 self.waiting_for_sync = True
@@ -257,9 +260,25 @@ class GameScene(Scene):
                 state=f"{self.display_artist} | {self.difficulty} | Score: {int(self.score)}"
              )
             
-        # Multiplayer Score Sync
         if self.mode == 'multiplayer' and self.rpc_timer % 10 == 0:
             self.game.network.send_score(int(self.score))
+        
+        # Multiplayer Finish Sync
+        if self.waiting_for_peer:
+            if not self.game.network.connected:
+                # Disconnect -> Auto finish
+                self.waiting_for_peer = False
+                self.finish_game(failed=self.failed) # Re-call to proceed
+                return
+            
+            if self.game.network.peer_finished:
+                # Peer is done, we can proceed
+                # Small delay to ensure they see our finished status too
+                import time
+                if time.time() - self.finish_time > 1.0:
+                    self.waiting_for_peer = False
+                    self.finish_game(failed=self.failed)
+            return
             
         # --- Visual Polish Updates ---
         # 1. Rolling Score
@@ -622,20 +641,38 @@ class GameScene(Scene):
         self.combo = 0
 
     def finish_game(self, failed=False):
+        # Multiplayer Sync: Wait for other player
+        if self.mode == 'multiplayer' and not self.waiting_for_peer:
+            # First time calling finish_game
+            self.finished = True
+            if failed: self.failed = True
+            
+            # Send signal
+            self.game.network.send_game_finished(failed=self.failed, score=int(self.score))
+            
+            if not self.game.network.peer_finished:
+                self.waiting_for_peer = True
+                import time
+                self.finish_time = time.time()
+                return # Stop here, wait for update loop
+        
         self.finished = True
         
-        # Save Replay
+        # Save Replay & Submit Score (Unified Logic)
         if not self.replay_mode and not self.autoplay and not getattr(self, 'is_spectator', False):
+            # Only save if not failed? Or allow failed replays?
+            # User said "bunch of replays", implying too many.
+            # Let's save ONLY if valid completion for now, or maybe just once.
+            # The previous code called it TWICE.
             self.save_replay()
-        
-        # Submit score if valid run
-        if not (failed or self.failed) and not self.autoplay and not getattr(self, 'is_spectator', False) and not self.replay_mode:
-             self.save_replay()
-             if self.game.master_client.logged_in:
-                 import threading
-                 def submit():
-                     self.game.master_client.submit_score(int(self.score), max_score=self.max_possible_score)
-                 threading.Thread(target=submit, daemon=True).start()
+            
+            # Submit score if NOT failed
+            if not (failed or self.failed):
+                 if self.game.master_client.logged_in:
+                     import threading
+                     def submit():
+                         self.game.master_client.submit_score(int(self.score), max_score=self.max_possible_score)
+                     threading.Thread(target=submit, daemon=True).start()
                  
         from scenes.result_scene import ResultScene
         self.game.scene_manager.switch_to(ResultScene, {
@@ -696,6 +733,30 @@ class GameScene(Scene):
             import time
             left = max(0, self.start_time - time.time())
             self.game.renderer.draw_text(surface, f"SYNCING... {left:.1f}", 400, 300, TERM_AMBER)
+            self.game.renderer.draw_text(surface, f"SYNCING... {left:.1f}", 400, 300, TERM_AMBER)
+            return
+
+        if self.waiting_for_peer:
+            # Draw game behind
+            pass # Continue to draw game elements
+            
+            # Overlay
+            overlay = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT))
+            overlay.fill((0, 0, 0))
+            overlay.set_alpha(150)
+            surface.blit(overlay, (0, 0))
+            
+            r.draw_panel(surface, 300, 250, 424, 150, "MULTIPLAYER")
+            
+            status = "FAILED" if self.failed else "FINISHED"
+            col = theme["error"] if self.failed else theme["primary"]
+            r.draw_text(surface, f"{status}", 460, 290, col)
+            
+            blink = "." * ((pygame.time.get_ticks() // 500) % 4)
+            r.draw_text(surface, f"Waiting for opponent{blink}", 350, 340, (200, 200, 200))
+            
+            p_score = self.game.network.peer_final_score or self.game.network.opponent_score
+            r.draw_text(surface, f"Opponent Score: {p_score}", 350, 370, theme["secondary"])
             return
              
         if self.paused:
