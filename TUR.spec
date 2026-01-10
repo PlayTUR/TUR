@@ -46,7 +46,6 @@ a = Analysis(
     datas=datas,
     hiddenimports=['pygame', 'json', 'wave', 'struct', 'pypresence', 'websockets'],
     hookspath=[],
-    hooksconfig={},
     runtime_hooks=[],
     excludes=[],
     win_no_prefer_redirects=False,
