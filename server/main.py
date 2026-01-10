@@ -1134,7 +1134,7 @@ async def get_leaderboard():
     now = time.time()
     # Filter out banned users
     c.execute(f"""
-        SELECT COALESCE(s.xp, 0) as xp, COALESCE(s.lvl, 1) as lvl, COALESCE(s.t_score, 0) as t_score, u.uname, u.is_admin 
+        SELECT COALESCE(s.xp, 0) as xp, COALESCE(s.lvl, 1) as lvl, COALESCE(s.t_score, 0) as t_score, u.uname, u.is_admin, u.is_stealth
         FROM {TBL_USERS} u
         LEFT JOIN {TBL_STATS} s ON u.id = s.uid
         WHERE u.id NOT IN (SELECT uid FROM {TBL_BANS} WHERE exp IS NULL OR exp > ?)
@@ -1145,7 +1145,7 @@ async def get_leaderboard():
     rows = c.fetchall()
     conn.close()
     
-    return {"leaderboard": [{"username": r["uname"], "xp": r["xp"], "level": r["lvl"], "score": r["t_score"], "is_admin": bool(r["is_admin"]) if not r.get("is_stealth") else False} for r in rows]}
+    return {"leaderboard": [{"username": r["uname"], "xp": r["xp"], "level": r["lvl"], "score": r["t_score"], "is_admin": bool(r["is_admin"]) if not r["is_stealth"] else False} for r in rows]}
 
 @app.get("/api/v2/users/me")
 async def get_my_stats(request: Request):
