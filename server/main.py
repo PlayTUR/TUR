@@ -910,17 +910,24 @@ class RegisterServerRequest(BaseModel):
         return v
 
 @app.post("/servers/register")
-async def register_server(req: RegisterServerRequest, request: Request):
-    client_ip = get_client_ip(request)
+async def register_server(req: RegisterServerRequest, request: Request, client_ip: str = None):
+    # Allow client-provided IP for relay addresses (e.g., "relay:ROOMID")
+    # Security: Only allow relay: prefix from client, real IPs must be detected
+    detected_ip = get_client_ip(request)
+    if client_ip and client_ip.startswith("relay:"):
+        host_ip = client_ip
+    else:
+        host_ip = detected_ip
+    
     conn = get_db()
     c = conn.cursor()
-    c.execute(f"SELECT COUNT(*) FROM {TBL_SERVERS} WHERE h_ip = ?", (client_ip,))
+    c.execute(f"SELECT COUNT(*) FROM {TBL_SERVERS} WHERE h_ip = ?", (detected_ip,))
     if c.fetchone()[0] >= 3:
         conn.close()
         raise HTTPException(400, "Too many servers")
     
     c.execute(f"INSERT INTO {TBL_SERVERS} (n, h_ip, p, h_n, pw, mp) VALUES (?, ?, ?, ?, ?, ?)",
-              (req.name, client_ip, req.port, req.host_name, int(req.password_protected), req.max_players))
+              (req.name, host_ip, req.port, req.host_name, int(req.password_protected), req.max_players))
     server_id = c.lastrowid
     conn.commit()
     conn.close()

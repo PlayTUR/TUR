@@ -178,6 +178,19 @@ class Game:
         self.lane_state = [False] * 4
         self.axis_state = {}
 
+    def get_virtual_pos(self, screen_pos):
+        """Convert screen coordinates to virtual coordinates"""
+        screen_w, screen_h = self.screen.get_size()
+        scale = min(screen_w / self.virtual_w, screen_h / self.virtual_h)
+        new_w = int(self.virtual_w * scale)
+        new_h = int(self.virtual_h * scale)
+        dest_x = (screen_w - new_w) // 2
+        dest_y = (screen_h - new_h) // 2
+        
+        vx = (screen_pos[0] - dest_x) / scale
+        vy = (screen_pos[1] - dest_y) / scale
+        return vx, vy
+
     def run(self):
         # Always Start with Boot Sequence
         from scenes.boot_scene import BootScene
@@ -203,94 +216,18 @@ class Game:
                 elif event.type == pygame.VIDEORESIZE:
                     if self.flags & pygame.RESIZABLE:
                         self.screen = pygame.display.set_mode((event.w, event.h), pygame.RESIZABLE)
-                elif event.type == pygame.KEYDOWN:
-                    if event.key == pygame.K_F11:
+                elif event.type == pygame.KEYDOWN or event.type == pygame.KEYUP:
+                    if event.type == pygame.KEYDOWN and event.key == pygame.K_F11:
                          pygame.display.toggle_fullscreen()
-
                     else:
-                        self.handle_input(event) 
+                        self.handle_input(event)
                 
-                # Joystick Mapping (Universal + Custom)
-                elif event.type in (pygame.JOYBUTTONDOWN, pygame.JOYBUTTONUP, pygame.JOYAXISMOTION):
-                    is_down = (event.type == pygame.JOYBUTTONDOWN)
-                    
-                    # --- MENU NAVIGATION (Universal) ---
-                    if event.type == pygame.JOYBUTTONDOWN:
-                        btn = event.button
-                        sim_key = None
-                        if btn == 0: sim_key = pygame.K_RETURN   # A / Cross
-                        elif btn == 1: sim_key = pygame.K_ESCAPE  # B / Circle
-                        elif btn == 7 or btn == 6: sim_key = pygame.K_ESCAPE # Start/Select
-                        
-                        if sim_key:
-                            self.handle_input(pygame.event.Event(pygame.KEYDOWN, {'key': sim_key}))
-                    
-                    # --- GAMEPLAY MAPPING (Custom Binds) ---
-                    img_keys = self.settings.get("keybinds")
-                    joy_binds = self.settings.get("joy_binds")
-                    
-                    for i, bind in enumerate(joy_binds):
-                        target_key = img_keys[i]
-                        triggered = False
-                        released = False
-                        
-                        # Handle Dict Binds (New)
-                        if isinstance(bind, dict):
-                            if bind['type'] == 'btn' and event.type in (pygame.JOYBUTTONDOWN, pygame.JOYBUTTONUP):
-                                if event.button == bind['value']:
-                                    if event.type == pygame.JOYBUTTONDOWN: triggered = True
-                                    else: released = True
-                                    
-                            elif bind['type'] == 'axis' and event.type == pygame.JOYAXISMOTION:
-                                if event.axis == bind['axis']:
-                                    val = event.value
-                                    # Check threshold and direction
-                                    is_active = (bind['dir'] > 0 and val > 0.5) or (bind['dir'] < 0 and val < -0.5)
-                                    
-                                    if is_active and not self.lane_state[i]:
-                                        triggered = True
-                                    elif not is_active and self.lane_state[i]:
-                                        released = True
-
-                        # Handle Int Binds (Legacy)
-                        elif isinstance(bind, int) and event.type in (pygame.JOYBUTTONDOWN, pygame.JOYBUTTONUP):
-                            if event.button == bind:
-                                if event.type == pygame.JOYBUTTONDOWN: triggered = True
-                                else: released = True
-                        
-                        # Dispatch Events
-                        if triggered:
-                            self.lane_state[i] = True
-                            self.handle_input(pygame.event.Event(pygame.KEYDOWN, {'key': target_key}))
-                        elif released:
-                            self.lane_state[i] = False
-                            self.handle_input(pygame.event.Event(pygame.KEYUP, {'key': target_key}))
-
-                    # --- D-PAD / ANALOG NAVIGATION (Menu) ---
-                    if event.type == pygame.JOYHATMOTION:
-                        val = event.value
-                        if val[1] == 1: self.handle_input(pygame.event.Event(pygame.KEYDOWN, {'key': pygame.K_UP}))
-                        elif val[1] == -1: self.handle_input(pygame.event.Event(pygame.KEYDOWN, {'key': pygame.K_DOWN}))
-                        elif val[0] == -1: self.handle_input(pygame.event.Event(pygame.KEYDOWN, {'key': pygame.K_LEFT}))
-                        elif val[0] == 1: self.handle_input(pygame.event.Event(pygame.KEYDOWN, {'key': pygame.K_RIGHT}))
-                    
-                    elif event.type == pygame.JOYAXISMOTION:
-                        # Stick Navigation (Left Stick usually 0, 1)
-                        if event.axis <= 1:
-                            val = event.value
-                            axis = event.axis
-                            if abs(val) > 0.6:
-                                if not self.axis_state.get(f"nav_{axis}", False):
-                                    self.axis_state[f"nav_{axis}"] = True
-                                    k = None
-                                    if axis == 1: k = pygame.K_DOWN if val > 0 else pygame.K_UP
-                                    elif axis == 0: k = pygame.K_RIGHT if val > 0 else pygame.K_LEFT
-                                    if k: self.handle_input(pygame.event.Event(pygame.KEYDOWN, {'key': k}))
-                            else:
-                                self.axis_state[f"nav_{axis}"] = False
-                        
-                else:
-                    self.handle_input(event)
+                elif event.type in [pygame.MOUSEBUTTONDOWN, pygame.MOUSEBUTTONUP, pygame.MOUSEMOTION, pygame.MOUSEWHEEL]:
+                     self.handle_input(event)
+                
+                # Joystick Handling (Unified System)
+                elif event.type in (pygame.JOYBUTTONDOWN, pygame.JOYBUTTONUP, pygame.JOYAXISMOTION, pygame.JOYHATMOTION):
+                    self._handle_controller_event(event)
                     
             # Logic
             self.scene_manager.update()
@@ -479,6 +416,124 @@ class Game:
             random.shuffle(self.menu_playlist)
             self.playlist_index = 0
             self.play_playlist_track(fade_ms=500)
+
+    def _handle_controller_event(self, event):
+        """Unified controller event handling with proper state management"""
+        now = pygame.time.get_ticks()
+        
+        # Initialize controller state if needed
+        if not hasattr(self, 'ctrl_state'):
+            self.ctrl_state = {
+                'buttons': {},  # button_id -> is_down
+                'axes': {},     # axis_id -> last_value
+                'hat': (0, 0),  # last hat state
+                'last_nav': 0,  # debounce timer for navigation
+            }
+            print("DEBUG: Controller State Initialized")
+        
+        # Debug raw events
+        # print(f"DEBUG: JoyEvent {event.type}")        
+        NAV_DEBOUNCE = 150  # ms between navigation repeats
+        AXIS_DEADZONE = 0.5
+        
+        # === BUTTON EVENTS ===
+        if event.type == pygame.JOYBUTTONDOWN:
+            btn = event.button
+            self.ctrl_state['buttons'][btn] = True
+            
+            # Menu navigation buttons (universal)
+            if btn == 0:  # A / Cross
+                self.handle_input(pygame.event.Event(pygame.KEYDOWN, {'key': pygame.K_RETURN}))
+            elif btn == 1:  # B / Circle
+                self.handle_input(pygame.event.Event(pygame.KEYDOWN, {'key': pygame.K_ESCAPE}))
+            elif btn in (6, 7):  # Start/Select/Options
+                self.handle_input(pygame.event.Event(pygame.KEYDOWN, {'key': pygame.K_ESCAPE}))
+            elif btn == 4:  # LB / L1
+                self.handle_input(pygame.event.Event(pygame.KEYDOWN, {'key': pygame.K_q}))
+            elif btn == 5:  # RB / R1
+                self.handle_input(pygame.event.Event(pygame.KEYDOWN, {'key': pygame.K_e}))
+            
+            # Gameplay lane bindings
+            joy_binds = self.settings.get("joy_binds")
+            keybinds = self.settings.get("keybinds")
+            for i, bind in enumerate(joy_binds):
+                if isinstance(bind, int) and bind == btn:
+                    self.lane_state[i] = True
+                    self.handle_input(pygame.event.Event(pygame.KEYDOWN, {'key': keybinds[i]}))
+                elif isinstance(bind, dict) and bind.get('type') == 'btn' and bind.get('value') == btn:
+                    self.lane_state[i] = True
+                    self.handle_input(pygame.event.Event(pygame.KEYDOWN, {'key': keybinds[i]}))
+        
+        elif event.type == pygame.JOYBUTTONUP:
+            btn = event.button
+            self.ctrl_state['buttons'][btn] = False
+            
+            # Gameplay lane releases
+            joy_binds = self.settings.get("joy_binds")
+            keybinds = self.settings.get("keybinds")
+            for i, bind in enumerate(joy_binds):
+                if isinstance(bind, int) and bind == btn:
+                    self.lane_state[i] = False
+                    self.handle_input(pygame.event.Event(pygame.KEYUP, {'key': keybinds[i]}))
+                elif isinstance(bind, dict) and bind.get('type') == 'btn' and bind.get('value') == btn:
+                    self.lane_state[i] = False
+                    self.handle_input(pygame.event.Event(pygame.KEYUP, {'key': keybinds[i]}))
+        
+        # === D-PAD (HAT) EVENTS ===
+        elif event.type == pygame.JOYHATMOTION:
+            val = event.value
+            old = self.ctrl_state['hat']
+            self.ctrl_state['hat'] = val
+            
+            # Only trigger on change with debounce
+            if now - self.ctrl_state['last_nav'] > NAV_DEBOUNCE:
+                if val[1] == 1 and old[1] != 1:
+                    self.handle_input(pygame.event.Event(pygame.KEYDOWN, {'key': pygame.K_UP}))
+                    self.ctrl_state['last_nav'] = now
+                elif val[1] == -1 and old[1] != -1:
+                    self.handle_input(pygame.event.Event(pygame.KEYDOWN, {'key': pygame.K_DOWN}))
+                    self.ctrl_state['last_nav'] = now
+                elif val[0] == -1 and old[0] != -1:
+                    self.handle_input(pygame.event.Event(pygame.KEYDOWN, {'key': pygame.K_LEFT}))
+                    self.ctrl_state['last_nav'] = now
+                elif val[0] == 1 and old[0] != 1:
+                    self.handle_input(pygame.event.Event(pygame.KEYDOWN, {'key': pygame.K_RIGHT}))
+                    self.ctrl_state['last_nav'] = now
+        
+        # === AXIS EVENTS (Sticks & Triggers) ===
+        elif event.type == pygame.JOYAXISMOTION:
+            axis = event.axis
+            val = event.value
+            old_val = self.ctrl_state['axes'].get(axis, 0)
+            self.ctrl_state['axes'][axis] = val
+            
+            # Left stick navigation (axes 0, 1)
+            if axis in (0, 1):
+                if now - self.ctrl_state['last_nav'] > NAV_DEBOUNCE:
+                    if abs(val) > 0.6 and abs(old_val) <= 0.6:
+                        # Just crossed threshold
+                        if axis == 0:  # X axis
+                            key = pygame.K_RIGHT if val > 0 else pygame.K_LEFT
+                        else:  # Y axis
+                            key = pygame.K_DOWN if val > 0 else pygame.K_UP
+                        self.handle_input(pygame.event.Event(pygame.KEYDOWN, {'key': key}))
+                        self.ctrl_state['last_nav'] = now
+            
+            # Axis-bound lanes (triggers, etc)
+            joy_binds = self.settings.get("joy_binds")
+            keybinds = self.settings.get("keybinds")
+            for i, bind in enumerate(joy_binds):
+                if isinstance(bind, dict) and bind.get('type') == 'axis' and bind.get('axis') == axis:
+                    direction = bind.get('dir', 1)
+                    is_active = (direction > 0 and val > AXIS_DEADZONE) or (direction < 0 and val < -AXIS_DEADZONE)
+                    was_active = (direction > 0 and old_val > AXIS_DEADZONE) or (direction < 0 and old_val < -AXIS_DEADZONE)
+                    
+                    if is_active and not was_active:
+                        self.lane_state[i] = True
+                        self.handle_input(pygame.event.Event(pygame.KEYDOWN, {'key': keybinds[i]}))
+                    elif not is_active and was_active:
+                        self.lane_state[i] = False
+                        self.handle_input(pygame.event.Event(pygame.KEYUP, {'key': keybinds[i]}))
 
 if __name__ == "__main__":
     create_linux_desktop_entry()

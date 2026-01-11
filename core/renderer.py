@@ -45,18 +45,36 @@ class PygameRenderer:
         
         # Fonts - try bundled font first, then system fonts
         self.font_path = resource_path(os.path.join("assets", "font.ttf"))
+        self.logo_font_path = resource_path(os.path.join("assets", "logo_font.ttf"))
+        self.jp_font_path = resource_path(os.path.join("assets", "japanese_font.ttf"))
+        
         if os.path.exists(self.font_path):
             try:
                 self.font = pygame.font.Font(self.font_path, 20)
                 self.big_font = pygame.font.Font(self.font_path, 40)
                 self.small_font = pygame.font.Font(self.font_path, 16)
-                self.ascii_font = pygame.font.Font(self.font_path, 14)
+                
+                # Use logo font for ASCII art
+                if os.path.exists(self.logo_font_path):
+                    self.ascii_font = pygame.font.Font(self.logo_font_path, 14)
+                else:
+                    self.ascii_font = pygame.font.Font(self.font_path, 14)
+                    
+                # Setup Japanese/Symbol fallback
+                if os.path.exists(self.jp_font_path):
+                    # Pygame doesn't support automatic fallback, so we load it for specific uses
+                    # or users have to select it. But ideally we'd use a font merger.
+                    # For now, we'll try to use it for specific UI elements if needed.
+                    self.jp_font = pygame.font.Font(self.jp_font_path, 20)
+                else:
+                    self.jp_font = None
             except:
                 # Font file exists but failed to load
                 self.font = get_system_font(20)
                 self.big_font = get_system_font(40)
                 self.small_font = get_system_font(16)
                 self.ascii_font = get_system_font(14)
+                self.jp_font = None
         else:
             # Use cross-platform system font fallback
             self.font = get_system_font(20)

@@ -5,6 +5,9 @@ import os
 
 class GameScene(Scene):
     def on_enter(self, params):
+        # Reset input states to prevent stuck keys
+        self.game.renderer.key_states = [False] * 4
+        
         self.song_name = params['song']
         self.difficulty = params['difficulty']
         self.mode = params.get('mode', 'single')
@@ -451,6 +454,7 @@ class GameScene(Scene):
                     self.handle_hit(event.key)
         elif event.type == pygame.KEYUP:
             if not self.paused and not getattr(self, 'is_spectator', False):
+                # print(f"DEBUG: GameScene KEYUP {event.key}")
                 self.update_key(event.key, False)
 
     def toggle_pause(self):
@@ -719,15 +723,15 @@ class GameScene(Scene):
             print(f"Failed to save replay: {e}") 
 
     def draw(self, surface):
+        r = self.game.renderer
+        theme = r.get_theme()
+
         if self.audio_missing:
             surface.fill((0, 0, 0))
             self.game.renderer.draw_panel(surface, 300, 300, 424, 150, "SYSTEM ERROR", color=(50, 0, 0))
             self.game.renderer.draw_centered_text(surface, "AUDIO FILE NOT FOUND", 512, 360, theme["error"])
             self.game.renderer.draw_centered_text(surface, "[ESC] TO EXIT", 512, 400, (150, 150, 150))
             return
-
-        r = self.game.renderer
-        theme = r.get_theme()
         
         if self.waiting_for_sync:
             import time

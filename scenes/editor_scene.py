@@ -71,8 +71,8 @@ class EditorScene(Scene):
         ui_x = 10
         ui_y = 50
         
-        # Valid Mouse Pos for hover
-        mx, my = pygame.mouse.get_pos()
+        # Valid Mouse Pos for hover (Virtual)
+        mx, my = self.game.get_virtual_pos(pygame.mouse.get_pos())
         
         # Helper for buttons
         def draw_btn(text, y, active=False, color=None):
@@ -174,7 +174,36 @@ class EditorScene(Scene):
             
             col = TERM_GREEN
             pygame.draw.rect(surface, col, (x + 5, y - 10, lane_w - 10, 20))
-
+            
+        # Draw Ghost Note (Hover)
+        if self.edit_mode == "NOTES" and not self.check_ui_click((mx*0 + pygame.mouse.get_pos()[0], 0)): # Hacky check if mouse is over UI using real coords?
+            # actually we have virtual mx, my
+            # check ui logic uses virtual mx, my? No draw uses hardcoded ui_x=10.
+            # let's just calc lane/time
+            
+            center_x = SCREEN_WIDTH // 2
+            lane_w = 80
+            start_x = center_x - (2 * lane_w)
+            
+            if start_x <= mx <= start_x + 4 * lane_w:
+                 lane = int((mx - start_x) // lane_w)
+                 
+                 timeline_y = SCREEN_HEIGHT // 2
+                 time_offset = (timeline_y - my) / self.zoom
+                 hover_time = self.audio_pos + time_offset
+                 hover_time = round(hover_time / self.grid_snap) * self.grid_snap
+                 
+                 if hover_time >= 0:
+                     diff = hover_time - self.audio_pos
+                     y = timeline_y - (diff * self.zoom)
+                     x = start_x + lane * lane_w
+                     
+                     # Ghost
+                     s = pygame.Surface((lane_w - 10, 20))
+                     s.set_alpha(100)
+                     s.fill((0, 255, 0))
+                     surface.blit(s, (x + 5, y - 10))
+                     
     def handle_input(self, event):
         if event.type == pygame.KEYDOWN:
             if event.key == pygame.K_ESCAPE:
@@ -190,9 +219,12 @@ class EditorScene(Scene):
                 self.save_map()
             elif event.key == pygame.K_TAB:
                 self.edit_mode = "EVENTS" if self.edit_mode == "NOTES" else "NOTES"
-            elif event.key == pygame.K_1: self.selected_event_type = EVENT_CAMERA_ZOOM
-            elif event.key == pygame.K_2: self.selected_event_type = EVENT_CAMERA_SHAKE
-            elif event.key == pygame.K_3: self.selected_event_type = EVENT_NOTE_GLOW
+            
+            # Event Tool Shortcuts (Only in EVENTS mode)
+            elif event.key == pygame.K_1 and self.edit_mode == "EVENTS": self.selected_event_type = EVENT_CAMERA_ZOOM
+            elif event.key == pygame.K_2 and self.edit_mode == "EVENTS": self.selected_event_type = EVENT_CAMERA_SHAKE
+            elif event.key == pygame.K_3 and self.edit_mode == "EVENTS": self.selected_event_type = EVENT_NOTE_GLOW
+            elif event.key == pygame.K_4 and self.edit_mode == "EVENTS": self.selected_event_type = EVENT_SPEED_CHANGE
             
             elif event.key == pygame.K_UP:
                 self.zoom += 10
@@ -200,19 +232,48 @@ class EditorScene(Scene):
                 self.zoom = max(10, self.zoom - 10)
             elif event.key == pygame.K_LEFT:
                 self.audio_pos = max(0, self.audio_pos - 1)
-                if self.game.audio.is_playing:
-                     pass 
+                
+            # Note placement via keys (1-4 / D,F,J,K support would be better but 1-4 is standard editor)
+            elif event.key in [pygame.K_1, pygame.K_2, pygame.K_3, pygame.K_4]:
+                if self.edit_mode == "NOTES":
+                    lane = event.key - pygame.K_1
+                    # Use cursor Y (timeline) for time
+                    self.place_note_at_cursor(lane)
         
         if event.type == pygame.MOUSEBUTTONDOWN:
+            # Convert to virtual coords for logic
+            virtual_pos = self.game.get_virtual_pos(event.pos)
+            print(f"DEBUG: Click {event.pos} -> Virtual {virtual_pos}")
+            
             if event.button == 1: # Left Click
                 if self.edit_mode == "NOTES":
-                    self.handle_click(event.pos)
+                    print(f"DEBUG: Handling Note Click at {virtual_pos}")
+                    self.handle_click(virtual_pos)
                 else:
-                    self.handle_click_event(event.pos)
+                    print("DEBUG: Handling Event Click")
+                    self.handle_click_event(virtual_pos)
             elif event.button == 4: # Scroll Up
                 self.audio_pos = max(0, self.audio_pos - 0.5)
             elif event.button == 5:
                 self.audio_pos += 0.5
+            
+    def place_note_at_cursor(self, lane):
+        note_time = self.audio_pos
+        # Snap
+        note_time = round(note_time / self.grid_snap) * self.grid_snap
+        if note_time < 0: return
+        
+        # Toggle note
+        removed = False
+        for note in self.beatmap[:]:
+            if note['lane'] == lane and abs(note['time'] - note_time) < 0.05:
+                self.beatmap.remove(note)
+                removed = True
+                break
+        
+        if not removed:
+            self.beatmap.append({'time': note_time, 'lane': int(lane)})
+            self.beatmap.sort(key=lambda x: x['time'])
 
     def toggle_playback(self):
         if self.paused:
@@ -231,10 +292,14 @@ class EditorScene(Scene):
 
     def check_ui_click(self, pos):
         mx, my = pos
+        # debug
+        # print(f"DEBUG: UI Check {mx},{my}")
+        
         if not (10 <= mx <= 150): return False
         
         # Mode Toggles
         if 50 <= my <= 80:
+            print("DEBUG: UI Click NOTES")
             self.edit_mode = "NOTES"
             return True
         if 85 <= my <= 115:
@@ -311,9 +376,12 @@ class EditorScene(Scene):
         lane_w = 80
         start_x = center_x - (2 * lane_w)
         
+        
         # Check lane
+        print(f"DEBUG: Lanes start at {start_x}, click at {mx}")
         if start_x <= mx <= start_x + 4 * lane_w:
-            lane = (mx - start_x) // lane_w
+            lane = int((mx - start_x) // lane_w)
+            print(f"DEBUG: Calculated Lane: {lane}")
             
             # Calculate time
             # y = timeline_y - (t - curr) * zoom
@@ -340,6 +408,9 @@ class EditorScene(Scene):
             if not removed:
                 self.beatmap.append({'time': note_time, 'lane': int(lane)})
                 self.beatmap.sort(key=lambda x: x['time'])
+                print(f"DEBUG: Added note at {note_time} Lane {lane}")
+            else:
+                print(f"DEBUG: Removed note at {note_time} Lane {lane}")
 
     def save_map(self):
         # Determine .tur path

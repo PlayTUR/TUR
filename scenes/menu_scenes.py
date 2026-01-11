@@ -29,10 +29,10 @@ class TitleScene(Scene):
         ]
         self.quote = random.choice(self.quotes)
         
-        # Menu Options
+        # Menu Options (Original layout)
         self.menu_items = ["PLAY", "MULTIPLAYER", "REPLAYS", "OPTIONS", "CREDITS", "HOW TO PLAY"]
         if pygame.joystick.get_count() > 0:
-            self.menu_items.insert(5, "CONTROLLER CONFIG")
+            self.menu_items.insert(6, "CONTROLLER CONFIG")
         self.menu_items.append("SUPPORT")
         self.menu_items.append("EXIT")
         
@@ -362,11 +362,7 @@ class TitleScene(Scene):
                 if choice == "PLAY":
                     # Redirect to mode select
                     self.game.scene_manager.switch_to(PlayModeSelectScene)
-                elif choice == "STORY CAMPAIGN":
-                    from scenes.story_scene import StoryScene
-                    self.game.scene_manager.switch_to(StoryScene)
                 elif choice == "REPLAYS":
-                    # ReplaySelectScene is defined in this file
                     self.game.scene_manager.switch_to(ReplaySelectScene)
                 elif choice == "MULTIPLAYER":
                     # Require login for multiplayer
@@ -1809,95 +1805,193 @@ class SettingsScene(Scene):
         self.game.renderer.current_theme = base
 
 class ControllerConfigScene(Scene):
+    """Polished controller configuration with visual guide"""
+    
     def on_enter(self, params):
         self.rebind_mode = False
         self.rebind_step = 0
-        self.temp_joy_binds = [0, 0, 0, 0] # Temp storage
+        self.temp_joy_binds = [0, 1, 2, 3]  # Default to first 4 buttons
+        self.last_input_time = 0
+        self.controller_name = "No Controller"
+        self.menu_index = 0
+        self.menu_items = ["REBIND LANES", "TEST BUTTONS", "RESET DEFAULTS", "BACK"]
         
-        # Load asset
+        # Load controller image
         try:
             img_path = os.path.join("assets", "controller.png")
             if os.path.exists(img_path):
                 self.controller_img = pygame.image.load(img_path)
+                # Scale to fit
+                self.controller_img = pygame.transform.scale(self.controller_img, (400, 280))
             else:
                 self.controller_img = None
         except:
             self.controller_img = None
-
+        
+        # Get controller info
+        if pygame.joystick.get_count() > 0:
+            joy = pygame.joystick.Joystick(0)
+            self.controller_name = joy.get_name()[:30]
+    
     def draw(self, surface):
-        theme = self.game.renderer.get_theme()
+        r = self.game.renderer
+        theme = r.get_theme()
         surface.fill(theme["bg"])
-        self.game.renderer.draw_text(surface, "CONTROLLER PROTOCOL", 100, 50, theme["primary"], self.game.renderer.big_font)
         
-        if self.controller_img:
-            rect = self.controller_img.get_rect(center=(SCREEN_WIDTH//2, SCREEN_HEIGHT//2 - 50))
-            # Darker if rebinding
-            if self.rebind_mode:
-                self.controller_img.set_alpha(100)
-            else:
-                self.controller_img.set_alpha(255)
-            surface.blit(self.controller_img, rect)
+        # Header
+        r.draw_text(surface, "◉ CONTROLLER SETUP ◉", 50, 30, theme["primary"], r.big_font)
         
-        if self.rebind_mode:
-            self.game.renderer.draw_text(surface, f"REBINDING LANE {self.rebind_step}...", SCREEN_WIDTH//2 - 150, 400, (255, 255, 0), self.game.renderer.big_font)
-            self.game.renderer.draw_text(surface, "PRESS A CONTROLLER BUTTON OR AXIS (TRIGGER)", SCREEN_WIDTH//2 - 200, 460, (255, 255, 255))
+        # Controller status
+        joy_count = pygame.joystick.get_count()
+        if joy_count > 0:
+            status = f"✓ {self.controller_name}"
+            status_color = (100, 255, 100)
         else:
-            self.game.renderer.draw_text(surface, "PRESS [ENTER] TO REBIND ALL LANES", SCREEN_WIDTH//2 - 180, 500, (200, 200, 200))
+            status = "✗ No Controller Detected"
+            status_color = theme["error"]
+        r.draw_text(surface, status, 50, 80, status_color)
+        
+        # Left panel - Controller image
+        r.draw_panel(surface, 50, 120, 450, 340, "CONTROLLER")
+        if self.controller_img:
+            img_rect = self.controller_img.get_rect(center=(275, 290))
+            surface.blit(self.controller_img, img_rect)
+        else:
+            r.draw_text(surface, "Controller image", 180, 260, (100, 100, 100))
+            r.draw_text(surface, "not available", 185, 290, (100, 100, 100))
+        
+        # Right panel - Current bindings
+        r.draw_panel(surface, 520, 120, 450, 200, "LANE_BINDINGS")
+        
+        binds = self.game.settings.get("joy_binds")
+        lane_names = ["Lane 1", "Lane 2", "Lane 3", "Lane 4"]
+        y = 165
+        for i, bind in enumerate(binds):
+            # Format binding display
+            if isinstance(bind, int):
+                bind_text = f"Button {bind}"
+            elif isinstance(bind, dict):
+                if bind.get('type') == 'btn':
+                    bind_text = f"Button {bind.get('value', '?')}"
+                elif bind.get('type') == 'axis':
+                    direction = "+" if bind.get('dir', 1) > 0 else "-"
+                    bind_text = f"Axis {bind.get('axis', '?')} {direction}"
+                else:
+                    bind_text = "Unknown"
+            else:
+                bind_text = "Not Set"
             
-            # Show Binds
-            binds = self.game.settings.get("joy_binds")
-            for i, b in enumerate(binds):
-                txt = "UNBOUND"
-                if isinstance(b, int): txt = f"BTN {b}" # Legacy
-                elif isinstance(b, dict):
-                    if b['type'] == 'btn': txt = f"BTN {b['value']}"
-                    elif b['type'] == 'axis': 
-                        d = "+" if b['dir'] > 0 else "-"
-                        txt = f"AXIS {b['axis']} {d}"
-                
-                self.game.renderer.draw_text(surface, f"LANE {i}: {txt}", 400, 550 + i * 30, theme["primary"])
-
-        self.game.renderer.draw_text(surface, "[ESC] BACK", 100, 700, theme["secondary"])
-
-    def handle_input(self, event):
+            color = theme["primary"] if self.rebind_mode and self.rebind_step == i else theme["text"]
+            r.draw_text(surface, f"{lane_names[i]}:", 550, y, theme["secondary"])
+            r.draw_text(surface, bind_text, 680, y, color)
+            y += 40
+        
+        # Menu panel
+        r.draw_panel(surface, 520, 340, 450, 120, "OPTIONS")
+        y = 380
+        for i, item in enumerate(self.menu_items):
+            if not self.rebind_mode:
+                selected = (i == self.menu_index)
+                prefix = "▶ " if selected else "  "
+                color = theme["primary"] if selected else theme["text"]
+            else:
+                prefix = "  "
+                color = (80, 80, 80)  # Dim during rebind
+            r.draw_text(surface, f"{prefix}{item}", 550, y, color)
+            y += 28
+        
+        # Rebind overlay
         if self.rebind_mode:
-            bind = None
-            if event.type == pygame.JOYBUTTONDOWN:
-                bind = {'type': 'btn', 'value': event.button}
-            elif event.type == pygame.JOYAXISMOTION:
-                if abs(event.value) > 0.7: # Higher threshold for distinct input
-                    direction = 1 if event.value > 0 else -1
-                    bind = {'type': 'axis', 'axis': event.axis, 'dir': direction}
+            # Draw overlay
+            overlay = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT), pygame.SRCALPHA)
+            overlay.fill((0, 0, 0, 180))
+            surface.blit(overlay, (0, 0))
             
-            if bind:
+            # Rebind dialog
+            r.draw_panel(surface, 250, 280, 500, 180, "REBINDING")
+            r.draw_text(surface, f"Press button for LANE {self.rebind_step + 1}", 330, 340, theme["primary"], r.big_font)
+            r.draw_text(surface, "(Press any button or trigger)", 380, 400, theme["secondary"])
+            r.draw_text(surface, "[ESC] Cancel", 430, 430, (100, 100, 100))
+        
+        # Footer
+        r.draw_text(surface, "[↑/↓] Navigate  [ENTER] Select  [ESC] Back", 50, 700, (100, 100, 100))
+        if joy_count > 0:
+            r.draw_text(surface, "Tip: Use face buttons (A/B/X/Y) for lanes", 50, 730, (80, 80, 80))
+    
+    def handle_input(self, event):
+        if event.type != pygame.KEYDOWN and event.type not in (pygame.JOYBUTTONDOWN, pygame.JOYAXISMOTION):
+            return
+        
+        # Handle rebind mode
+        if self.rebind_mode:
+            if event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:
+                self.rebind_mode = False
+                self.play_sfx("back")
+                return
+            
+            # Wait for button/axis input
+            bind = None
+            now = pygame.time.get_ticks()
+            
+            if event.type == pygame.JOYBUTTONDOWN and now - self.last_input_time > 200:
+                bind = event.button  # Simple integer binding
+                self.last_input_time = now
+            elif event.type == pygame.JOYAXISMOTION and abs(event.value) > 0.8 and now - self.last_input_time > 300:
+                direction = 1 if event.value > 0 else -1
+                bind = {'type': 'axis', 'axis': event.axis, 'dir': direction}
+                self.last_input_time = now
+            
+            if bind is not None:
                 self.play_sfx("accept")
                 self.temp_joy_binds[self.rebind_step] = bind
                 self.rebind_step += 1
-                pygame.time.wait(200) # Debounce
-                pygame.event.clear() # Clear queue to prevent skip
+                pygame.event.clear()
                 
                 if self.rebind_step >= 4:
                     self.game.settings.set("joy_binds", self.temp_joy_binds)
                     self.rebind_mode = False
-            
-            elif event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:
-                self.rebind_mode = False
             return
-
-
+        
+        # Normal menu navigation
         if event.type == pygame.KEYDOWN:
-            if event.key == pygame.K_ESCAPE:
+            if event.key == pygame.K_UP:
+                self.menu_index = (self.menu_index - 1) % len(self.menu_items)
+                self.play_sfx("blip")
+            elif event.key == pygame.K_DOWN:
+                self.menu_index = (self.menu_index + 1) % len(self.menu_items)
+                self.play_sfx("blip")
+            elif event.key == pygame.K_RETURN:
+                self._select_option()
+            elif event.key == pygame.K_ESCAPE:
                 self.play_sfx("back")
                 self.game.scene_manager.switch_to(TitleScene)
-            elif event.key == pygame.K_RETURN:
-                self.rebind_mode = True
-                self.rebind_step = 0
-                self.play_sfx("accept")
-
-    def update(self):
-        # Auto-exit if controller disconnected
-        if pygame.joystick.get_count() == 0:
+    
+    def _select_option(self):
+        item = self.menu_items[self.menu_index]
+        self.play_sfx("accept")
+        
+        if item == "REBIND LANES":
+            if pygame.joystick.get_count() == 0:
+                return  # No controller
+            self.rebind_mode = True
+            self.rebind_step = 0
+            self.temp_joy_binds = [0, 1, 2, 3]
+        elif item == "TEST BUTTONS":
+            # Could add a test mode later...
+            pass
+        elif item == "RESET DEFAULTS":
+            self.game.settings.set("joy_binds", [0, 1, 2, 3])
+            self.play_sfx("accept")
+        elif item == "BACK":
             self.game.scene_manager.switch_to(TitleScene)
+    
+    def update(self):
+        # Update controller info
+        if pygame.joystick.get_count() > 0:
+            joy = pygame.joystick.Joystick(0)
+            self.controller_name = joy.get_name()[:30]
+        else:
+            self.controller_name = "No Controller"
 
 
 

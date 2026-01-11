@@ -464,6 +464,7 @@ class NetworkManager:
                 self.transfer_progress = 0
                 self.pending_file_data = b''
                 self.status_message = "Receiving song... 0%"
+                print(f"DEBUG: START RECEIVING {msg.get('filename')} Size: {self.transfer_total}")
             
             elif msg_type == 'file_chunk':
                 chunk = base64.b64decode(msg.get('data', ''))
@@ -471,9 +472,11 @@ class NetworkManager:
                 self.transfer_progress = len(self.pending_file_data)
                 pct = int(100 * self.transfer_progress / max(1, self.transfer_total))
                 self.status_message = f"Receiving song... {pct}%"
+                if pct % 10 == 0: print(f"DEBUG: Receiving... {pct}%")
             
             elif msg_type == 'file_end':
                 filename = msg.get('filename', 'received.wav')
+                print(f"DEBUG: FILE RECEIVED {filename}")
                 filepath = os.path.join('songs', filename)
                 os.makedirs('songs', exist_ok=True)
                 with open(filepath, 'wb') as f:
@@ -600,7 +603,6 @@ class NetworkManager:
 
     async def _relay_loop(self, role):
         # Determine URL dynamically from MasterClient
-        base_url = "http://154.53.35.148:80"
         if hasattr(self, 'game') and hasattr(self.game, 'master_client'):
              base_url = self.game.master_client.server_url
         
@@ -628,13 +630,22 @@ class NetworkManager:
                 connect_kwargs['ssl'] = ssl.create_default_context()
                 
             # 'extra_headers' was renamed to 'additional_headers' in newer websockets versions
-            # We use additional_headers to support modern versions (Python 3.13+)
-            async with websockets.connect(uri, additional_headers=headers, **connect_kwargs) as websocket:
+            # Robustly check which one to use
+            import inspect
+            sig = inspect.signature(websockets.connect)
+            conn_args = connect_kwargs
+            if 'additional_headers' in sig.parameters:
+                conn_args['additional_headers'] = headers
+            else:
+                conn_args['extra_headers'] = headers
+            
+            async with websockets.connect(uri, **conn_args) as websocket:
                 self.relay_ws = websocket
                 # Do NOT set connected=True yet - wait for peer handshake
                 # self.connected = True 
                 self.connecting = False
                 self.status_message = "Connected via Relay! Waiting for peer..." if role == "HOST" else "Connected to Relay!"
+                print(f"DEBUG: WebSocket Connected! Message: {self.status_message}")
                 
                 # Handshake
                 handshake = {
