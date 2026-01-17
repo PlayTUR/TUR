@@ -106,9 +106,10 @@ class GameScene(Scene):
         self.countdown_active = True
         self.countdown_timer = 3.0
         self.intro_duration = 3.0
+        self.song_started = False
         
         if self.mode == 'multiplayer':
-            self.countdown_active = False
+            self.countdown_active = True
             self.game.network.peer_finished = False # Reset peer state
             
             if self.game.network.is_host:
@@ -164,6 +165,12 @@ class GameScene(Scene):
         self.sfx_hit = self._load_sfx("sfx/sfx_hit.wav", 0.5)
         self.sfx_perfect = self._load_sfx("sfx/sfx_perfect.wav", 0.4)
         self.sfx_miss = self._load_sfx("sfx/sfx_miss.wav", 0.3)
+        
+        # High-res countdown font
+        try:
+            self.countdown_font = pygame.font.Font(self.game.renderer.font_path, 200)
+        except:
+            self.countdown_font = pygame.font.Font(None, 200)
 
         # Parse Metadata for RPC/Display
         self.display_artist = "Unknown Artist"
@@ -217,36 +224,49 @@ class GameScene(Scene):
 
     def update(self):
         # Sync Start Logic
+        # Sync Start Logic
         if self.waiting_for_sync:
             import time
-            if self.start_time > 0 and time.time() >= self.start_time:
-                self.game.audio.play()
-                self.waiting_for_sync = False
+            if self.start_time > 0:
+                 # Sync countdown timer to target start time
+                 remaining = self.start_time - time.time()
+                 self.countdown_timer = remaining
+                 if remaining <= 0:
+                     self.waiting_for_sync = False
+                     self.countdown_active = False # Force end countdown
+                     self.game.audio.play()
+                     self.song_started = True # Mark as started
             else:
-                if not self.game.network.is_host and self.game.network.start_timestamp > 0:
-                    self.start_time = self.game.network.start_timestamp
-                return
-        
-        # Countdown Logic
+                 if not self.game.network.is_host and self.game.network.start_timestamp > 0:
+                     self.start_time = self.game.network.start_timestamp
+            
+            # If waiting for sync, we are logically in countdown (if timer > 0)
+            if self.countdown_timer > 0:
+                 return
+
+        # Countdown Logic (Single Player / Unpause)
         if self.countdown_active:
             self.countdown_timer -= 1.0 / 60.0
             if self.countdown_timer <= 0:
                 self.countdown_active = False
                 if not self.paused:
-                    if pygame.mixer.music.get_pos() > 0:
+                    if self.song_started: # Resuming
                         self.game.audio.unpause()
-                    else:
+                    else: # Starting
                         self.game.audio.play()
+                        self.song_started = True
             return
 
         if self.paused:
             return
 
         # Check if song finished naturally
-        music_playing = pygame.mixer.music.get_busy()
-        if not music_playing and not self.finished and not self.waiting_for_sync and not self.intro_active:
-            self.finish_game()
-            return
+        # Only check if song actually started (prevent instant-fail on start)
+        if getattr(self, 'song_started', False):
+             music_playing = pygame.mixer.music.get_busy()
+             if not music_playing and not self.finished and not self.waiting_for_sync and not self.countdown_active:
+                 self.finish_game()
+                 return
         
         # In story mode, finish when all notes are done (don't wait for full song)
         if self.mode == 'story' and not self.finished:
@@ -380,7 +400,7 @@ class GameScene(Scene):
                      self.game.renderer.key_states[lane] = False
                      
         # Miss Logic
-        if not self.paused and not self.finished and not self.failed:
+        if not self.paused and not self.finished and not self.failed and not self.countdown_active and not self.waiting_for_sync:
             for note in self.beatmap:
                 if not note['hit'] and (note['time'] - current_time) < -0.15:
                     note['hit'] = True
@@ -701,13 +721,22 @@ class GameScene(Scene):
             self.save_replay()
             
             # Submit score if NOT failed
+            print(f"DEBUG: finish_game checks - Failed: {failed or self.failed}, LoggedIn: {self.game.master_client.logged_in}")
             if not (failed or self.failed):
                  if self.game.master_client.logged_in:
                      import threading
-                     import threading
                      def submit():
-                         self.game.master_client.submit_score(int(self.score), max_score=self.max_possible_score, autoplay=self.autoplay)
+                         try:
+                             print(f"DEBUG: Submitting score {int(self.score)}")
+                             res = self.game.master_client.submit_score(int(self.score), max_score=self.max_possible_score, autoplay=self.autoplay)
+                             print(f"DEBUG: Score submission result: {res}")
+                         except Exception as e:
+                             print(f"DEBUG: Score submission failed: {e}")
                      threading.Thread(target=submit, daemon=True).start()
+                 else:
+                     print("DEBUG: Not logged in, skipping score submission.")
+            else:
+                print("DEBUG: Game failed, skipping score submission.")
                  
         from scenes.result_scene import ResultScene
         self.game.scene_manager.switch_to(ResultScene, {
@@ -985,18 +1014,19 @@ class GameScene(Scene):
              count_val = math.ceil(self.countdown_timer)
              if count_val > 0:
                  # Pulse effect
-                 scale = 1.0 + (self.countdown_timer % 1.0) * 0.5
+                 scale = 1.0 + (self.countdown_timer % 1.0) * 0.1 # Reduced pulse scale since base size is huge
                  
                  # Draw shadow
-                 font = self.game.renderer.big_font
+                 font = self.countdown_font
                  s_cnt = font.render(str(count_val), True, (0, 0, 0))
-                 s_cnt = pygame.transform.rotozoom(s_cnt, 0, scale * 3.0)
+                 # Only slight rotation/zoom for pulse, not massive upscaling
+                 s_cnt = pygame.transform.rotozoom(s_cnt, 0, scale)
                  sr = s_cnt.get_rect(center=(SCREEN_WIDTH // 2 + 5, SCREEN_HEIGHT // 2 + 5))
                  surface.blit(s_cnt, sr)
                  
                  # Draw text
                  cnt = font.render(str(count_val), True, (255, 255, 0))
-                 cnt = pygame.transform.rotozoom(cnt, 0, scale * 3.0)
+                 cnt = pygame.transform.rotozoom(cnt, 0, scale)
                  r = cnt.get_rect(center=(SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2))
                  surface.blit(cnt, r)
     def save_replay(self):

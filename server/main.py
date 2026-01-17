@@ -348,8 +348,9 @@ def db_update_stats(uid: int, score: int):
     conn = get_db()
     c = conn.cursor()
     
-    # Simple XP formula: 0.05% of score (drastically reduced from 10%)
-    xp_gain = int(score * 0.0005)
+    # Simple XP formula: 1% of score (Boosted from 0.05%)
+    xp_gain = int(score * 0.01)
+    if xp_gain < 10 and score > 0: xp_gain = 10 # Minimum gain
     
     # Get current
     c.execute(f"SELECT * FROM {TBL_STATS} WHERE uid = ?", (uid,))
@@ -364,6 +365,7 @@ def db_update_stats(uid: int, score: int):
         
         c.execute(f"UPDATE {TBL_STATS} SET t_score=?, t_plays=?, xp=?, lvl=?, u_at=? WHERE uid=?",
                   (new_score, new_plays, new_xp, new_lvl, time.time(), uid))
+        print(f"DEBUG: Updated stats for UID {uid}: +{xp_gain} XP, New Lvl: {new_lvl}")
     else:
         new_lvl = int((xp_gain / 1000) ** 0.5) + 1
         c.execute(f"INSERT INTO {TBL_STATS} (uid, t_score, t_plays, xp, lvl) VALUES (?, ?, ?, ?, ?)",

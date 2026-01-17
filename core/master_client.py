@@ -310,7 +310,9 @@ class MasterClient:
     # === Leaderboards & Stats ===
     
     def submit_score(self, score, max_score=0, song_hash=None, song_name="Unknown", difficulty="MEDIUM", stats=None, autoplay=False):
-        if not self.auth_token: return False
+        if self.auth_token is None:
+             print("DEBUG: submit_score called but no auth_token")
+             return False
         
         data = {
             "score": score,
@@ -324,7 +326,9 @@ class MasterClient:
         if stats:
             data.update(stats) # perfects, goods, etc
             
+        print(f"DEBUG: MasterClient submitting score payload: {data}")
         result = self._request("/api/v2/stats/submit", "POST", data)
+        print(f"DEBUG: MasterClient submit response: {result}")
         return result and result.get("success")
         
     def get_leaderboard(self):

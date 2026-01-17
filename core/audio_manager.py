@@ -59,7 +59,13 @@ class AudioManager:
         """Returns current song position in seconds."""
         if not self.is_playing:
             return 0
-        return time.time() - self.start_time + self.offset
+        try:
+             # get_pos returns ms, convert to seconds
+             pos = pygame.mixer.music.get_pos()
+             if pos == -1: return 0 # Not playing
+             return (pos / 1000.0) + self.offset
+        except:
+             return 0
 
     def set_volume(self, volume): # Legacy
         pygame.mixer.music.set_volume(volume)
