@@ -103,12 +103,12 @@ class GameScene(Scene):
         # Intro / Sync Logic
         self.waiting_for_sync = False
         self.waiting_for_peer = False # Always init
-        self.intro_active = True
-        self.intro_timer = 0.0
-        self.intro_duration = 2.0
+        self.countdown_active = True
+        self.countdown_timer = 3.0
+        self.intro_duration = 3.0
         
         if self.mode == 'multiplayer':
-            self.intro_active = False
+            self.countdown_active = False
             self.game.network.peer_finished = False # Reset peer state
             
             if self.game.network.is_host:
@@ -227,13 +227,16 @@ class GameScene(Scene):
                     self.start_time = self.game.network.start_timestamp
                 return
         
-        # Intro Logic
-        if self.intro_active:
-            self.intro_timer += 1.0 / 60.0
-            if self.intro_timer >= self.intro_duration:
-                self.intro_active = False
+        # Countdown Logic
+        if self.countdown_active:
+            self.countdown_timer -= 1.0 / 60.0
+            if self.countdown_timer <= 0:
+                self.countdown_active = False
                 if not self.paused:
-                    self.game.audio.play()
+                    if pygame.mixer.music.get_pos() > 0:
+                        self.game.audio.unpause()
+                    else:
+                        self.game.audio.play()
             return
 
         if self.paused:
@@ -377,22 +380,23 @@ class GameScene(Scene):
                      self.game.renderer.key_states[lane] = False
                      
         # Miss Logic
-        for note in self.beatmap:
-            if not note['hit'] and (note['time'] - current_time) < -0.15:
-                note['hit'] = True
-                self.break_combo()
-                self.misses += 1
-                self.health -= 15.0
-                self.game.renderer.add_hit_effect("MISS", note['lane'])
+        if not self.paused and not self.finished and not self.failed:
+            for note in self.beatmap:
+                if not note['hit'] and (note['time'] - current_time) < -0.15:
+                    note['hit'] = True
+                    self.break_combo()
+                    self.misses += 1
+                    self.health -= 15.0
+                    self.game.renderer.add_hit_effect("MISS", note['lane'])
 
-        # Fail Check
-        if self.health <= 0:
-            self.health = 0
-            if not self.failed:
-                self.failed = True
-                self.game.audio.stop()
-                if hasattr(self.game.renderer, 'play_sfx'):
-                    self.game.renderer.play_sfx("error")
+            # Fail Check
+            if self.health <= 0:
+                self.health = 0
+                if not self.failed:
+                    self.failed = True
+                    self.game.audio.stop()
+                    if hasattr(self.game.renderer, 'play_sfx'):
+                        self.game.renderer.play_sfx("error")
 
     def handle_input(self, event):
         # Ignore gameplay input if autoplay is on (but allow pause)
@@ -473,7 +477,9 @@ class GameScene(Scene):
             self.pause_selection = 0  # Reset selection
             self.pause_menu = ["RESUME", "RESTART", "QUIT TO MENU"]
         else:
-            self.game.audio.unpause()
+            # resume with countdown
+            self.countdown_active = True
+            self.countdown_timer = 3.0
 
     def change_volume(self, change):
         vol = self.game.settings.get("volume")
@@ -972,6 +978,27 @@ class GameScene(Scene):
         tx = self.game.renderer.ref_w - 20 - tw # Right align with 20px padding
         
         self.game.renderer.draw_text(surface, d_title, tx, self.game.renderer.ref_h - 60, TERM_GREEN)
+        
+        # Draw Countdown Overlay
+        if self.countdown_active:
+             import math
+             count_val = math.ceil(self.countdown_timer)
+             if count_val > 0:
+                 # Pulse effect
+                 scale = 1.0 + (self.countdown_timer % 1.0) * 0.5
+                 
+                 # Draw shadow
+                 font = self.game.renderer.big_font
+                 s_cnt = font.render(str(count_val), True, (0, 0, 0))
+                 s_cnt = pygame.transform.rotozoom(s_cnt, 0, scale * 3.0)
+                 sr = s_cnt.get_rect(center=(SCREEN_WIDTH // 2 + 5, SCREEN_HEIGHT // 2 + 5))
+                 surface.blit(s_cnt, sr)
+                 
+                 # Draw text
+                 cnt = font.render(str(count_val), True, (255, 255, 0))
+                 cnt = pygame.transform.rotozoom(cnt, 0, scale * 3.0)
+                 r = cnt.get_rect(center=(SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2))
+                 surface.blit(cnt, r)
     def save_replay(self):
         import json
         import datetime

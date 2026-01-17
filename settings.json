@@ -1,6 +1,6 @@
 {
-    "volume": 0.20000000000000015,
-    "music_volume": 0.1499999999999999,
+    "volume": 0.30000000000000016,
+    "music_volume": 1.0,
     "sfx_volume": 0.29999999999999966,
     "speed": 1200,
     "keybinds": [
@@ -62,5 +62,6 @@
     "custom_primary": null,
     "custom_secondary": null,
     "custom_bg": null,
-    "custom_text": null
+    "custom_text": null,
+    "story_progress": 1
 }
