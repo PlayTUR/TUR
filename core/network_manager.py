@@ -393,7 +393,7 @@ class NetworkManager:
                 break
         
         self.connected = False
-        self.status_message = "Disconnected"
+        self.status_message = ""
     
     def _handle_message(self, msg, conn):
         with self.lock:
@@ -564,7 +564,7 @@ class NetworkManager:
             time.sleep(0.01)
         
         self.connected = False
-        self.status_message = "Disconnected"
+        self.status_message = ""
         if self.room_connect and self.room_connect.error_message:
              self.error_message = self.room_connect.error_message
 
@@ -683,7 +683,7 @@ class NetworkManager:
         finally:
             self.connected = False
             self.use_relay = False
-            self.status_message = "Disconnected"
+            self.status_message = ""
 
     # === Song Transfer ===
     

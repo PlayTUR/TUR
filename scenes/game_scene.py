@@ -152,6 +152,14 @@ class GameScene(Scene):
         # Hold note tracking: {lane: {'note': note_obj, 'end_time': float}}
         self.active_holds = {}
         
+        # Anti-Cheat: Force disable autoplay/debug keys in multiplayer
+        if self.game.network.connected and self.mode == 'multiplayer':
+             self.autoplay = False
+             self.game.settings.set("autoplay", False) # Ensure it doesn't re-enable
+             print("Multiplayer: Autoplay disabled.")
+        
+        self.suspicious_hits = 0 # Anti-cheat counter
+
         # Load hit sounds
         self.sfx_hit = self._load_sfx("sfx/sfx_hit.wav", 0.5)
         self.sfx_perfect = self._load_sfx("sfx/sfx_perfect.wav", 0.4)
@@ -345,7 +353,8 @@ class GameScene(Scene):
                     break
         
         # Autoplay Logic
-        if self.autoplay and not self.paused and not self.failed and not self.finished:
+        # Anti-Cheat: Disable in multiplayer
+        if self.autoplay and self.mode != 'multiplayer' and not self.paused and not self.failed and not self.finished:
             for note in self.beatmap:
                 if not note['hit']:
                     diff = note['time'] - current_time
@@ -553,6 +562,21 @@ class GameScene(Scene):
             post_effects = self.game.settings.get("post_effects")
             
             if min_diff < 0.06:
+                # Anti-Cheat: Heuristic for inhuman consistency
+                # Bots usually hit at exactly 0.0 or with extremely low variance.
+                # Humans (even pros) rarely hit below 5ms consistently.
+                # If offset is essentially 0 (< 3ms) consistently, flag it.
+                if min_diff < 0.003: 
+                    self.suspicious_hits += 1
+                else:
+                    self.suspicious_hits = max(0, self.suspicious_hits - 1)
+                
+                if self.suspicious_hits > 15 and self.mode == 'multiplayer':
+                    print("Anti-Cheat: Suspicious timing detected (Bot?)")
+                    self.failed = True # Kick/Fail cheater
+                    self.finish_game(failed=True)
+                    return
+
                 self.score += 300
                 self.perfects += 1
                 self.health = min(self.max_health, self.health + 5.0)
@@ -674,8 +698,9 @@ class GameScene(Scene):
             if not (failed or self.failed):
                  if self.game.master_client.logged_in:
                      import threading
+                     import threading
                      def submit():
-                         self.game.master_client.submit_score(int(self.score), max_score=self.max_possible_score)
+                         self.game.master_client.submit_score(int(self.score), max_score=self.max_possible_score, autoplay=self.autoplay)
                      threading.Thread(target=submit, daemon=True).start()
                  
         from scenes.result_scene import ResultScene

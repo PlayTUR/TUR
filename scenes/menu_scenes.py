@@ -169,10 +169,18 @@ class TitleScene(Scene):
             
             font = self.game.renderer.ascii_font 
             w, h = font.size(line)
+            # Use strict layout for block characters
+            line_h = font.get_linesize()
+            # If using Courier, sometimes linesize has padding. get_height is tighter.
+            # But let's trust linesize first, or use h from size() which is surface height.
+            # For block art, we want surface height usually.
+            
             x = (SCREEN_WIDTH - w) // 2
             
             # Draw (No bounce, just color pulse)
-            self.game.renderer.draw_text(surface, line, x, start_y + i * 20, c, font)
+            # Use 'i * line_h' instead of 'i * 20' to close gaps
+            y = start_y + i * line_h
+            self.game.renderer.draw_text(surface, line, x, y, c, font)
 
         # Draw Quote - BRIGHTER color for readability
         quote_color = theme["secondary"] if not self.game.settings.get("vim_mode") else theme["primary"]
@@ -623,7 +631,7 @@ class SongSelectScene(Scene):
         diff_color = theme["error"] if diff in ["HARD", "EXTREME", "FUCK YOU"] else theme["secondary"]
         
         # Center difficulty
-        diff_text = f"< {diff} >"
+        diff_text = f"◀ {diff} ▶"
         diff_w = r.big_font.size(diff_text)[0]
         r.draw_text(surface, diff_text, 620 + (340 - diff_w) // 2, 175, diff_color, r.big_font)
         r.draw_text(surface, "[←/→] to change", 720, 235, (80, 80, 80))
@@ -1018,31 +1026,31 @@ class SettingsScene(Scene):
         custom_text = s.get("custom_text") or list(theme["text"])
 
         items_map = {
-            "VOLUME": f"< {int(s.get('volume')*100)}% >",
-            "MUSIC_VOLUME": f"< {int(s.get('music_volume')*100)}% >",
-            "SFX_VOLUME": f"< {int(s.get('sfx_volume')*100)}% >",
-            "SPEED": f"< {speed} >",
-            "UPSCROLL": f"< {'ON' if upscroll else 'OFF'} >",
-            "OFFSET": f"< {offset}ms >",
-            "THEME": f"< {theme_name} >",
-            "RESOLUTION": f"< {res[0]}x{res[1]} >",
-            "FULLSCREEN": f"< {'ON' if fs else 'OFF'} >",
-            "V-SYNC": f"< {'ON' if s.get('vsync') else 'OFF'} >",
-            "CRT FILTER": f"< {'ON' if s.get('crt_filter') else 'OFF'} >",
-            "HIT SOUNDS": f"< {'ON' if hit_sounds else 'OFF'} >",
-            "VISUAL FX": f"< {'ON' if visual_fx else 'OFF'} >",
-            "POST EFFECTS": f"< {'ON' if s.get('post_effects') else 'OFF'} >",
-            "SCREEN SHAKE": f"< {int(s.get('screen_shake')*100)}% >",
-            "NOTE STYLE": f"< {note_style} >",
-            "SHOW FPS": f"< {fps_str} >",
-            "BG DIM": f"< {int(bg_dim*100)}% >",
+            "VOLUME": f"◀ {int(s.get('volume')*100)}% ▶",
+            "MUSIC_VOLUME": f"◀ {int(s.get('music_volume')*100)}% ▶",
+            "SFX_VOLUME": f"◀ {int(s.get('sfx_volume')*100)}% ▶",
+            "SPEED": f"◀ {speed} ▶",
+            "UPSCROLL": f"◀ {'ON' if upscroll else 'OFF'} ▶",
+            "OFFSET": f"◀ {offset}ms ▶",
+            "THEME": f"◀ {theme_name} ▶",
+            "RESOLUTION": f"◀ {res[0]}x{res[1]} ▶",
+            "FULLSCREEN": f"◀ {'ON' if fs else 'OFF'} ▶",
+            "V-SYNC": f"◀ {'ON' if s.get('vsync') else 'OFF'} ▶",
+            "CRT FILTER": f"◀ {'ON' if s.get('crt_filter') else 'OFF'} ▶",
+            "HIT SOUNDS": f"◀ {'ON' if hit_sounds else 'OFF'} ▶",
+            "VISUAL FX": f"◀ {'ON' if visual_fx else 'OFF'} ▶",
+            "POST EFFECTS": f"◀ {'ON' if s.get('post_effects') else 'OFF'} ▶",
+            "SCREEN SHAKE": f"◀ {int(s.get('screen_shake')*100)}% ▶",
+            "NOTE STYLE": f"◀ {note_style} ▶",
+            "SHOW FPS": f"◀ {fps_str} ▶",
+            "BG DIM": f"◀ {int(bg_dim*100)}% ▶",
             "KEYBINDS": f"[{bind_names}]",
-            "DEADZONE": f"< {int(s.get('joy_deadzone')*100)}% >",
+            "DEADZONE": f"◀ {int(s.get('joy_deadzone')*100)}% ▶",
             "RE-GEN MAPS": f"[{get_text(self.game, 'ACTIVE') if s.get('auto_recreate_beatmaps') else get_text(self.game, 'PRESS ENTER')}]",
-            "LANGUAGE": f"< {s.get('language')} >",
-            "VIM BINDINGS": f"< {'ON' if s.get('vim_mode') else 'OFF'} >",
-            "UPDATE SOURCE": f"< {self._get_update_source_display(s.get('update_source'))} >",
-            "CONTROLLER CONFIG": ">",
+            "LANGUAGE": f"◀ {s.get('language')} ▶",
+            "VIM BINDINGS": f"◀ {'ON' if s.get('vim_mode') else 'OFF'} ▶",
+            "UPDATE SOURCE": f"◀ {self._get_update_source_display(s.get('update_source'))} ▶",
+            "CONTROLLER CONFIG": "▶",
             # Theme color sections (headers)
             "-- PRIMARY --": "",
             "-- SECONDARY --": "",
@@ -1050,24 +1058,24 @@ class SettingsScene(Scene):
             "-- TEXT --": "",
             "-- NOTE COLORS --": "",
             # RGB sliders
-            "PRIMARY R": f"< {custom_primary[0]} >",
-            "PRIMARY G": f"< {custom_primary[1]} >",
-            "PRIMARY B": f"< {custom_primary[2]} >",
-            "SECONDARY R": f"< {custom_secondary[0]} >",
-            "SECONDARY G": f"< {custom_secondary[1]} >",
-            "SECONDARY B": f"< {custom_secondary[2]} >",
-            "BG R": f"< {custom_bg[0]} >",
-            "BG G": f"< {custom_bg[1]} >",
-            "BG B": f"< {custom_bg[2]} >",
-            "TEXT R": f"< {custom_text[0]} >",
-            "TEXT G": f"< {custom_text[1]} >",
-            "TEXT B": f"< {custom_text[2]} >",
-            "NOTE1 R": f"< {col1[0]} >",
-            "NOTE1 G": f"< {col1[1]} >",
-            "NOTE1 B": f"< {col1[2]} >",
-            "NOTE2 R": f"< {col2[0]} >",
-            "NOTE2 G": f"< {col2[1]} >",
-            "NOTE2 B": f"< {col2[2]} >",
+            "PRIMARY R": f"◀ {custom_primary[0]} ▶",
+            "PRIMARY G": f"◀ {custom_primary[1]} ▶",
+            "PRIMARY B": f"◀ {custom_primary[2]} ▶",
+            "SECONDARY R": f"◀ {custom_secondary[0]} ▶",
+            "SECONDARY G": f"◀ {custom_secondary[1]} ▶",
+            "SECONDARY B": f"◀ {custom_secondary[2]} ▶",
+            "BG R": f"◀ {custom_bg[0]} ▶",
+            "BG G": f"◀ {custom_bg[1]} ▶",
+            "BG B": f"◀ {custom_bg[2]} ▶",
+            "TEXT R": f"◀ {custom_text[0]} ▶",
+            "TEXT G": f"◀ {custom_text[1]} ▶",
+            "TEXT B": f"◀ {custom_text[2]} ▶",
+            "NOTE1 R": f"◀ {col1[0]} ▶",
+            "NOTE1 G": f"◀ {col1[1]} ▶",
+            "NOTE1 B": f"◀ {col1[2]} ▶",
+            "NOTE2 R": f"◀ {col2[0]} ▶",
+            "NOTE2 G": f"◀ {col2[1]} ▶",
+            "NOTE2 B": f"◀ {col2[2]} ▶",
             "RESET COLORS": "[RESET TO THEME]",
             "EXPORT THEME": "[SAVE TO FILE]",
             "SHARE CODE": "[GENERATE]",

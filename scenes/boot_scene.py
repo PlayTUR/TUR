@@ -214,26 +214,8 @@ class BootScene(Scene):
                 # Store in game for later use
                 self.game.song_cache = songs
                 
-                # --- SESSION REFRESH ---
-                # Check if we have a saved token (re-hydrate session)
-                saved_token = self.game.settings.get("auth_token")
-                if saved_token and not self.game.master_client.logged_in:
-                    self.game.master_client.auth_token = saved_token
-                    self.game.master_client.logged_in = True
-                
-                # Now refresh profile if we have a session
-                if self.game.master_client.logged_in:
-                    update_status("Synchronizing uplink...")
-                    profile = self.game.master_client.get_my_stats()
-                    if profile:
-                        self.game.settings.set("is_admin", profile.get("is_admin", False))
-                        self.game.settings.set("username", profile.get("username", "User"))
-                        # print(f"Session Refreshed: {profile.get('username')}")
-                    else:
-                        # Token invalid?
-                        self.game.master_client.logout()
-                        self.game.settings.set("auth_token", None)
-                        self.game.settings.set("is_admin", False)
+                # Session restoration is now handled globally in Game.__init__ via restore_session_async()
+                # We do not need to do anything here.
                 
             except Exception as e:
                 print(f"Song loading error: {e}")

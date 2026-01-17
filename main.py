@@ -143,6 +143,7 @@ class Game:
         self.network.game = self
         self.master_client = get_master_client()
         self.master_client.start_monitoring()
+        self.restore_session_async() # Start login immediately
         self.updater = get_updater()
         self.updater.check_for_updates_async()
         self.scene_manager = SceneManager(self)
@@ -177,6 +178,38 @@ class Game:
         # Input State
         self.lane_state = [False] * 4
         self.axis_state = {}
+
+    def restore_session_async(self):
+        """Restore login session in background logic independent of BootScene"""
+        import threading
+        def _restore():
+            try:
+                from core.token_store import load_token
+                saved_token = load_token()
+                print(f"DEBUG: Startup loaded token: {saved_token[:10]}..." if saved_token else "DEBUG: No saved token found.")
+                
+                if saved_token:
+                    # Apply token immediately
+                    self.master_client.auth_token = saved_token
+                    self.master_client.logged_in = True
+                    print("DEBUG: Set MasterClient token on startup.")
+                    
+                    # Fetch profile
+                    print("DEBUG: Fetching profile in background...")
+                    profile = self.master_client.get_my_stats()
+                    if profile:
+                        print(f"DEBUG: Profile fetched: {profile.get('username')}")
+                        self.settings.set("is_admin", profile.get("is_admin", False))
+                        self.settings.set("name", profile.get("username", "Unknown"))
+                        self.settings.set("account_type", "REGISTERED")
+                        self.master_client.username = profile.get("username", "Unknown")
+                    else:
+                        print("DEBUG: Failed to valid profile with token. Clearing session?")
+                        # Optional: self.master_client.logout()
+            except Exception as e:
+                print(f"DEBUG: Session restore error: {e}")
+        
+        threading.Thread(target=_restore, daemon=True).start()
 
     def get_virtual_pos(self, screen_pos):
         """Convert screen coordinates to virtual coordinates"""

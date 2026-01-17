@@ -14,6 +14,8 @@ import time
 # Default server URL - your VPS
 MASTER_SERVER_URL = "http://154.53.35.148:80"
 
+from core.token_store import save_token, load_token
+
 class MasterClient:
     def __init__(self, server_url=None):
         self.server_url = server_url or MASTER_SERVER_URL
@@ -140,6 +142,10 @@ class MasterClient:
         if result and result.get("success"):
             self.auth_token = result.get("token")
             self.username = result.get("username")
+            
+            # Persist token secure
+            save_token(self.auth_token)
+            
             # We need to fetch full stats to get admin status since login response is minimal
             # But wait, login doesn't return is_admin. Let's fetch self immediately.
             self.logged_in = True
@@ -187,6 +193,7 @@ class MasterClient:
     def logout(self):
         """Clear local session"""
         self.auth_token = None
+        save_token("") # Clear persisted token
         self.username = None
         self.logged_in = False
         self.status = ""
@@ -302,7 +309,7 @@ class MasterClient:
 
     # === Leaderboards & Stats ===
     
-    def submit_score(self, score, max_score=0, song_hash=None, song_name="Unknown", difficulty="MEDIUM", stats=None):
+    def submit_score(self, score, max_score=0, song_hash=None, song_name="Unknown", difficulty="MEDIUM", stats=None, autoplay=False):
         if not self.auth_token: return False
         
         data = {
@@ -310,7 +317,8 @@ class MasterClient:
             "max_score": max_score,
             "song_hash": song_hash,
             "song_name": song_name,
-            "difficulty": difficulty
+            "difficulty": difficulty,
+            "autoplay": autoplay
         }
         
         if stats:

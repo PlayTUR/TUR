@@ -10,13 +10,19 @@ TOKEN_FILE = "session.dat"
 
 def _get_token_path():
     """Get path to token file, works in dev and bundled mode."""
-    # Store in same directory as settings.json (game root)
-    return TOKEN_FILE
+    # Store in game root (parent of core/)
+    base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    return os.path.join(base_dir, TOKEN_FILE)
 
 def save_token(token: str) -> bool:
     """Save token to file with obfuscation."""
+    path = _get_token_path()
     if not token:
-        return False
+        # If empty token provided, clear the file
+        if os.path.exists(path):
+            os.remove(path)
+            print(f"DEBUG: Token cleared from {path}")
+        return True
     try:
         # Simple obfuscation: reverse + base64
         reversed_token = token[::-1]
@@ -44,6 +50,7 @@ def load_token():
         # Decode: base64 -> reverse
         reversed_token = base64.b64decode(encoded).decode()
         token = reversed_token[::-1]
+        print(f"DEBUG: Token loaded from {path}")
         return token
     except Exception as e:
         print(f"Failed to load token: {e}")

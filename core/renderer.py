@@ -55,10 +55,47 @@ class PygameRenderer:
                 self.small_font = pygame.font.Font(self.font_path, 16)
                 
                 # Use logo font for ASCII art
-                if os.path.exists(self.logo_font_path):
-                    self.ascii_font = pygame.font.Font(self.logo_font_path, 14)
-                else:
-                    self.ascii_font = pygame.font.Font(self.font_path, 14)
+                # User request: Packaged Nerd Font is prioritized to ensure icons/box-art work everywhere.
+                self.nerd_font_path = resource_path(os.path.join("assets", "nerd_font.ttf"))
+                self.ascii_font = None
+                
+                if os.path.exists(self.nerd_font_path):
+                     try:
+                         self.ascii_font = pygame.font.Font(self.nerd_font_path, 14)
+                         print(f"DEBUG: Loaded bundled Nerd Font: {self.nerd_font_path}")
+                     except Exception as e:
+                         print(f"Failed to load bundled font: {e}")
+                
+                if self.ascii_font is None:
+                    # Fallback to system search
+                    pixel_font_candidates = [
+                    "JetBrainsMono Nerd Font Mono",
+                    "CaskaydiaMono Nerd Font Mono", 
+                    "Caskaydia Cove Nerd Font Complete Mono",
+                    "BitstromWera Nerd Font Mono",
+                    "DejaVu Sans Mono", # Strong fallback for Linux
+                    "courier" # Last resort
+                ]
+                
+                self.ascii_font = None
+                for name in pixel_font_candidates:
+                    try:
+                        # SysFont expects abstract names usually, but strict names work too if installed
+                        f = pygame.font.SysFont(name, 14)
+                        # Check if it actually loaded the requested font (pygame creates a default if not found)
+                        # but SysFont doesn't easy let us check. We assume the list order gives us best chance.
+                        self.ascii_font = f
+                        print(f"DEBUG: Loaded ASCII font: {name}")
+                        break
+                    except:
+                        continue
+                        
+                if self.ascii_font is None:
+                    # Fallback to local files
+                    if os.path.exists(self.logo_font_path):
+                        self.ascii_font = pygame.font.Font(self.logo_font_path, 14)
+                    else:
+                        self.ascii_font = pygame.font.Font(self.font_path, 14)
                     
                 # Setup Japanese/Symbol fallback
                 if os.path.exists(self.jp_font_path):

@@ -348,8 +348,8 @@ def db_update_stats(uid: int, score: int):
     conn = get_db()
     c = conn.cursor()
     
-    # Simple XP formula: 10% of score
-    xp_gain = int(score * 0.1)
+    # Simple XP formula: 0.05% of score (drastically reduced from 10%)
+    xp_gain = int(score * 0.0005)
     
     # Get current
     c.execute(f"SELECT * FROM {TBL_STATS} WHERE uid = ?", (uid,))
@@ -1082,6 +1082,7 @@ class ScoreSubmitRequest(BaseModel):
     goods: int = 0
     bads: int = 0
     misses: int = 0
+    autoplay: bool = False
 
 @app.post("/api/v2/stats/submit")
 async def submit_score(req: ScoreSubmitRequest, request: Request):
@@ -1101,6 +1102,11 @@ async def submit_score(req: ScoreSubmitRequest, request: Request):
         raise HTTPException(401, "Invalid token")
     
     uid = row['uid']
+    
+    # Autoplay Check
+    if req.autoplay:
+        print(f"INFO: Autoplay score ignored for user {uid}")
+        return {"success": True, "message": "Autoplay ignored"}
     
     # Anticheat Validation
     if req.max_score > 0 and req.score > (req.max_score + 5000): # Loose tolerance
