@@ -4,71 +4,717 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>TUR - The Unnamed Rhythm Game</title>
-    <link rel="stylesheet" href="css/style.css">
-    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
-    <link rel="icon" type="image/png" href="assets/favicon.png"> <!-- Placeholder -->
+    <title>TUR — Deprecated</title>
+    <meta name="description"
+        content="TUR — The Unnamed Rhythm Game has been deprecated. Thank you for everything. Source code available on GitHub.">
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700;800&display=swap" rel="stylesheet">
+    <style>
+        /* ===== CSS Variables (TERMINAL theme — matches tur.wyind.dev default) ===== */
+        :root {
+            --color-bg: #050508;
+            --color-surface: #0a0a0f;
+            --color-primary: #00ff88;
+            --color-secondary: #ff6b35;
+            --color-accent: #00d4ff;
+            --color-error: #ff4444;
+            --color-text: #cccccc;
+            --color-dim: #888888;
+            --color-border: rgba(0, 255, 136, 0.1);
+            --glow-primary: 0 0 15px rgba(0, 255, 136, 0.2);
+            --font-mono: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
+            --transition-fast: 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        /* ===== Reset ===== */
+        *,
+        *::before,
+        *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        html {
+            scroll-behavior: smooth;
+        }
+
+        /* ===== Custom Scrollbar ===== */
+        ::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: var(--color-bg);
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: var(--color-border);
+            border-radius: 10px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: var(--color-primary);
+        }
+
+        /* ===== Body ===== */
+        body {
+            background: var(--color-bg);
+            color: var(--color-text);
+            font-family: var(--font-mono);
+            line-height: 1.6;
+            font-size: 14px;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow-x: hidden;
+        }
+
+        /* ===== CRT Scanline Overlay ===== */
+        .crt-overlay {
+            position: fixed;
+            inset: 0;
+            pointer-events: none;
+            z-index: 1000;
+            background: repeating-linear-gradient(0deg,
+                    transparent,
+                    transparent 2px,
+                    rgba(0, 0, 0, 0.07) 2px,
+                    rgba(0, 0, 0, 0.07) 4px);
+        }
+
+        .scanline {
+            position: fixed;
+            inset: 0;
+            pointer-events: none;
+            z-index: 999;
+            background: linear-gradient(to bottom,
+                    transparent 50%,
+                    rgba(0, 255, 136, 0.015) 50%);
+            background-size: 100% 4px;
+            animation: scanmove 8s linear infinite;
+        }
+
+        @keyframes scanmove {
+            0% {
+                background-position: 0 0;
+            }
+
+            100% {
+                background-position: 0 100vh;
+            }
+        }
+
+        /* ===== Grid Background ===== */
+        .bg-grid {
+            position: fixed;
+            inset: 0;
+            pointer-events: none;
+            z-index: 0;
+            background-image:
+                linear-gradient(rgba(0, 255, 136, 0.025) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(0, 255, 136, 0.025) 1px, transparent 1px);
+            background-size: 40px 40px;
+        }
+
+        /* ===== Wrapper ===== */
+        .container {
+            position: relative;
+            z-index: 10;
+            display: flex;
+            flex-direction: column;
+            min-height: 100vh;
+        }
+
+        /* ===== Header ===== */
+        header {
+            background: linear-gradient(180deg, rgba(5, 5, 8, 0.98) 0%, rgba(5, 5, 8, 0.9) 100%);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid var(--color-border);
+            padding: 0;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        .header-inner {
+            max-width: 1100px;
+            margin: 0 auto;
+            padding: 0.6rem 1.5rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .logo {
+            color: var(--color-primary);
+            text-decoration: none;
+            text-shadow: 0 0 10px rgba(0, 255, 136, 0.3);
+            line-height: 1;
+        }
+
+        .logo pre {
+            margin: 0;
+            font-size: 0.55rem;
+            font-family: var(--font-mono);
+            letter-spacing: 1px;
+        }
+
+        .logo:hover {
+            text-shadow: 0 0 20px rgba(0, 255, 136, 0.5);
+        }
+
+        .header-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.4rem;
+            padding: 0.3rem 0.8rem;
+            border: 1px solid var(--color-error);
+            border-radius: 4px;
+            color: var(--color-error);
+            font-size: 0.7rem;
+            font-weight: 700;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+            background: rgba(255, 68, 68, 0.06);
+            animation: glow-error 2.5s ease-in-out infinite;
+        }
+
+        @keyframes glow-error {
+
+            0%,
+            100% {
+                box-shadow: 0 0 6px rgba(255, 68, 68, 0.2);
+            }
+
+            50% {
+                box-shadow: 0 0 18px rgba(255, 68, 68, 0.45);
+            }
+        }
+
+        /* ===== Main ===== */
+        main {
+            max-width: 900px;
+            width: 100%;
+            margin: 0 auto;
+            padding: 3rem 1.5rem 2rem;
+            flex: 1;
+        }
+
+        /* ===== Hero ===== */
+        .hero {
+            text-align: center;
+            padding: 2rem 0 3rem;
+        }
+
+        .hero .eyebrow {
+            font-size: 0.72rem;
+            color: var(--color-dim);
+            letter-spacing: 3px;
+            text-transform: uppercase;
+            margin-bottom: 0.8rem;
+        }
+
+        .hero h1 {
+            font-size: clamp(2rem, 6vw, 3.2rem);
+            font-weight: 800;
+            color: var(--color-primary);
+            margin-bottom: 0.5rem;
+            letter-spacing: 4px;
+            text-shadow: 0 0 30px rgba(0, 255, 136, 0.3);
+            text-transform: uppercase;
+            animation: flicker 6s infinite;
+        }
+
+        @keyframes flicker {
+
+            0%,
+            92%,
+            94%,
+            96%,
+            100% {
+                opacity: 1;
+            }
+
+            93%,
+            95% {
+                opacity: 0.88;
+            }
+        }
+
+        .hero .subtitle {
+            font-size: 0.9rem;
+            color: var(--color-dim);
+            margin-bottom: 2.5rem;
+            letter-spacing: 1px;
+        }
+
+        .hero .subtitle span {
+            color: var(--color-primary);
+        }
+
+        /* ===== Divider ===== */
+        .divider {
+            width: 100%;
+            height: 1px;
+            background: linear-gradient(90deg, transparent, var(--color-primary), transparent);
+            opacity: 0.3;
+            margin: 2rem 0;
+        }
+
+        /* ===== Panel ===== */
+        .panel {
+            background: rgba(10, 10, 15, 0.6);
+            border: 1px solid var(--color-border);
+            border-radius: 6px;
+            padding: 1.8rem 2rem;
+            transition: all 0.25s ease;
+            margin-bottom: 1rem;
+        }
+
+        .panel:hover {
+            border-color: rgba(0, 255, 136, 0.3);
+            box-shadow: 0 4px 30px rgba(0, 0, 0, 0.4), var(--glow-primary);
+        }
+
+        .panel h3 {
+            color: var(--color-primary);
+            font-size: 0.72rem;
+            margin-bottom: 1rem;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+        }
+
+        .panel p {
+            color: var(--color-text);
+            font-size: 0.9rem;
+            line-height: 1.8;
+        }
+
+        /* ===== Main Message ===== */
+        .message-panel {
+            text-align: center;
+        }
+
+        .message-panel .deprecated-title {
+            font-size: clamp(1.4rem, 4vw, 2rem);
+            font-weight: 800;
+            color: var(--color-primary);
+            letter-spacing: 3px;
+            text-transform: uppercase;
+            margin-bottom: 1.4rem;
+            text-shadow: 0 0 20px rgba(0, 255, 136, 0.25);
+        }
+
+        .message-panel .big-text {
+            font-size: clamp(1rem, 2.5vw, 1.15rem);
+            color: var(--color-text);
+            line-height: 2.1;
+            margin-bottom: 1.5rem;
+        }
+
+        .message-panel .big-text strong {
+            color: var(--color-primary);
+            font-weight: 700;
+        }
+
+        /* ===== History Timeline ===== */
+        .timeline {
+            position: relative;
+            padding-left: 1.8rem;
+            margin-top: 0.5rem;
+        }
+
+        .timeline::before {
+            content: '';
+            position: absolute;
+            left: 0;
+            top: 0;
+            bottom: 0;
+            width: 1px;
+            background: linear-gradient(to bottom, var(--color-primary), transparent);
+            opacity: 0.3;
+        }
+
+        .timeline-item {
+            position: relative;
+            margin-bottom: 1.6rem;
+        }
+
+        .timeline-item:last-child {
+            margin-bottom: 0;
+        }
+
+        .timeline-item::before {
+            content: '';
+            position: absolute;
+            left: -1.93rem;
+            top: 0.35em;
+            width: 7px;
+            height: 7px;
+            background: var(--color-primary);
+            border-radius: 50%;
+            box-shadow: 0 0 8px rgba(0, 255, 136, 0.5);
+        }
+
+        .timeline-date {
+            font-size: 0.65rem;
+            color: var(--color-primary);
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            margin-bottom: 0.25rem;
+            opacity: 0.8;
+        }
+
+        .timeline-title {
+            font-size: 0.85rem;
+            font-weight: 700;
+            color: var(--color-text);
+            margin-bottom: 0.3rem;
+        }
+
+        .timeline-desc {
+            font-size: 0.78rem;
+            color: var(--color-dim);
+            line-height: 1.7;
+        }
+
+        /* ===== GitHub Button ===== */
+        .github-link {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.6rem;
+            padding: 0.9rem 2rem;
+            font-family: var(--font-mono);
+            font-size: 0.8rem;
+            font-weight: 700;
+            text-decoration: none;
+            border: 1px solid var(--color-primary);
+            background: transparent;
+            color: var(--color-primary);
+            cursor: pointer;
+            transition: all 0.2s ease;
+            border-radius: 4px;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+        }
+
+        .github-link:hover {
+            background: var(--color-primary);
+            color: var(--color-bg);
+            box-shadow: var(--glow-primary);
+            transform: translateY(-2px);
+        }
+
+        .github-link svg {
+            width: 18px;
+            height: 18px;
+            fill: currentColor;
+            flex-shrink: 0;
+        }
+
+        /* ===== Credits ===== */
+        .credits-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1rem;
+            margin-top: 0.5rem;
+        }
+
+        @media (max-width: 500px) {
+            .credits-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .credit-card {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 0.6rem;
+            padding: 1.2rem 1rem;
+            background: rgba(0, 255, 136, 0.03);
+            border: 1px solid rgba(0, 255, 136, 0.08);
+            border-radius: 6px;
+            transition: all 0.2s ease;
+            text-decoration: none;
+        }
+
+        .credit-card:hover {
+            border-color: rgba(0, 255, 136, 0.3);
+            background: rgba(0, 255, 136, 0.06);
+            transform: translateY(-2px);
+        }
+
+        .credit-name {
+            font-size: 1rem;
+            font-weight: 700;
+            color: var(--color-primary);
+            letter-spacing: 1px;
+        }
+
+        .credit-role {
+            font-size: 0.65rem;
+            color: var(--color-dim);
+            letter-spacing: 2px;
+            text-transform: uppercase;
+        }
+
+        .credit-site {
+            font-size: 0.7rem;
+            color: var(--color-accent);
+        }
+
+        /* ===== Terminal Block ===== */
+        .terminal-block {
+            background: rgba(0, 0, 0, 0.4);
+            border: 1px solid rgba(0, 255, 136, 0.12);
+            border-radius: 4px;
+            padding: 1rem 1.2rem;
+            font-size: 0.78rem;
+            color: var(--color-dim);
+            line-height: 1.9;
+            margin-top: 0.5rem;
+        }
+
+        .terminal-block .prompt {
+            color: var(--color-primary);
+            user-select: none;
+        }
+
+        .terminal-block .cmd {
+            color: var(--color-text);
+        }
+
+        .terminal-block .out {
+            color: var(--color-dim);
+        }
+
+        .cursor-blink {
+            display: inline-block;
+            width: 8px;
+            height: 1em;
+            background: var(--color-primary);
+            vertical-align: text-bottom;
+            animation: blink 1.1s step-end infinite;
+            margin-left: 2px;
+        }
+
+        @keyframes blink {
+
+            0%,
+            100% {
+                opacity: 1;
+            }
+
+            50% {
+                opacity: 0;
+            }
+        }
+
+        /* ===== Footer ===== */
+        footer {
+            background: rgba(5, 5, 8, 0.98);
+            border-top: 1px solid var(--color-border);
+            padding: 1rem 1.5rem;
+            font-size: 0.72rem;
+            color: var(--color-dim);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 1.5rem;
+            flex-wrap: wrap;
+            text-align: center;
+        }
+
+        footer a {
+            color: var(--color-dim);
+            text-decoration: none;
+            transition: color 0.2s;
+        }
+
+        footer a:hover {
+            color: var(--color-primary);
+        }
+
+        .blink {
+            animation: pulse 1.5s infinite;
+        }
+
+        @keyframes pulse {
+
+            0%,
+            100% {
+                opacity: 1;
+            }
+
+            50% {
+                opacity: 0.4;
+            }
+        }
+
+        /* ===== Responsive ===== */
+        @media (max-width: 600px) {
+            .header-inner {
+                padding: 0.5rem 1rem;
+            }
+
+            main {
+                padding: 2rem 1rem 1.5rem;
+            }
+
+            .panel {
+                padding: 1.2rem 1rem;
+            }
+        }
+    </style>
 </head>
 
 <body>
+    <!-- CRT Effects -->
     <div class="crt-overlay"></div>
     <div class="scanline"></div>
     <div class="bg-grid"></div>
 
     <div class="container">
+        <!-- Header -->
         <header>
             <div class="header-inner">
-                <a href="#home" class="logo">
+                <a href="#" class="logo">
                     <pre>▀█▀ █ █ █▀█
  █  █▄█ █▀▄</pre>
                 </a>
-                <nav>
-                    <a href="#home" class="nav-link active" data-page="home">HOME</a>
-                    <a href="#leaderboard" class="nav-link" data-page="leaderboard">LEADERBOARD</a>
-                    <a href="#search" class="nav-link" data-page="search">SEARCH</a>
-                    <a href="https://discord.gg/FSXS54PdpQ" target="_blank" class="nav-link">DISCORD</a>
-                    <a href="#account" class="nav-link" data-page="account">ACCOUNT</a>
-                </nav>
+                <div class="header-badge">
+                    <span class="blink">■</span>
+                    DEPRECATED
+                </div>
             </div>
         </header>
 
-        <main id="content">
-            <!-- Dynamic Content Injected Here -->
-        </main>
+        <!-- Main Content -->
+        <main>
+            <!-- Hero -->
+            <section class="hero">
+                <p class="eyebrow">// end of service</p>
+                <h1>TUR</h1>
+                <p class="subtitle">The Unnamed Rhythm Game &mdash; <span>2025</span></p>
+            </section>
 
-        <footer>
-            <div
-                style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
-                <div style="display: flex; align-items: center; gap: 2rem;">
-                    <span>&copy; 2025 TEAM TUR</span>
-                    <a href="#eula" style="color: var(--color-dim);">TERMS</a>
-                    <a href="#status" class="status-indicator"><span class="blink">●</span> ONLINE</a>
-                </div>
-                <div style="display: flex; align-items: center; gap: 0.5rem;">
-                    <label style="color: var(--color-dim); font-size: 0.8rem; margin: 0;">THEME:</label>
-                    <select id="theme-select" onchange="App.setTheme(this.value)"
-                        style="background: var(--color-bg); color: var(--color-primary); border: 1px solid var(--color-border); padding: 0.4rem 0.8rem; border-radius: 4px; font-family: inherit; font-size: 0.8rem; cursor: pointer;">
-                        <option value="TERMINAL">TERMINAL</option>
-                        <option value="CYBERPUNK">CYBERPUNK</option>
-                        <option value="SYNTHWAVE">SYNTHWAVE</option>
-                        <option value="NEON">NEON</option>
-                        <option value="MATRIX">MATRIX</option>
-                        <option value="MIDNIGHT">MIDNIGHT</option>
-                        <option value="OCEAN">OCEAN</option>
-                        <option value="SUNSET">SUNSET</option>
-                        <option value="BLOOD">BLOOD</option>
-                        <option value="FROST">FROST</option>
-                        <option value="ROYAL">ROYAL</option>
-                        <option value="COTTON_CANDY">COTTON CANDY</option>
-                    </select>
+            <!-- Message Panel -->
+            <div class="panel message-panel">
+                <h3>// status update</h3>
+                <p class="deprecated-title">TUR is deprecated.</p>
+                <p class="big-text">
+                    The project has been a <strong>wonderful time</strong> for
+                    <strong>Ryan</strong> and <strong>Wyind</strong>,
+                    and all the source code is available on GitHub.
+                </p>
+                <a class="github-link" href="https://github.com/PlayTUR/TUR" target="_blank" rel="noopener noreferrer">
+                    <svg viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38
+                        0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52
+                        -.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2
+                        -3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64
+                        -.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51
+                        .56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01
+                        2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z" />
+                    </svg>
+                    PlayTUR/TUR on GitHub
+                </a>
+            </div>
+
+            <div class="divider"></div>
+
+            <!-- History Panel -->
+            <div class="panel">
+                <h3>// project history</h3>
+                <div class="timeline">
+                    <div class="timeline-item">
+                        <div class="timeline-date">Origin</div>
+                        <div class="timeline-title">The Idea</div>
+                        <div class="timeline-desc">TUR — The Unnamed Rhythm Game was born from a shared passion between
+                            Ryan and Wyind to build a rhythm game entirely from scratch, without relying on a game
+                            engine. The name itself was a placeholder that just stuck.</div>
+                    </div>
+                    <div class="timeline-item">
+                        <div class="timeline-date">Early Development</div>
+                        <div class="timeline-title">Building the Core</div>
+                        <div class="timeline-desc">The game engine was written in Python, featuring a custom scene
+                            system, audio sync pipeline, and a beatmap format designed specifically for TUR. Early
+                            builds had basic arrow key gameplay and a handful of test songs.</div>
+                    </div>
+                    <div class="timeline-item">
+                        <div class="timeline-date">Online Era</div>
+                        <div class="timeline-title">Leaderboards &amp; Accounts</div>
+                        <div class="timeline-desc">TUR grew into a fully networked experience — players could create
+                            accounts, submit scores, and compete on global leaderboards. A dedicated server handled
+                            matchmaking, score validation, and replay storage.</div>
+                    </div>
+                    <div class="timeline-item">
+                        <div class="timeline-date">The Website</div>
+                        <div class="timeline-title">tur.wyind.dev</div>
+                        <div class="timeline-desc">A full web frontend was launched at tur.wyind.dev, letting players
+                            view leaderboards, search profiles, manage accounts, and access the EULA — all styled in the
+                            terminal/cyberpunk aesthetic that became TUR's visual identity.</div>
+                    </div>
+                    <div class="timeline-item">
+                        <div class="timeline-date">Community</div>
+                        <div class="timeline-title">Discord &amp; Players</div>
+                        <div class="timeline-desc">A Discord server brought the player community together — bug reports,
+                            song requests, and leaderboard rivalries. The community was small but passionate, and it
+                            made the whole project feel real.</div>
+                    </div>
+                    <div class="timeline-item">
+                        <div class="timeline-date">2026 — End of Service</div>
+                        <div class="timeline-title">Sunset</div>
+                        <div class="timeline-desc">After a great run, TUR has been officially deprecated. The servers
+                            are offline, but every line of code — the engine, the server, the website — lives on as open
+                            source. Thank you to everyone who played.</div>
+                    </div>
                 </div>
             </div>
+
+            <div class="divider"></div>
+
+            <!-- Credits Panel -->
+            <div class="panel">
+                <h3>// made with ♥ by</h3>
+                <div class="credits-grid">
+                    <a class="credit-card" href="https://ryanpc.org" target="_blank" rel="noopener noreferrer">
+                        <div class="credit-name">Ryan</div>
+                        <div class="credit-role">Owner &amp; Developer</div>
+                        <div class="credit-site">ryanpc.org</div>
+                    </a>
+                    <a class="credit-card" href="https://wyind.dev" target="_blank" rel="noopener noreferrer">
+                        <div class="credit-name">Wyind</div>
+                        <div class="credit-role">Owner &amp; Developer</div>
+                        <div class="credit-site">wyind.dev</div>
+                    </a>
+                </div>
+            </div>
+
+            <!-- Terminal Panel -->
+            <div class="panel">
+                <h3>// source code</h3>
+                <div class="terminal-block">
+                    <div><span class="prompt">user@tur:~$ </span><span class="cmd">git clone
+                            https://github.com/PlayTUR/TUR</span></div>
+                    <div><span class="out">Cloning into 'TUR'...</span></div>
+                    <div><span class="out">remote: Enumerating objects... done.</span></div>
+                    <div><span class="out">All source code is publicly available. Thank you for everything.</span></div>
+                    <div><span class="prompt">user@tur:~$ </span><span class="cursor-blink"></span></div>
+                </div>
+            </div>
+        </main>
+
+        <!-- Footer -->
+        <footer>
+            <span>© 2025 TEAM TUR</span>
+            <span>|</span>
+            <a href="https://github.com/PlayTUR/TUR" target="_blank" rel="noopener noreferrer">GITHUB</a>
+            <span>|</span>
+            <span style="color: var(--color-error)"><span class="blink">■</span> DEPRECATED</span>
         </footer>
     </div>
-
-    <!-- Scripts -->
-    <script src="js/components.js"></script>
-    <script src="js/app.js"></script>
 </body>
 
 </html>
